@@ -1,12 +1,13 @@
-import { Html, RoundedBox, Text } from "@react-three/drei"
-import { useThree } from "@react-three/fiber"
-import { forwardRef, useRef } from "react"
+import { RoundedBox, Text } from "@react-three/drei"
+import { useRef, useState } from "react"
 import gsap from "gsap"
 
 
-const Instructions = ({focusInstructions, unfocusInstructions}) => {
+const Instructions = () => {
 
     const buttonRef = useRef()
+
+    const [instructionsFocused, setInstructionsFocused] = useState(false)
 
     const pointerEnter = (e) => {
         e.stopPropagation()
@@ -24,6 +25,21 @@ const Instructions = ({focusInstructions, unfocusInstructions}) => {
             y: 1,
             duration: 0.5
         })
+    }
+
+    const instructions = document.getElementById('instructions')
+    const exitButton = document.getElementById('exitInstructions')
+
+    exitButton.addEventListener('click', ()=>{
+        instructions.style.transform = 'translate(-50%, 100%)'
+        setInstructionsFocused(false)
+    })
+
+    const focusInstructions = (e) => {
+        e.stopPropagation()
+        if(instructionsFocused) return
+        instructions.style.transform = 'translate(-50%, -50%)'
+        setInstructionsFocused(true)
     }
 
     return <group
@@ -47,9 +63,6 @@ const Instructions = ({focusInstructions, unfocusInstructions}) => {
             >
                 How To Play
             </Text>
-            <Html>
-                Hello There
-            </Html>
         </RoundedBox>
         <Text
             font='./bebas.woff'

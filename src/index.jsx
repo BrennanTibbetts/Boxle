@@ -12,6 +12,30 @@ root.render(
         map={[
         ]}
     >
+        <div id="instructions">
+            <h1>Instructions</h1>
+            <hr/>
+            <img src="/exit.png" alt="exit" id="exitInstructions"/>
+            <div className="content">
+                <div>
+                    <p>Each Column Must Have One Star</p>
+                    <p>Each Row Must Have One Star</p>
+                    <p>Each Region Must Have One Star</p>
+                </div>
+                <div>
+                    <p>Stars Cannot Be Adjacent</p>
+                    <p>Stars Cannot Be Diagonal</p>
+                </div>
+                <div>
+                    <p>To Place a Star:</p>
+                    Double Tap Or Right Click
+                </div>
+                <div>
+                    <p>To Rule Out a Star:</p>
+                    Tap Or Left Click
+                </div>
+            </div>
+        </div>
         <Canvas
             className='r3f'
             shadows

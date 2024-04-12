@@ -4,7 +4,7 @@ import Level from "./Level.jsx"
 import { useControls } from 'leva'
 import { Perf } from 'r3f-perf'
 import Instructions from './Instructions.jsx'
-import puzzles6 from '../data/valid_puzzles_6.json'
+import puzzles6 from '../data/valid_puzzles_5.json'
 import { useRef, useState } from 'react'
 import gsap from 'gsap'
 

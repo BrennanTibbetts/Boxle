@@ -72,7 +72,6 @@ const Level = memo(({levelMatrix}) => {
             'lightblue',
             'lightgreen',
             'lightseagreen',
-            'lightskyblue',
             'lightyellow',
             'lime',
             'gold',

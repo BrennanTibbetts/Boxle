@@ -1,4 +1,4 @@
-import { useEffect, useMemo, memo } from "react"
+import { useEffect, useRef, useMemo, memo } from "react"
 import Box from "./Box"
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
@@ -102,6 +102,38 @@ const Level = memo(({levelMatrix}) => {
 
     }, [size])
 
+    const boxRefs = useRef([])
+
+    useEffect(() => {
+        boxRefs.current = boxRefs.current.slice(0, levelMatrix.length * levelMatrix[0].length);
+    }, [levelMatrix])
+
+    let handleCascade = () => {}
+
+    useEffect(() => {
+        handleCascade = (group, row, column) => {
+            levelMatrix.forEach((row, rowIndex) => {
+                row.forEach((groupNumber, columnIndex) => {
+                    if (groupNumber === group) {
+                        boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.groupCascade(rowIndex, columnIndex)
+                    }
+                    if (rowIndex === row) {
+                        boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.rowCascade(rowIndex)
+                    }
+                    if (columnIndex === column) {
+                        boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.columnCascade(columnIndex)
+                    }
+                })
+            })
+        }
+    }), [levelMatrix]
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'c') {
+            handleCascade(2, 0, 0)
+        }
+    })
+
     return <>
         {boxes.map((Box, index)=>{
 
@@ -109,14 +141,16 @@ const Level = memo(({levelMatrix}) => {
             const column = index % size
             const groupNumber = levelMatrix[row][column]
 
-            return <Box 
+            return <Box
                 key={index}
+                ref={boxRefs.current[index] = useRef()}
                 placement={[
                     row,
                     column,
                     size,
-                    props.spacing
+                    props.spacing,
                 ]}
+                group={groupNumber}
                 geometry={boxGeometry}
                 material={getMaterial(groupNumber)}
                 markMaterial={markMaterial}

@@ -1,12 +1,22 @@
-import { RoundedBox } from "@react-three/drei"
-import { useFrame } from "@react-three/fiber"
-import { useRef, memo, useState } from "react"
+import { useRef, useState, forwardRef, useImperativeHandle } from "react"
 import gsap from "gsap"
 
-const Box = memo(({group, geometry, material, markMaterial, placement = [0, 0, 5, 1]}) => {
+const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0, 0, 5, 1]}, ref) => {
+
+    useImperativeHandle(ref, () => ({
+        groupCascade(row, column) {
+            triggerOne()
+        },
+        rowCascade(row) {
+            console.log(`Cascade triggered for group: ${group} at row: ${placement[0]}`);
+        },
+        columnCascade(column) {
+            console.log(`Cascade triggered for group: ${group} at column: ${placement[1]}`);
+        }
+    }));
+
 
     const [state, setState] = useState('blank')
-    const [rotating, setRotating] = useState(false)
 
     const position = [
         (((placement[1]) - placement[2] / 2) + 0.5) * placement[3],
@@ -17,11 +27,12 @@ const Box = memo(({group, geometry, material, markMaterial, placement = [0, 0, 5
     const box = useRef()
     const mark = useRef()
 
-    const triggerOne = (e, direction) => {
+    const triggerOne = (e) => {
 
-        e.stopPropagation()
+        if(e)
+            e.stopPropagation()
 
-        if(e.shiftKey) {
+        if(e && e.shiftKey) {
             triggerTwo(e)
             return
         }

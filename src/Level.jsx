@@ -113,20 +113,28 @@ const Level = memo(({levelMatrix}) => {
 
     const handleCascadeRef = useRef()
 
-    handleCascadeRef.current = (group, rowIdx, columnIdx) => {
-        levelMatrix.forEach((row, rowIndex) => {
-            row.forEach((groupNumber, columnIndex) => {
-                if (groupNumber === group) {
-                    boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.groupCascade(rowIndex, columnIndex)
+    handleCascadeRef.current = (starGroup, starRow, starColumn) => {
+        // loop rows
+        const n = levelMatrix.length
+        for (let r = 0; r < n; r++){
+            // loop columns
+            for (let c = 0; c < n; c++){
+                // get the group number of the current box
+                const groupNumber = levelMatrix[r][c] 
+
+                if(groupNumber === starGroup)
+                    boxRefs.current[r * n + c].current.groupCascade(r, c)
+                else if(r === starRow)
+                    boxRefs.current[r * n + c].current.rowCascade(starColumn)
+                else if(c === starColumn)
+                    boxRefs.current[r * n + c].current.columnCascade(starRow)
+                else if (Math.abs(r - starRow) === Math.abs(c - starColumn) && 
+                Math.min(Math.abs(r - starRow), Math.abs(c - starColumn)) === 1) {
+                    boxRefs.current[r * n + c].current.cornerCascade();
                 }
-                if (rowIndex === rowIdx) {
-                    boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.rowCascade(columnIdx)
-                }
-                if (columnIndex === columnIdx) {
-                    boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.columnCascade(rowIdx)
-                }
-            })
-        })
+        }
+    }
+
     }
     
 

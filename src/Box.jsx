@@ -49,7 +49,15 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
                     })
                 }
             }
-            console.log(`Cascade triggered for group: ${group} at column: ${placement[1]}`);
+        },
+        cornerCascade() {
+            if(state === 'blank') {
+                setState('x')
+                gsap.to(box.current.rotation, {
+                    x: Math.PI/2,
+                    duration: 0.25,
+                })
+            }
         }
     }));
 

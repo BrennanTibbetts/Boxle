@@ -31,7 +31,7 @@ import { useGLTF } from '@react-three/drei'
 //  [0, 3, 0, 2, 2, 2],
 //  [0, 0, 0, 2, 2, 2],]
 
-const Level = memo(({levelMatrix}) => {
+const Level = memo(({levelMatrix, answerMatrix}) => {
 
     const starGeometry = useGLTF('/models/star.gltf').nodes.star.geometry
 
@@ -78,6 +78,7 @@ const Level = memo(({levelMatrix}) => {
             'lightyellow',
             'lime',
             'gold',
+            'palevioletred'
         ]
 
         const index = (groupNumber + materialOffset) % colors.length
@@ -114,6 +115,10 @@ const Level = memo(({levelMatrix}) => {
     const handleCascadeRef = useRef()
 
     handleCascadeRef.current = (starGroup, starRow, starColumn) => {
+
+        if (!answerMatrix[starRow][starColumn]) return
+
+
         // loop rows
         const n = levelMatrix.length
         for (let r = 0; r < n; r++){
@@ -122,7 +127,9 @@ const Level = memo(({levelMatrix}) => {
                 // get the group number of the current box
                 const groupNumber = levelMatrix[r][c] 
 
-                if(groupNumber === starGroup)
+                if(r === starRow && c === starColumn)
+                    boxRefs.current[starRow * size + starColumn].current.acceptStar()
+                else if(groupNumber === starGroup)
                     boxRefs.current[r * n + c].current.groupCascade(r, c)
                 else if(r === starRow)
                     boxRefs.current[r * n + c].current.rowCascade(starColumn)
@@ -132,8 +139,8 @@ const Level = memo(({levelMatrix}) => {
                 Math.min(Math.abs(r - starRow), Math.abs(c - starColumn)) === 1) {
                     boxRefs.current[r * n + c].current.cornerCascade();
                 }
+            }
         }
-    }
 
     }
     

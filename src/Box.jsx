@@ -6,6 +6,13 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
     const [state, setState] = useState('blank')
 
     useImperativeHandle(ref, () => ({
+        acceptStar() {
+            setState('star')
+            gsap.to(box.current.rotation, {
+                x: Math.PI,
+                duration: 0.5,
+            })
+        },
         groupCascade(row, column) {
             // Blank -> X
             if(state === 'blank') {
@@ -108,12 +115,7 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
 
         // -> Star
         if(state === 'blank' || state === 'x') {
-            setState('star')
             placeStar(group, placement[0], placement[1])
-            gsap.to(box.current.rotation, {
-                x: Math.PI,
-                duration: 0.5,
-            })
         }
 
         if(state === 'star') {

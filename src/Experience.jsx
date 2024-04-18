@@ -4,8 +4,9 @@ import Level from "./Level.jsx"
 import { useControls } from 'leva'
 import { Perf } from 'r3f-perf'
 import Instructions from './Instructions.jsx'
-import puzzles6 from '../data/valid_puzzles_5.json'
+import puzzles6 from '../data/valid_puzzles_7.json'
 import { useRef } from 'react'
+import ExplosionConfetti from './components/Confetti.jsx'
 
 export default function Experience()
 {
@@ -38,6 +39,16 @@ export default function Experience()
             config={{mass: 2, tension:400}}
             cursor={true}
         >
+            <ExplosionConfetti
+                rate={2}
+                amount={20} 
+                fallingHeight={9} 
+                enableShadows 
+                isExploding={false} 
+                colors={['yellow', 'white', 'red']}
+                areaHeight={3}
+                areaWidth={5}
+            />
             <group
                 ref={groupRef}
             >

@@ -3,6 +3,7 @@ import Box from "./Box"
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { useControls } from 'leva'
+import { useGLTF } from '@react-three/drei'
 
 // const levelMatrix = [
 //     [0, 0, 2, 3, 3],
@@ -31,6 +32,8 @@ import { useControls } from 'leva'
 //  [0, 0, 0, 2, 2, 2],]
 
 const Level = memo(({levelMatrix}) => {
+
+    const starGeometry = useGLTF('/models/star.gltf').nodes.star.geometry
 
     const size = levelMatrix.length
 
@@ -108,31 +111,24 @@ const Level = memo(({levelMatrix}) => {
         boxRefs.current = boxRefs.current.slice(0, levelMatrix.length * levelMatrix[0].length);
     }, [levelMatrix])
 
-    let handleCascade = () => {}
+    const handleCascadeRef = useRef()
 
-    useEffect(() => {
-        handleCascade = (group, row, column) => {
-            levelMatrix.forEach((row, rowIndex) => {
-                row.forEach((groupNumber, columnIndex) => {
-                    if (groupNumber === group) {
-                        boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.groupCascade(rowIndex, columnIndex)
-                    }
-                    if (rowIndex === row) {
-                        boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.rowCascade(rowIndex)
-                    }
-                    if (columnIndex === column) {
-                        boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.columnCascade(columnIndex)
-                    }
-                })
+    handleCascadeRef.current = (group, rowIdx, columnIdx) => {
+        levelMatrix.forEach((row, rowIndex) => {
+            row.forEach((groupNumber, columnIndex) => {
+                if (groupNumber === group) {
+                    boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.groupCascade(rowIndex, columnIndex)
+                }
+                if (rowIndex === rowIdx) {
+                    boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.rowCascade(columnIdx)
+                }
+                if (columnIndex === columnIdx) {
+                    boxRefs.current[rowIndex * levelMatrix[0].length + columnIndex].current.columnCascade(rowIdx)
+                }
             })
-        }
-    }), [levelMatrix]
-
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'c') {
-            handleCascade(2, 0, 0)
-        }
-    })
+        })
+    }
+    
 
     return <>
         {boxes.map((Box, index)=>{
@@ -154,6 +150,8 @@ const Level = memo(({levelMatrix}) => {
                 geometry={boxGeometry}
                 material={getMaterial(groupNumber)}
                 markMaterial={markMaterial}
+                starGeometry={starGeometry}
+                placeStar={() => handleCascadeRef.current(groupNumber, row, column)}
             />
         })}
     </>

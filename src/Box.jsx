@@ -1,22 +1,59 @@
 import { useRef, useState, forwardRef, useImperativeHandle } from "react"
 import gsap from "gsap"
 
-const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0, 0, 5, 1]}, ref) => {
+const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0, 0, 5, 1], starGeometry, placeStar}, ref) => {
+
+    const [state, setState] = useState('blank')
 
     useImperativeHandle(ref, () => ({
         groupCascade(row, column) {
-            triggerOne()
+            // Blank -> X
+            if(state === 'blank') {
+                setState('x')
+                gsap.to(box.current.rotation, {
+                    x: Math.PI/2,
+                    duration: 0.25,
+                })
+            } 
         },
-        rowCascade(row) {
-            console.log(`Cascade triggered for group: ${group} at row: ${placement[0]}`);
+        rowCascade(column) {
+            if(state === 'blank') {
+                if(column > placement[1]) {
+                    setState('x')
+                    gsap.to(box.current.rotation, {
+                        x: Math.PI/2,
+                        duration: 0.25,
+                    })
+                }else if(column < placement[1]) {
+                    setState('x')
+                    gsap.to(box.current.rotation, {
+                        x: Math.PI/2,
+                        duration: 0.25,
+                    })
+                }
+            }
         },
-        columnCascade(column) {
+        columnCascade(row) {
+            if(state === 'blank') {
+                if(row > placement[0]) {
+                    setState('x')
+                    gsap.to(box.current.rotation, {
+                        x: Math.PI/2,
+                        duration: 0.25,
+                    })
+                }else if(row < placement[0]) {
+                    setState('x')
+                    gsap.to(box.current.rotation, {
+                        x: Math.PI/2,
+                        duration: 0.25,
+                    })
+                }
+            }
             console.log(`Cascade triggered for group: ${group} at column: ${placement[1]}`);
         }
     }));
 
 
-    const [state, setState] = useState('blank')
 
     const position = [
         (((placement[1]) - placement[2] / 2) + 0.5) * placement[3],
@@ -26,6 +63,7 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
 
     const box = useRef()
     const mark = useRef()
+    const star = useRef()
 
     const triggerOne = (e) => {
 
@@ -41,8 +79,8 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
         if(state === 'blank') {
             setState('x')
             gsap.to(box.current.rotation, {
-                x: Math.PI,
-                duration: 0.5,
+                x: Math.PI/2,
+                duration: 0.25,
             })
         } 
         // X -> Blank
@@ -52,14 +90,7 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
                 x: 0,
                 duration: 0.5,
             })
-            gsap.to(mark.current.scale, {
-                x: 0.3,
-                z: 0.3,
-                duration: 0.5,
-            })
         }
-
-        console.log(state)
     }
 
     const triggerTwo = (e) => {
@@ -70,13 +101,9 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
         // -> Star
         if(state === 'blank' || state === 'x') {
             setState('star')
+            placeStar(group, placement[0], placement[1])
             gsap.to(box.current.rotation, {
                 x: Math.PI,
-                duration: 0.5,
-            })
-            gsap.to(mark.current.scale, {
-                x: 0.8,
-                z: 0.8,
                 duration: 0.5,
             })
         }
@@ -137,9 +164,18 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
             material={material}
         />
         <mesh
-            ref={mark}
-            scale={0.3}
+            ref={star}
+            material={markMaterial}
             position-y={-0.5}
+            rotation-y={Math.PI}
+            scale={0.6}
+        >
+            <primitive object={starGeometry}/>
+        </mesh>
+        <mesh
+            ref={mark}
+            scale={[0.3, 0.3, 0.1]}
+            position-z={-0.5}
             castShadow
             receiveShadow
             geometry={geometry}

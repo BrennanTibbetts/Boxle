@@ -1,102 +1,24 @@
 import { useEffect, useRef, useMemo, memo, useState } from "react"
 import Box from "./Box"
-import * as THREE from 'three'
-import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { useControls } from 'leva'
-import { useGLTF } from '@react-three/drei'
 import ExplosionConfetti from './components/Confetti'
 
-// const levelMatrix = [
-//     [0, 0, 2, 3, 3],
-//     [0, 2, 2, 3, 3],
-//     [1, 2, 2, 4, 3],
-//     [1, 2, 2, 4, 3],
-//     [1, 2, 4, 4, 3],
-// ]
-
-// const levelMatrix = [
-//     [0, 0, 0, 0, 3, 3, 3, 3],
-//     [0, 0, 0, 3, 3, 2, 2, 3],
-//     [0, 0, 3, 3, 2, 2, 4, 4],
-//     [0, 0, 0, 2, 2, 2, 4, 4],
-//     [6, 0, 2, 2, 2, 1, 1, 4],
-//     [6, 6, 6, 1, 1, 1, 1, 4],
-//     [6, 6, 6, 6, 1, 1, 7, 5],
-//     [6, 6, 6, 6, 7, 7, 7, 5],
-// ]
-
-// const levelMatrix = [[4, 4, 4, 4, 4, 1],
-//  [4, 4, 4, 4, 1, 1],
-//  [5, 3, 3, 1, 1, 1],
-//  [5, 3, 1, 1, 1, 1],
-//  [0, 3, 0, 2, 2, 2],
-//  [0, 0, 0, 2, 2, 2],]
-
-const Level = memo(({levelMatrix, answerMatrix, position, openNextLevel}) => {
+const Level = memo(({levelMatrix, answerMatrix, position, openNextLevel, boxGeometry, starGeometry, markMaterial, materialCache}) => {
 
     const [isExploding, setIsExploding] = useState(false)
-
-    const starGeometry = useGLTF('/models/star.gltf').nodes.star.geometry
 
     const size = levelMatrix.length
 
     const props = useControls('Level', {
-        boxSegments: {
-            value: 3,
-            min: 1,
-            max: 10,
-            step: 1
-        },
-        boxRadius: {
-            value: 0.1,
-            min: 0.0,
-            max: 0.5,
-            step: 0.01
-        },
         spacing: {
             value: 1.1,
             min: 1,
             max: 2,
             step: 0.01
         },
-        boxWireframe: false
     })
 
-    const boxGeometry = new RoundedBoxGeometry(1, 1, 1, props.boxSegments, props.boxRadius)
-    const markMaterial = new THREE.MeshStandardMaterial({color: '#272729'})
-
-    const confetti = useRef()
-
-    const materialCache = {}
-    const currentDate = new Date()
-    const day = currentDate.getDate()
-    const materialOffset = (day) % 10
     let starsPlaced = 0
-
-    const getMaterial = (groupNumber) => {
-
-        const colors = [
-            'mediumpurple',
-            'lightcoral',
-            'lightblue',
-            'lightgreen',
-            'lightseagreen',
-            'lightyellow',
-            'lime',
-            'gold',
-            'palevioletred'
-        ]
-
-        const index = (groupNumber + materialOffset) % colors.length
-        const color = colors[index]
-
-        if (!materialCache[color]) {
-            materialCache[color] = new THREE.MeshStandardMaterial({color, wireframe: props.boxWireframe})
-        }
-
-        return materialCache[color]
-    }
-
 
     const boxes = useMemo(()=>{
 
@@ -182,7 +104,7 @@ const Level = memo(({levelMatrix, answerMatrix, position, openNextLevel}) => {
                 ]}
                 group={groupNumber}
                 geometry={boxGeometry}
-                material={getMaterial(groupNumber)}
+                material={materialCache[groupNumber]}
                 markMaterial={markMaterial}
                 starGeometry={starGeometry}
                 placeStar={() => handleCascadeRef.current(groupNumber, row, column)}

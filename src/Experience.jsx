@@ -1,17 +1,19 @@
-import { PresentationControls, Text } from '@react-three/drei'
-import { useThree } from '@react-three/fiber'
-import Lights from './Lights.jsx'
-import Level from "./Level.jsx"
+import { PresentationControls, Text, useGLTF } from '@react-three/drei'
 import { useControls } from 'leva'
 import { Perf } from 'r3f-perf'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
+import * as THREE from 'three'
+import { useState, useRef } from 'react'
+import gsap from 'gsap'
+
+import Level from "./Level.jsx"
 import Instructions from './Instructions.jsx'
+import Lights from './Lights.jsx'
 import puzzles5 from '../data/valid_puzzles_5.json'
 import puzzles6 from '../data/valid_puzzles_6.json'
 import puzzles7 from '../data/valid_puzzles_7.json'
 import puzzles8 from '../data/valid_puzzles_8.json'
 import puzzles9 from '../data/valid_puzzles_9.json'
-
-import { useRef } from 'react'
 
 export default function Experience()
 {
@@ -26,14 +28,82 @@ export default function Experience()
         background : {
             value: '#151517'
         },
-        performance: false
+        performance: false,
+        boardSpacing: {
+            value: 12,
+            min: 10,
+            max: 20,
+            step: 0.1 
+        },
+        boxSegments: {
+            value: 1,
+            min: 1,
+            max: 10,
+            step: 1
+        },
+        boxRadius: {
+            value: 0.1,
+            min: 0.0,
+            max: 0.5,
+            step: 0.01
+        },
+        spacing: {
+            value: 1.1,
+            min: 1,
+            max: 2,
+            step: 0.01
+        },
+        boxWireframe: false
     })
+
+    let materialCache = []
+    const currentDate = new Date()
+    const day = currentDate.getDate()
+    const materialOffset = (day) % 10
+
+    const getMaterial = (groupNumber) => {
+
+        const colors = [
+            'mediumpurple',
+            'lightcoral',
+            'lightblue',
+            'lightgreen',
+            'lightseagreen',
+            'lightyellow',
+            'lime',
+            'gold',
+            'palevioletred'
+        ]
+
+        const index = (groupNumber + materialOffset) % colors.length
+        const color = colors[index]
+
+        if (!materialCache[index]) {
+            materialCache[index] = new THREE.MeshStandardMaterial({color, wireframe: props.boxWireframe})
+        }
+
+        return materialCache[color]
+    }
+
+    const getCacheRef = useRef()
+    getCacheRef.current = () => {
+        for (let i = 0; i < 9; i++) {
+            getMaterial(i)
+        }
+
+        return materialCache
+    }
+
+    const starGeometry = useGLTF('https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/star/model.gltf').nodes.star.geometry
+    const boxGeometry = new RoundedBoxGeometry(1, 1, 1, props.boxSegments, props.boxRadius)
+    const markMaterial = new THREE.MeshStandardMaterial({color: '#272729'})
 
     const groupRef = useRef()
 
     const openNextLevel = () => {   
-        groupRef.current.position.z += 12
+        
     }
+
 
     return <>
 
@@ -67,30 +137,50 @@ export default function Experience()
                     levelMatrix={board5['Board']} 
                     answerMatrix={board5['Solution']}
                     openNextLevel={openNextLevel}
+                    boxGeometry={boxGeometry}
+                    starGeometry={starGeometry}
+                    markMaterial={markMaterial}
+                    materialCache={getCacheRef.current()}
                 />
                 <Level 
                     levelMatrix={board6['Board']} 
                     answerMatrix={board6['Solution']}
-                    position={[0, 0, -12]}
+                    position={[0, 0, props.boardSpacing * -1]}
                     openNextLevel={openNextLevel}
+                    boxGeometry={boxGeometry}
+                    starGeometry={starGeometry}
+                    markMaterial={markMaterial}
+                    materialCache={materialCache}
                 />
                 <Level 
                     levelMatrix={board7['Board']} 
                     answerMatrix={board7['Solution']}
-                    position={[0, 0, -24]}
+                    position={[0, 0, props.boardSpacing * -2]}
                     openNextLevel={openNextLevel}
+                    boxGeometry={boxGeometry}
+                    starGeometry={starGeometry}
+                    markMaterial={markMaterial}
+                    materialCache={materialCache}
                 />
                 <Level 
                     levelMatrix={board8['Board']} 
                     answerMatrix={board8['Solution']}
-                    position={[0, 0, -36]}
+                    position={[0, 0, props.boardSpacing * -3]}
                     openNextLevel={openNextLevel}
+                    boxGeometry={boxGeometry}
+                    starGeometry={starGeometry}
+                    markMaterial={markMaterial}
+                    materialCache={materialCache}
                 />
                 <Level 
                     levelMatrix={board9['Board']} 
                     answerMatrix={board9['Solution']}
-                    position={[0, 0, -48]}
+                    position={[0, 0, props.boardSpacing * -4]}
                     openNextLevel={openNextLevel}
+                    boxGeometry={boxGeometry}
+                    starGeometry={starGeometry}
+                    markMaterial={markMaterial}
+                    materialCache={materialCache}
                 />
                 <Instructions />
             </group>

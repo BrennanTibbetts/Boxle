@@ -13,7 +13,10 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
                 duration: 0.5,
             })
         },
-        groupCascade(row, column) {
+        declineStar() {
+            console.log('decline')
+        },
+        groupCascade() {
             // Blank -> X
             if(state === 'blank') {
                 setState('x')

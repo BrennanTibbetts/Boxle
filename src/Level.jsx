@@ -1,9 +1,10 @@
-import { useEffect, useRef, useMemo, memo } from "react"
+import { useEffect, useRef, useMemo, memo, useState } from "react"
 import Box from "./Box"
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { useControls } from 'leva'
 import { useGLTF } from '@react-three/drei'
+import ExplosionConfetti from './components/Confetti'
 
 // const levelMatrix = [
 //     [0, 0, 2, 3, 3],
@@ -31,7 +32,9 @@ import { useGLTF } from '@react-three/drei'
 //  [0, 3, 0, 2, 2, 2],
 //  [0, 0, 0, 2, 2, 2],]
 
-const Level = memo(({levelMatrix, answerMatrix}) => {
+const Level = memo(({levelMatrix, answerMatrix, position, openNextLevel}) => {
+
+    const [isExploding, setIsExploding] = useState(false)
 
     const starGeometry = useGLTF('/models/star.gltf').nodes.star.geometry
 
@@ -62,10 +65,13 @@ const Level = memo(({levelMatrix, answerMatrix}) => {
     const boxGeometry = new RoundedBoxGeometry(1, 1, 1, props.boxSegments, props.boxRadius)
     const markMaterial = new THREE.MeshStandardMaterial({color: '#272729'})
 
+    const confetti = useRef()
+
     const materialCache = {}
-    const currentDate = new Date();
-    const day = currentDate.getDate();
-    const materialOffset = (day) % 10;
+    const currentDate = new Date()
+    const day = currentDate.getDate()
+    const materialOffset = (day) % 10
+    let starsPlaced = 0
 
     const getMaterial = (groupNumber) => {
 
@@ -116,8 +122,14 @@ const Level = memo(({levelMatrix, answerMatrix}) => {
 
     handleCascadeRef.current = (starGroup, starRow, starColumn) => {
 
-        if (!answerMatrix[starRow][starColumn]) return
+        if (!answerMatrix[starRow][starColumn]) {
+            boxRefs.current[starRow * size + starColumn].current.declineStar()
+            return
+        }
+        starsPlaced += 1
 
+        if(starsPlaced == levelMatrix.length)
+            triggerWin()
 
         // loop rows
         const n = levelMatrix.length
@@ -130,7 +142,7 @@ const Level = memo(({levelMatrix, answerMatrix}) => {
                 if(r === starRow && c === starColumn)
                     boxRefs.current[starRow * size + starColumn].current.acceptStar()
                 else if(groupNumber === starGroup)
-                    boxRefs.current[r * n + c].current.groupCascade(r, c)
+                    boxRefs.current[r * n + c].current.groupCascade()
                 else if(r === starRow)
                     boxRefs.current[r * n + c].current.rowCascade(starColumn)
                 else if(c === starColumn)
@@ -143,9 +155,16 @@ const Level = memo(({levelMatrix, answerMatrix}) => {
         }
 
     }
+
+    const triggerWin = () => {
+        setIsExploding(true)
+        openNextLevel()
+    }
     
 
-    return <>
+    return <group
+        position={position}
+    >
         {boxes.map((Box, index)=>{
 
             const row = Math.floor(index / size)
@@ -169,7 +188,17 @@ const Level = memo(({levelMatrix, answerMatrix}) => {
                 placeStar={() => handleCascadeRef.current(groupNumber, row, column)}
             />
         })}
-    </>
+        <ExplosionConfetti
+            rate={2}
+            amount={20} 
+            fallingHeight={10} 
+            enableShadows 
+            isExploding={isExploding}
+            colors={['yellow', 'white', 'red']}
+            areaHeight={3}
+            areaWidth={5}
+        />
+    </group>
 })
 
 export default Level

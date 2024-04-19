@@ -1,17 +1,26 @@
 import { PresentationControls, Text } from '@react-three/drei'
+import { useThree } from '@react-three/fiber'
 import Lights from './Lights.jsx'
 import Level from "./Level.jsx"
 import { useControls } from 'leva'
 import { Perf } from 'r3f-perf'
 import Instructions from './Instructions.jsx'
-import puzzles6 from '../data/valid_puzzles_9.json'
+import puzzles5 from '../data/valid_puzzles_5.json'
+import puzzles6 from '../data/valid_puzzles_6.json'
+import puzzles7 from '../data/valid_puzzles_7.json'
+import puzzles8 from '../data/valid_puzzles_8.json'
+import puzzles9 from '../data/valid_puzzles_9.json'
+
 import { useRef } from 'react'
-import ExplosionConfetti from './components/Confetti.jsx'
 
 export default function Experience()
 {
 
-    const board = puzzles6[Math.floor(Math.random() * puzzles6.length)]
+    const board5 = puzzles5[Math.floor(Math.random() * puzzles5.length)]
+    const board6 = puzzles6[Math.floor(Math.random() * puzzles6.length)]
+    const board7 = puzzles7[Math.floor(Math.random() * puzzles7.length)]
+    const board8 = puzzles8[Math.floor(Math.random() * puzzles8.length)]
+    const board9 = puzzles9[Math.floor(Math.random() * puzzles9.length)]
 
     const props = useControls('experience', {
         background : {
@@ -21,6 +30,10 @@ export default function Experience()
     })
 
     const groupRef = useRef()
+
+    const openNextLevel = () => {   
+        groupRef.current.position.z += 12
+    }
 
     return <>
 
@@ -39,16 +52,6 @@ export default function Experience()
             config={{mass: 2, tension:400}}
             cursor={true}
         >
-            <ExplosionConfetti
-                rate={2}
-                amount={20} 
-                fallingHeight={9} 
-                enableShadows 
-                isExploding={false} 
-                colors={['yellow', 'white', 'red']}
-                areaHeight={3}
-                areaWidth={5}
-            />
             <group
                 ref={groupRef}
             >
@@ -59,7 +62,36 @@ export default function Experience()
                 >
                 Boxle 
                 </Text>
-                <Level levelMatrix={board['Board']} answerMatrix={board['Solution']}/>
+                <Instructions />
+                <Level 
+                    levelMatrix={board5['Board']} 
+                    answerMatrix={board5['Solution']}
+                    openNextLevel={openNextLevel}
+                />
+                <Level 
+                    levelMatrix={board6['Board']} 
+                    answerMatrix={board6['Solution']}
+                    position={[0, 0, -12]}
+                    openNextLevel={openNextLevel}
+                />
+                <Level 
+                    levelMatrix={board7['Board']} 
+                    answerMatrix={board7['Solution']}
+                    position={[0, 0, -24]}
+                    openNextLevel={openNextLevel}
+                />
+                <Level 
+                    levelMatrix={board8['Board']} 
+                    answerMatrix={board8['Solution']}
+                    position={[0, 0, -36]}
+                    openNextLevel={openNextLevel}
+                />
+                <Level 
+                    levelMatrix={board9['Board']} 
+                    answerMatrix={board9['Solution']}
+                    position={[0, 0, -48]}
+                    openNextLevel={openNextLevel}
+                />
                 <Instructions />
             </group>
         </PresentationControls>

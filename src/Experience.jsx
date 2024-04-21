@@ -134,8 +134,8 @@ export default function Experience()
                 </Text>
                 <Instructions />
                 <Level 
-                    levelMatrix={board5['Board']} 
-                    answerMatrix={board5['Solution']}
+                    levelMatrix={board9['Board']} 
+                    answerMatrix={board9['Solution']}
                     openNextLevel={openNextLevel}
                     boxGeometry={boxGeometry}
                     starGeometry={starGeometry}

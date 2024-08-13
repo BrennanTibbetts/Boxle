@@ -1,4 +1,5 @@
 import { useRef, useState, forwardRef, useImperativeHandle } from "react"
+import useButtonAnimation from "../utils/useButtonAnimation"
 import gsap from "gsap"
 
 const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0, 0, 5, 1], starGeometry, placeStar}, ref) => {
@@ -80,6 +81,19 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
     ]
 
     const box = useRef()
+    const { ref: boxRef, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation(
+        box,
+        (e) => {
+            e.stopPropagation();
+            gsap.to(box.current.scale, {
+                x: 0.9,
+                y: 0.9,
+                z: 0.9,
+                duration: 0.5
+            });
+        }
+    );
+
     const mark = useRef()
     const star = useRef()
 
@@ -140,27 +154,6 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
 
     }
 
-    const hover = (e) => {
-        e.stopPropagation()
-        console.log('hover')
-        gsap.to(box.current.scale, {
-            x: 0.9,
-            y: 0.9,
-            z: 0.9,
-            duration: 0.5
-        })
-    }
-
-    const unhover = (e) => {
-        e.stopPropagation()
-        gsap.to(box.current.scale, {
-            x: 1,
-            y: 1,
-            z: 1,
-            duration: 0.5
-        })
-    }
-
     return <group
         position={position}
         ref={box}
@@ -169,8 +162,8 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
             onClick={triggerOne}
             onDoubleClick={triggerTwo}
             onContextMenu={triggerTwo}
-            onPointerEnter={hover}
-            onPointerLeave={unhover}
+            onPointerEnter={pointerEnter}
+            onPointerLeave={pointerLeave}
             castShadow
             receiveShadow
             geometry={geometry}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo, memo, useState } from "react"
-import Box from "./Box"
+import Box from "./components/Box"
 import { useControls } from 'leva'
 import ExplosionConfetti from './components/Confetti'
 

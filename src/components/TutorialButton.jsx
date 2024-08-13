@@ -1,31 +1,16 @@
 import { RoundedBox, Text } from "@react-three/drei"
 import { useRef, useState } from "react"
 import gsap from "gsap"
+import useButtonAnimation from "../utils/useButtonAnimation"
 
 
-const Instructions = () => {
+const TutorialButton = () => {
 
-    const buttonRef = useRef()
 
     const [instructionsFocused, setInstructionsFocused] = useState(false)
 
-    const pointerEnter = (e) => {
-        e.stopPropagation()
-
-        gsap.to(buttonRef.current.scale, {
-            y: 0.5,
-            duration: 0.5
-        })
-    }
-
-    const pointerLeave = (e) => {
-        e.stopPropagation()
-
-        gsap.to(buttonRef.current.scale, {
-            y: 1,
-            duration: 0.5
-        })
-    }
+    const { ref: buttonRef, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation();
+    console.log(pointerEnter, pointerLeave)
 
     const instructions = document.getElementById('instructions')
     const exitButton = document.getElementById('exitInstructions')
@@ -61,7 +46,7 @@ const Instructions = () => {
                 rotation={[-Math.PI * 0.5, 0, 0]}
                 position={[0, 0.26, 0.05]}
             >
-                How To Play
+                TUTORIAL
             </Text>
         </RoundedBox>
         <Text
@@ -73,4 +58,4 @@ const Instructions = () => {
     </group>
 }
 
-export default Instructions
+export default TutorialButton 

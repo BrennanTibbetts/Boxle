@@ -15,7 +15,7 @@ const Level = memo(({levelMatrix, answerMatrix, position, openNextLevel, boxGeom
             min: 1,
             max: 2,
             step: 0.01
-        },
+        },  
     })
 
     let starsPlaced = 0

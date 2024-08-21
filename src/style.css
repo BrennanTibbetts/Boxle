@@ -10,8 +10,14 @@ body,
     background: #151517;
 }
 
-.r3f
-{
+* {
+  user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none; 
+  -webkit-user-select: none;
+}
+
+.r3f {
     touch-action: none;
 }
 

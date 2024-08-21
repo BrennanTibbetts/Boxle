@@ -72,8 +72,6 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
         }
     }));
 
-
-
     const position = [
         (((placement[1]) - placement[2] / 2) + 0.5) * placement[3],
         0,
@@ -97,10 +95,9 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
     const mark = useRef()
     const star = useRef()
 
-    const triggerOne = (e) => {
+    const singleClick = (e) => {
 
-        if(e)
-            e.stopPropagation()
+        e.stopPropagation()
 
         if(e && e.shiftKey) {
             triggerTwo(e)
@@ -125,7 +122,7 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
         }
     }
 
-    const triggerTwo = (e) => {
+    const doubleCLick = (e) => {
 
         e.stopPropagation()
         e.nativeEvent.preventDefault()
@@ -159,9 +156,9 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
         ref={box}
     >
         <mesh
-            onClick={triggerOne}
-            onDoubleClick={triggerTwo}
-            onContextMenu={triggerTwo}
+            onClick={singleClick}
+            onDoubleClick={doubleCLick}
+            onContextMenu={doubleCLick}
             onPointerEnter={pointerEnter}
             onPointerLeave={pointerLeave}
             castShadow

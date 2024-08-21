@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useControls } from "leva";
 import { useGLTF } from "@react-three/drei";
+import gsap from "gsap";
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry";
 import Title from "./components/Title";
@@ -20,19 +21,15 @@ export default function Game() {
     const groupRef = useRef()
 
     const openNextLevel = () => {   
+        console.log('open next level')
         gsap.to(groupRef.current.position, {
             z: groupRef.current.position.z + 12,
-            y: groupRef.current.position.y - 1.5,
             duration: 1
         }) 
     }
 
 
-    const props = useControls('experience', {
-        background : {
-            value: '#151517'
-        },
-        performance: false,
+    const props = useControls('Game', {
         boardSpacing: {
             value: 12,
             min: 10,
@@ -49,12 +46,6 @@ export default function Game() {
             value: 0.1,
             min: 0.0,
             max: 0.5,
-            step: 0.01
-        },
-        spacing: {
-            value: 1.1,
-            min: 1,
-            max: 2,
             step: 0.01
         },
         boxWireframe: false

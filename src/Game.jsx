@@ -98,7 +98,7 @@ export default function Game() {
             ref={groupRef}
         >
             <Title />
-            <TutorialButton />
+            {/* <TutorialButton /> */}
             {boards.map((board, index) => (
                 <Level 
                     key={index}

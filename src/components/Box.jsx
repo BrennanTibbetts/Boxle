@@ -1,6 +1,7 @@
 import { useRef, useState, forwardRef, useImperativeHandle } from "react"
 import useButtonAnimation from "../utils/useButtonAnimation"
 import gsap from "gsap"
+import { Outlines } from "@react-three/drei"
 
 const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0, 0, 5, 1], starGeometry, placeStar}, ref) => {
 
@@ -77,6 +78,8 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
         0,
         (((placement[0]) - placement[2] / 2) + 0.5) * placement[3]
     ]
+
+    let outlined = true 
 
     const box = useRef()
     const { ref: boxRef, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation(
@@ -165,7 +168,11 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
             receiveShadow
             geometry={geometry}
             material={material}
-        />
+        >
+            {
+                outlined && <Outlines color={'yellow'}/>
+            }
+        </mesh>
         <mesh
             ref={star}
             material={markMaterial}

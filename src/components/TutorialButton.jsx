@@ -42,7 +42,7 @@ const TutorialButton = () => {
         >
             <meshStandardMaterial color={'#49494b'}/>
             <Text
-                font='./bebas.woff'
+                font='./boxle/fonts/bebas.woff'
                 rotation={[-Math.PI * 0.5, 0, 0]}
                 position={[0, 0.26, 0.05]}
             >
@@ -50,7 +50,7 @@ const TutorialButton = () => {
             </Text>
         </RoundedBox>
         <Text
-            font='./bebas.woff'
+            font='./boxle/fonts/bebas.woff'
             rotation={[-Math.PI * 0.5, 0, 0]}
         >
             Click

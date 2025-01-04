@@ -1,21 +1,29 @@
 import { useEffect, useRef, useMemo, memo, useState } from "react"
-import Box from "./components/Box"
+import Box from "./Box"
 import { useControls } from 'leva'
-import ExplosionConfetti from './components/Confetti'
+import ExplosionConfetti from './Confetti'
+import useGame from "../stores/useGame"
 
-const Level = memo(({levelMatrix, answerMatrix, position, openNextLevel, boxGeometry, starGeometry, markMaterial, materialCache}) => {
+const Level = memo(({index, levelMatrix, answerMatrix}) => {
 
     const [isExploding, setIsExploding] = useState(false)
+    const incrementLevel = useGame((state) => state.incrementLevel)
 
     const size = levelMatrix.length
 
     const props = useControls('Level', {
-        spacing: {
+        boxSpacing: {
             value: 1.1,
             min: 1,
             max: 2,
             step: 0.01
         },  
+        boardSpacing: {
+            value: 12,
+            min: 10,
+            max: 20,
+            step: 0.1
+        }
     })
 
     let starsPlaced = 0
@@ -43,7 +51,6 @@ const Level = memo(({levelMatrix, answerMatrix, position, openNextLevel, boxGeom
     const handleCascadeRef = useRef()
 
     handleCascadeRef.current = (starGroup, starRow, starColumn) => {
-
         if (!answerMatrix[starRow][starColumn]) {
             boxRefs.current[starRow * size + starColumn].current.declineStar()
             return
@@ -75,17 +82,15 @@ const Level = memo(({levelMatrix, answerMatrix, position, openNextLevel, boxGeom
                 }
             }
         }
-
     }
 
     const triggerWin = () => {
         setIsExploding(true)
-        openNextLevel()
+        incrementLevel()
     }
-    
 
     return <group
-        position={position}
+        position={[0, 0, props.boardSpacing * -index]}
     >
         {boxes.map((Box, index)=>{
 
@@ -100,13 +105,9 @@ const Level = memo(({levelMatrix, answerMatrix, position, openNextLevel, boxGeom
                     row,
                     column,
                     size,
-                    props.spacing,
+                    props.boxSpacing,
                 ]}
                 group={groupNumber}
-                geometry={boxGeometry}
-                material={materialCache[groupNumber]}
-                markMaterial={markMaterial}
-                starGeometry={starGeometry}
                 placeStar={() => handleCascadeRef.current(groupNumber, row, column)}
             />
         })}

@@ -1,4 +1,4 @@
-import { PresentationControls, useGLTF } from '@react-three/drei'
+import { PresentationControls } from '@react-three/drei'
 import { useControls } from 'leva'
 import { Perf } from 'r3f-perf'
 
@@ -8,13 +8,13 @@ import Game from './Game.jsx'
 export default function Experience()
 {
 
-    const props = useControls({
+    const props = useControls("Experience", {
         background: '#151517',
         performance: true,
+        polarCoordinates: [-0.5, 0.1]
     })
 
     return <>
-
         <color args={[props.background]} attach={'background'}/>
         {props.performance && <Perf
            position={'top-left'}   
@@ -23,7 +23,7 @@ export default function Experience()
         <Lights />
         <PresentationControls
             global
-            polar={[-1, 0]}
+            polar={props.polarCoordinates}
             config={{mass: 2, tension:400}}
             cursor={true}
         >

@@ -8,14 +8,13 @@ import Game from './Game.jsx'
 export default function Experience()
 {
 
-    const props = useControls({
+    const props = useControls("Experience", {
         background: '#151517',
         performance: true,
         polarCoordinates: [-0.5, 0.1]
     })
 
     return <>
-
         <color args={[props.background]} attach={'background'}/>
         {props.performance && <Perf
            position={'top-left'}   
@@ -28,7 +27,7 @@ export default function Experience()
             config={{mass: 2, tension:400}}
             cursor={true}
         >
-        <Game/>
+            <Game/>
         </PresentationControls>
     </>
 }

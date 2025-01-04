@@ -1,11 +1,17 @@
-import { useRef, useState, forwardRef, useImperativeHandle } from "react"
+import { useRef, useState, forwardRef, useImperativeHandle, useMemo, useCallback } from "react"
 import useButtonAnimation from "../utils/useButtonAnimation"
 import gsap from "gsap"
 import { Outlines } from "@react-three/drei"
+import { useResource } from "../stores/useResource"
 
-const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0, 0, 5, 1], starGeometry, placeStar}, ref) => {
+const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
 
     const [state, setState] = useState('blank')
+
+    const geometry = useMemo(() => useResource.getState().geometries.get('box'), []);
+    const starGeometry = useMemo(() => useResource.getState().geometries.get('star'), []);
+    const markMaterial = useMemo(() => useResource.getState().materials.get('mark'), []);
+    const material = useMemo(() => useResource.getState().getGroupMaterial(group), [group]);
 
     useImperativeHandle(ref, () => ({
         acceptStar() {
@@ -82,7 +88,7 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
     let outlined = false 
 
     const box = useRef()
-    const { ref: boxRef, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation(
+    const { enter: pointerEnter, leave: pointerLeave } = useButtonAnimation(
         box,
         (e) => {
             e.stopPropagation();
@@ -98,8 +104,7 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
     const mark = useRef()
     const star = useRef()
 
-    const singleClick = (e) => {
-
+    const singleClick = useCallback((e) => {
         e.stopPropagation()
 
         if(e && e.shiftKey) {
@@ -123,10 +128,9 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
                 duration: 0.5,
             })
         }
-    }
+    })
 
-    const doubleCLick = (e) => {
-
+    const doubleCLick = useCallback((e) => {
         e.stopPropagation()
         e.nativeEvent.preventDefault()
 
@@ -151,8 +155,7 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
                 duration: 0.5,
             })
         }
-
-    }
+    })
 
     return <group
         position={position}

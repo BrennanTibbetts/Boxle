@@ -1,42 +1,78 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 
-export default create(subscribeWithSelector((set)=>{
+const Phase = {
+    READY: 'ready',
+    PLAYING: 'playing',
+    ENDED: 'ended'
+}
 
+export default create(subscribeWithSelector((set) => {
     return {
+        // camera managment
+        cameraPosition: [0, 16, 0],
+        setCameraPosition: (newPosition) => set({ position: newPosition }),
 
-        // blocksCount: 10,
-        // blocksSeed: 0,
-        // phase: 'ready',
-        // startTime: 0,
-        // endTime: 0,
-        // start: () => {
-        //     set((state)=>{
-        //         if(state.phase === 'ready')
-        //             return { 
-        //                 phase: 'playing',
-        //                 startTime: Date.now()
-        //             }
-        //         return {}
-        //     })
-        // },
-        // restart: () => {
-        //     set((state)=>{
-        //         if(state.phase === 'playing' || state.phase === 'ended')
-        //             return { phase: 'ready', blocksSeed: Math.random() }
-        //         return {}
-        //     })
-        // },
-        // end: () => {
-        //     set((state)=>{
-        //         if(state.phase === 'playing')
-        //             return { 
-        //                 phase: 'ended', 
-        //                 endTime: Date.now()
-        //             }
-        //         return {}
-        //     })
-        // },
+        // phase managment
+        phase: Phase.READY,
+        start: () => {
+			set((state) => {
+                if (state.phase == Phase.READY)
+                    return { 
+                        phase: Phase.PLAYING,
+                        startTime: Date.now()
+                    }
+                return {}
+			})	
+		},		
+		restart: () => {
+			set((state) => {
+                if (state.phase == Phase.ENDED || state.phase == Phase.PLAYING )
+                    return { phase: Phase.READY }
+                return {}
+			})
+		},
+		end: () => {
+			set((state) => {
+                if (state.phase == 'playing')
+                    return { 
+                        phase: 'ended',
+                        startTime: Date.now()
+                    }
+                return {}
+			})
+		},
 
+        // level management
+        level: 1,
+        incrementLevel: () => set((state) => {
+            const nextLevel = state.level + 1
+            console.log('Level: ', nextLevel)
+            return { level: nextLevel }
+        }),
+        decrementLevel: () => set((state) => {
+            const nextLevel = state.level - 1
+            console.log('Level: ', nextLevel)
+            return { level: nextLevel }
+        }),
+        setLevel: (level) => {set({level})},
+
+        // lives Management
+        lives: 3,
+        incrementLives: () => set((state) => {
+            const newLifeCount = state.lives + 1
+            console.log('Lives: ', newLifeCount)
+            return { lives: newLifeCount }
+        }),
+        decrementLives: () => set((state) => {
+            const newLifeCount = state.lives - 1
+            console.log('Lives: ', newLifeCount)
+            return { lives: newLifeCount }
+        }),
+        setLevel: (lives) => {set({lives})},
+
+        // timer Managment
+        startTime: null,
+        endTime: null,
     }
 }))

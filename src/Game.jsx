@@ -12,6 +12,7 @@ import puzzles6 from '../data/valid_puzzles_6.json'
 import puzzles7 from '../data/valid_puzzles_7.json'
 import puzzles8 from '../data/valid_puzzles_8.json'
 import puzzles9 from '../data/valid_puzzles_9.json'
+import useGame from "./stores/useGame.js";
 
 export default function Game() {
 
@@ -19,15 +20,14 @@ export default function Game() {
     const boards = puzzleData.map(puzzles => puzzles[Math.floor(Math.random() * puzzles.length)]);
 
     const groupRef = useRef()
-
-    const openNextLevel = () => {   
-        console.log('open next level')
-        gsap.to(groupRef.current.position, {
-            z: groupRef.current.position.z + 12,
-            duration: 1
-        }) 
+    const incrementLevel = useGame((state) => state.incrementLevel )
+    const openNextLevel = () => {
+        incrementLevel()
+        gsap.to(
+            groupRef.current.position,
+            {z: groupRef.current.position.z + 12}
+        )
     }
-
 
     const props = useControls('Game', {
         boardSpacing: {

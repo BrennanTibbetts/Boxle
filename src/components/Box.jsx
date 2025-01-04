@@ -79,7 +79,7 @@ const Box = forwardRef(({group, geometry, material, markMaterial, placement = [0
         (((placement[0]) - placement[2] / 2) + 0.5) * placement[3]
     ]
 
-    let outlined = true 
+    let outlined = false 
 
     const box = useRef()
     const { ref: boxRef, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation(

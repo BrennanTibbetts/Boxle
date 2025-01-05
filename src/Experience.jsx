@@ -21,13 +21,6 @@ export default function Experience()
         />}
 
         <Lights />
-        <PresentationControls
-            global
-            polar={props.polarCoordinates}
-            config={{mass: 2, tension:400}}
-            cursor={true}
-        >
-            <Game/>
-        </PresentationControls>
+        <Game/>
     </>
 }

@@ -2,15 +2,22 @@ import { create } from 'zustand'
 import * as THREE from 'three'
 
 export const COLORS = [
+    'gold',
     'mediumpurple',
+    'mediumaquamarine',
     'lightcoral',
-    'lightblue',
+    'lightyellow',
     'lightgreen',
     'lightseagreen',
-    'lightyellow',
+    'lightslategray',
+    'lightsteelblue',
+    // '#18857f',
+    // '#36dbd2',
     'lime',
-    'gold',
-    'palevioletred'
+    // 'palevioletred',
+    'cornflowerblue'
+    // 'navajowhite',
+    // '#cf7c55'
 ]
 
 export const useResource = create((set, get) => ({

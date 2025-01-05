@@ -7,7 +7,7 @@ import { useControls } from "leva";
 export default function CameraManager() {
 
     const props = useControls("Camera", {
-        levelHeightIncrease: 1      
+        levelHeightIncrease: 0.4      
     })
 
     const targetPosition = useRef({ x: 0, y: 16, z: 0 });
@@ -24,7 +24,6 @@ export default function CameraManager() {
             (state) => state.level,
             (value) => {
                 targetPosition.current.y = targetPosition.current.y + (value-1) * props.levelHeightIncrease
-                console.log(targetPosition.current)
             }
         );
 

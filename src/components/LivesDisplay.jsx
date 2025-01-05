@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import useGame from "../stores/useGame"
 import filledHeart from "/boxle/heart-filled.svg"
 import emptyHeart from "/boxle/heart-empty.svg"
+import { Text } from "@react-three/drei"
 import "../style.css"
 
 export default function LivesDisplay() {
@@ -22,15 +23,19 @@ export default function LivesDisplay() {
 
   const totalLives = 3
 
-  return <></>
-    // <div className="livesDisplay">
-    //   {Array.from({ length: totalLives }).map((_, index) => (
-    //     <img
-    //       key={index}
-    //       src={index < lives ? filledHeart : emptyHeart}
-    //       alt={index < lives ? "Filled heart" : "Empty heart"}
-    //       className="heartIcon"
-    //     />
-    //   ))}
-    // </div>
+    return (
+    <>
+        {Array.from({ length: totalLives }).map((_, index) => 
+        index < lives ? (
+            <Text
+                key={index}
+                position={[3, 0, index - 1]}
+                rotation={[-Math.PI * 0.5, 0, 0]}
+            >
+                {"<3"}
+            </Text>
+        ) : null
+        )}
+    </>
+    )
 }

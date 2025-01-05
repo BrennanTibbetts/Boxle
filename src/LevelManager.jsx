@@ -31,7 +31,7 @@ export default function LevelManager() {
         const seed = getDateAsInteger()
         const random = seededRandom(seed)
         const generatedBoards = puzzleData.map(puzzles => 
-            puzzles[Math.floor(random() * puzzles.length)]
+            puzzles[Math.floor(Math.random() * puzzles.length)]
         )
         setBoards(generatedBoards)
     }, []) // Run once on mount

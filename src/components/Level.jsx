@@ -73,7 +73,7 @@ const Level = memo(({index, levelMatrix, answerMatrix}) => {
     }
 
     return (
-        <group position={[0, 0, props.boardSpacing * -index]}>
+        <group position={[0, 0, props.boardSpacing * -index]} >
             {boxes.map((Box, index) => {
                 const row = Math.floor(index / size)
                 const column = index % size

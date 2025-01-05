@@ -55,7 +55,6 @@ export default create(subscribeWithSelector((set) => {
         incrementLevel: () => set((state) => {
             const nextLevel = state.level + 1
             console.log('Level: ', nextLevel)
-            state.rotateCamera(1)
             return { level: nextLevel }
         }),
         decrementLevel: () => set((state) => {

@@ -30,7 +30,7 @@ export default function LevelManager() {
     const random = seededRandom(seed);
 
     const puzzleData = [puzzles5, puzzles6, puzzles7, puzzles8, puzzles9];
-    const boards = puzzleData.map(puzzles => puzzles[Math.floor(random() * puzzles.length)]);
+    const boards = puzzleData.map(puzzles => puzzles[Math.floor(Math.random() * puzzles.length)]);
 
     return <>
         {boards.map((board, index) => (

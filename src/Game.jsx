@@ -14,7 +14,7 @@ export default function Game() {
             (state) => state.level,
             (value) => {
                 gsap.to(groupRef.current.position, {
-                    z: groupRef.current.position.z + 12 * (value - 1),
+                    z: 12 * (value - 1),
                     duration: 1
                 })
             }

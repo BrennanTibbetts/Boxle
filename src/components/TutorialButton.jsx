@@ -1,6 +1,5 @@
 import { RoundedBox, Text } from "@react-three/drei"
-import { useRef, useState } from "react"
-import gsap from "gsap"
+import { useState } from "react"
 import useButtonAnimation from "../utils/useButtonAnimation"
 
 
@@ -9,7 +8,7 @@ const TutorialButton = () => {
 
     const [instructionsFocused, setInstructionsFocused] = useState(false)
 
-    const { ref: buttonRef, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation();
+    const { ref: buttonRef, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation()
     console.log(pointerEnter, pointerLeave)
 
     const instructions = document.getElementById('instructions')

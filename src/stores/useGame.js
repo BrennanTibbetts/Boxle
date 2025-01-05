@@ -23,7 +23,6 @@ export default create(subscribeWithSelector((set) => {
                         phase: Phase.PLAYING,
                         startTime: Date.now()
                     }
-                return {}
 			})	
 		},		
 		restart: () => {
@@ -43,7 +42,6 @@ export default create(subscribeWithSelector((set) => {
                         phase: 'ended',
                         startTime: Date.now()
                     }
-                return {}
 			})
 		},
 

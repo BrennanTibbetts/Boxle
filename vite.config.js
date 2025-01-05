@@ -20,7 +20,7 @@ export default {
                 return transformWithEsbuild(code, id, {
                     loader: 'jsx',
                     jsx: 'automatic',
-                });
+                })
             },
         },
     ],

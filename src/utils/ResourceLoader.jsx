@@ -1,17 +1,18 @@
-import { useEffect, useState } from "react"
-import { useGLTF } from "@react-three/drei"
-import { useControls } from "leva"
+import { useEffect, useState } from 'react'
+import { useGLTF } from '@react-three/drei'
+import { useControls } from 'leva'
 import * as THREE from 'three'
-import { RoundedBoxGeometry } from "three/examples/jsm/Addons.js"
-import { useResource, COLORS } from "../stores/useResource"
+import { RoundedBoxGeometry } from 'three/examples/jsm/Addons.js'
+
+import { useResource, COLORS } from '../stores/useResource'
 
 const ResourceLoader = ({ children }) => {
-  const [resourcesReady, setResourcesReady] = useState(false);
+  const [resourcesReady, setResourcesReady] = useState(false)
 
   const { addGeometry, addMaterial, getGroupMaterial, updateGroupMaterials } = useResource()
   const { nodes } = useGLTF('https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/star/model.gltf')
 
-  const boxProps = useControls("Box", {
+  const boxProps = useControls('Box', {
     boxSegments: {
       value: 1,
       min: 1,
@@ -26,7 +27,6 @@ const ResourceLoader = ({ children }) => {
     },
     boxWireframe: false
   })
-
 
   useEffect(() => {
 
@@ -49,12 +49,12 @@ const ResourceLoader = ({ children }) => {
     return () => {
       useResource.getState().dispose()
     }
-  }, [boxProps.boxSegments, boxProps.boxRadius])
+  }, [boxProps.boxSegments, boxProps.boxRadius, boxProps.boxWireframe, addGeometry, nodes.star.geometry, addMaterial, getGroupMaterial])
 
   // Update materials when wireframe setting changes
   useEffect(() => {
     updateGroupMaterials(boxProps.boxWireframe)
-  }, [boxProps.boxWireframe])
+  }, [boxProps.boxWireframe, updateGroupMaterials])
 
   if (!resourcesReady) {
     return <></>

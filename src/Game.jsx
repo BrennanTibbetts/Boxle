@@ -1,9 +1,9 @@
-import Title from "./components/Title";
-import LevelManager from "./LevelManager.jsx";
-import CameraManager from "./CameraManager.jsx";
-import { useEffect, useRef } from "react";
-import useGame from "./stores/useGame.js";
-import gsap from "gsap";
+import Title from "./components/Title"
+import LevelManager from "./LevelManager.jsx"
+import CameraManager from "./CameraManager.jsx"
+import { useEffect, useRef } from "react"
+import useGame from "./stores/useGame.js"
+import gsap from "gsap"
 
 export default function Game() {
 

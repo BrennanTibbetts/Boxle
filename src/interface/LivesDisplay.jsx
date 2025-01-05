@@ -1,26 +1,26 @@
-import { useEffect, useState } from "react";
-import useGame from "../stores/useGame";
-import filledHeart from "/heart-filled.svg"
-import emptyHeart from "/heart-empty.svg"
-import "../style.css";
+import { useEffect, useState } from "react"
+import useGame from "../stores/useGame"
+import filledHeart from "/boxle/heart-filled.svg"
+import emptyHeart from "/boxle/heart-empty.svg"
+import "../style.css"
 
 export default function LivesDisplay() {
-  const [lives, setLives] = useState(3);
+  const [lives, setLives] = useState(3)
 
   useEffect(() => {
     const unsubscribeLives = useGame.subscribe(
       (state) => state.lives,
       (value) => {
-        setLives(value);
+        setLives(value)
       }
-    );
+    )
 
     return () => {
-      unsubscribeLives();
-    };
-  }, []);
+      unsubscribeLives()
+    }
+  }, [])
 
-  const totalLives = 3;
+  const totalLives = 3
 
   return (
     <div className="livesDisplay">
@@ -33,5 +33,5 @@ export default function LivesDisplay() {
         />
       ))}
     </div>
-  );
+  )
 }

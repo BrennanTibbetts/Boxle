@@ -1,8 +1,8 @@
-import { useFrame } from "@react-three/fiber";
-import gsap from "gsap";
-import { useEffect, useRef } from "react";
-import useGame from "./stores/useGame";
-import { useControls } from "leva";
+import { useFrame } from "@react-three/fiber"
+import gsap from "gsap"
+import { useEffect, useRef } from "react"
+import useGame from "./stores/useGame"
+import { useControls } from "leva"
 
 export default function CameraManager() {
 
@@ -10,7 +10,7 @@ export default function CameraManager() {
         levelHeightIncrease: 0.4      
     })
 
-    const targetPosition = useRef({ x: 0, y: 16, z: 0 });
+    const targetPosition = useRef({ x: 0, y: 16, z: 0 })
 
     useEffect(() => {
         const unsubscribeSetPosition= useGame.subscribe(
@@ -18,20 +18,19 @@ export default function CameraManager() {
             (value) => {
                 targetPosition.current = value
             }
-        );
+        )
 
         const unsubscribeLevel = useGame.subscribe(
             (state) => state.level,
             (value) => {
                 targetPosition.current.y = targetPosition.current.y + (value-1) * props.levelHeightIncrease
             }
-        );
-
+        )
         return () => {
             unsubscribeSetPosition()
             unsubscribeLevel()
-        };
-    }, []);
+        }
+    })
 
     useFrame((state) => {
         gsap.to(state.camera.position, {
@@ -39,8 +38,8 @@ export default function CameraManager() {
             y: targetPosition.current.y,
             z: targetPosition.current.z,
             duration: 1
-        });
-    });
+        })
+    })
 
-    return null;
+    return null
 }

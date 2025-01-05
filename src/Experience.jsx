@@ -1,4 +1,3 @@
-import { PresentationControls } from '@react-three/drei'
 import { useControls } from 'leva'
 import { Perf } from 'r3f-perf'
 
@@ -19,7 +18,6 @@ export default function Experience()
         {props.performance && <Perf
            position={'top-left'}   
         />}
-
         <Lights />
         <Game/>
     </>

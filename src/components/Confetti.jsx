@@ -35,7 +35,6 @@ export default function ExplosionConfetti(
     colors = [0x0000ff, 0xff0000, 0xffff00],
     enableShadows = false
   },
-  props
 ) {
   const groupRef = useRef()
   const [booms, setBooms] = useState([])
@@ -94,8 +93,6 @@ export default function ExplosionConfetti(
   useFrame(() => {
     if (isExploding && Math.random() < rate) explode()
 
-    let particleAmount = 0
-
     for (let i = 0; i < booms.length; i++) {
       const boom = booms[i]
 
@@ -131,7 +128,6 @@ export default function ExplosionConfetti(
         boom.dispose()
         setBooms(booms.filter((b) => b !== boom))
       }
-      particleAmount += boom.children.length
     }
   })
 

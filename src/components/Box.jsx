@@ -1,4 +1,4 @@
-import { useRef, useState, forwardRef, useImperativeHandle, useMemo, useCallback } from "react"
+import { useRef, useState, forwardRef, useImperativeHandle, useMemo } from "react"
 import useButtonAnimation from "../utils/useButtonAnimation"
 import gsap from "gsap"
 import { Outlines } from "@react-three/drei"
@@ -9,10 +9,10 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
 
     const [state, setState] = useState('blank')
 
-    const geometry = useMemo(() => useResource.getState().geometries.get('box'), []);
-    const starGeometry = useMemo(() => useResource.getState().geometries.get('star'), []);
-    const markMaterial = useMemo(() => useResource.getState().materials.get('mark'), []);
-    const material = useMemo(() => useResource.getState().getGroupMaterial(group), [group]);
+    const geometry = useMemo(() => useResource.getState().geometries.get('box'), [])
+    const starGeometry = useMemo(() => useResource.getState().geometries.get('star'), [])
+    const markMaterial = useMemo(() => useResource.getState().materials.get('mark'), [])
+    const material = useMemo(() => useResource.getState().getGroupMaterial(group), [group])
 
     const decrementLives = useGame((state) => state.decrementLives)
 
@@ -23,6 +23,7 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
                 x: Math.PI,
                 duration: 0.5,
             })
+
         },
         declineStar() {
             decrementLives()
@@ -82,7 +83,7 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
                 })
             }
         }
-    }));
+    }))
 
     const position = [
         (((placement[1]) - placement[2] / 2) + 0.5) * placement[3],
@@ -90,35 +91,30 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
         (((placement[0]) - placement[2] / 2) + 0.5) * placement[3]
     ]
 
-    let outlined = false 
+    const outlined = false 
 
     const box = useRef()
     const { enter: pointerEnter, leave: pointerLeave } = useButtonAnimation(
         box,
         (e) => {
-            e.stopPropagation();
+            e.stopPropagation()
             gsap.to(box.current.scale, {
                 x: 0.9,
                 y: 0.9,
                 z: 0.9,
                 duration: 0.5
-            });
+            })
         }
-    );
+    )
 
     const mark = useRef()
     const lock = useRef()
     const star = useRef()
 
-    const singleClick = useCallback((e) => {
+    const singleClick = (e) => {
         e.stopPropagation()
 
         console.log(state)
-
-        if(e && e.shiftKey) {
-            triggerTwo(e)
-            return
-        }
 
         // Blank -> X
         if(state === 'blank') {
@@ -136,9 +132,9 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
                 duration: 0.5,
             })
         }
-    })
+    }
 
-    const doubleCLick = useCallback((e) => {
+    const doubleCLick = (e) => {
         e.stopPropagation()
         e.nativeEvent.preventDefault()
 
@@ -146,7 +142,7 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
         if(state === 'blank' || state === 'x') {
             placeStar(group, placement[0], placement[1])
         }
-    })
+    }
 
     return <group
         position={position}

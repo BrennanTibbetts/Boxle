@@ -14,10 +14,11 @@ export default create(subscribeWithSelector((set) => {
         setCameraPosition: (newPosition) => set({ position: newPosition }),
 
         // phase managment
-        phase: Phase.READY,
+        phase: Phase.PLAYING,
         start: () => {
 			set((state) => {
                 if (state.phase == Phase.READY)
+                    console.log('ready')
                     return { 
                         phase: Phase.PLAYING,
                         startTime: Date.now()
@@ -28,13 +29,16 @@ export default create(subscribeWithSelector((set) => {
 		restart: () => {
 			set((state) => {
                 if (state.phase == Phase.ENDED || state.phase == Phase.PLAYING )
+                    console.log("restart")
+                    state.setLives(3)
+                    state.setLevel(1)
                     return { phase: Phase.READY }
-                return {}
 			})
 		},
 		end: () => {
 			set((state) => {
                 if (state.phase == 'playing')
+                    state.restart()
                     return { 
                         phase: 'ended',
                         startTime: Date.now()
@@ -67,9 +71,13 @@ export default create(subscribeWithSelector((set) => {
         decrementLives: () => set((state) => {
             const newLifeCount = state.lives - 1
             console.log('Lives: ', newLifeCount)
+            if (newLifeCount == 0) {
+                state.end()
+                return { lives: 3 }
+            }
             return { lives: newLifeCount }
         }),
-        setLevel: (lives) => {set({lives})},
+        setLives: (lives) => {set({lives})},
 
         // timer Managment
         startTime: null,

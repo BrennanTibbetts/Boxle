@@ -4,7 +4,7 @@ import { KeyboardControls } from '@react-three/drei'
 import { Leva } from 'leva'
 
 import Experience from './Experience.jsx'
-import Interface from './Interface.jsx'
+import Interface from './interface/Interface.jsx'
 import ResourceLoader from './utils/ResourceLoader.jsx'
 
 import './style.css'

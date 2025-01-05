@@ -3,6 +3,7 @@ import useButtonAnimation from "../utils/useButtonAnimation"
 import gsap from "gsap"
 import { Outlines } from "@react-three/drei"
 import { useResource } from "../stores/useResource"
+import useGame from "../stores/useGame"
 
 const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
 
@@ -13,6 +14,8 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
     const markMaterial = useMemo(() => useResource.getState().materials.get('mark'), []);
     const material = useMemo(() => useResource.getState().getGroupMaterial(group), [group]);
 
+    const decrementLives = useGame((state) => state.decrementLives)
+
     useImperativeHandle(ref, () => ({
         acceptStar() {
             setState('star')
@@ -22,57 +25,59 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
             })
         },
         declineStar() {
-            console.log('decline')
+            decrementLives()
         },
         groupCascade() {
-            // Blank -> X
-            if(state === 'blank') {
-                setState('x')
+            // Blank -> LOCK
+            if(state === 'blank' || state == 'x') {
+                setState('lock')
                 gsap.to(box.current.rotation, {
-                    x: Math.PI/2,
+                    x: -Math.PI/2,
                     duration: 0.25,
                 })
             } 
         },
         rowCascade(column) {
-            if(state === 'blank') {
+            // Blank -> Lock
+            if(state === 'blank' || state == 'x') {
                 if(column > placement[1]) {
-                    setState('x')
+                    setState('lock')
                     gsap.to(box.current.rotation, {
-                        x: Math.PI/2,
+                        x: -Math.PI/2,
                         duration: 0.25,
                     })
                 }else if(column < placement[1]) {
-                    setState('x')
+                    setState('lock')
                     gsap.to(box.current.rotation, {
-                        x: Math.PI/2,
+                        x: -Math.PI/2,
                         duration: 0.25,
                     })
                 }
             }
         },
         columnCascade(row) {
-            if(state === 'blank') {
+            // Blank, X -> Lock
+            if(state === 'blank' || state == 'x') {
                 if(row > placement[0]) {
-                    setState('x')
+                    setState('lock')
                     gsap.to(box.current.rotation, {
-                        x: Math.PI/2,
+                        x: -Math.PI/2,
                         duration: 0.25,
                     })
                 }else if(row < placement[0]) {
-                    setState('x')
+                    setState('lock')
                     gsap.to(box.current.rotation, {
-                        x: Math.PI/2,
+                        x: -Math.PI/2,
                         duration: 0.25,
                     })
                 }
             }
         },
         cornerCascade() {
-            if(state === 'blank') {
-                setState('x')
+            if(state === 'blank' || state == 'x') {
+                setState('lock')
                 gsap.to(box.current.rotation, {
-                    x: Math.PI/2,
+                    x: -Math.PI/2,
                     duration: 0.25,
                 })
             }
@@ -102,10 +107,13 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
     );
 
     const mark = useRef()
+    const lock = useRef()
     const star = useRef()
 
     const singleClick = useCallback((e) => {
         e.stopPropagation()
+
+        console.log(state)
 
         if(e && e.shiftKey) {
             triggerTwo(e)
@@ -121,7 +129,7 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
             })
         } 
         // X -> Blank
-        else if (state === 'x', 'star') {
+        else if (state === 'x') {
             setState('blank')
             gsap.to(box.current.rotation, {
                 x: 0,
@@ -137,23 +145,6 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
         // -> Star
         if(state === 'blank' || state === 'x') {
             placeStar(group, placement[0], placement[1])
-        }
-
-        if(state === 'star') {
-            setState('blank')
-            gsap.to(box.current.rotation, {
-                x: 0,
-                duration: 0.5,
-            })
-            gsap.to(mark.current.scale, {
-                x: 0.3,
-                z: 0.3,
-                duration: 0.5,
-            })
-            gsap.to(mark.current.geometry, {
-                radius: 0.1,
-                duration: 0.5,
-            })
         }
     })
 
@@ -189,6 +180,15 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
             ref={mark}
             scale={[0.3, 0.3, 0.1]}
             position-z={-0.5}
+            castShadow
+            receiveShadow
+            geometry={geometry}
+            material={markMaterial}
+        />
+        <mesh
+            ref={lock}
+            scale={[0.4, 0.4, 0.2]}
+            position-z={0.5}
             castShadow
             receiveShadow
             geometry={geometry}

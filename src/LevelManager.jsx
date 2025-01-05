@@ -9,7 +9,7 @@ export default function LevelManager() {
     const [fadingLevels, setFadingLevels] = useState([])
     const previousLevel = useRef(null)
     
-    // Separate useEffect for board initialization
+    // board initialization
     useEffect(() => {
         const getDateAsInteger = () => {
             const date = new Date()
@@ -36,7 +36,7 @@ export default function LevelManager() {
         setBoards(generatedBoards)
     }, []) // Run once on mount
 
-    // Separate useEffect for level subscription
+    // level subscription
     useEffect(() => {
         const unsubscribeLevel = useGame.subscribe(
             (state) => state.level,
@@ -108,7 +108,6 @@ export default function LevelManager() {
                     isFading={true}
                 />
             ))}
-            {/* Render current visible levels */}
             {getVisibleLevels().map(({ index, board }) => (
                 <Level
                     key={index}

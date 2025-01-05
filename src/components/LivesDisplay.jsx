@@ -22,16 +22,15 @@ export default function LivesDisplay() {
 
   const totalLives = 3
 
-  return (
-    <div className="livesDisplay">
-      {Array.from({ length: totalLives }).map((_, index) => (
-        <img
-          key={index}
-          src={index < lives ? filledHeart : emptyHeart}
-          alt={index < lives ? "Filled heart" : "Empty heart"}
-          className="heartIcon"
-        />
-      ))}
-    </div>
-  )
+  return <></>
+    // <div className="livesDisplay">
+    //   {Array.from({ length: totalLives }).map((_, index) => (
+    //     <img
+    //       key={index}
+    //       src={index < lives ? filledHeart : emptyHeart}
+    //       alt={index < lives ? "Filled heart" : "Empty heart"}
+    //       className="heartIcon"
+    //     />
+    //   ))}
+    // </div>
 }

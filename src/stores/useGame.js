@@ -11,7 +11,12 @@ export default create(subscribeWithSelector((set) => {
     return {
         // camera managment
         cameraPosition: [0, 16, 0],
-        setCameraPosition: (newPosition) => set({ position: newPosition }),
+        cameraRotationZ: 0,
+        setCameraPosition: (newPosition) => set({ cameraPosition: newPosition }),
+        rotateCamera: (times) => set((state) => { 
+            const newRotation = state.cameraRotationZ - Math.PI/2 * times
+            return { cameraRotationZ: newRotation }
+        }),
 
         // phase managment
         phase: Phase.PLAYING,
@@ -50,6 +55,7 @@ export default create(subscribeWithSelector((set) => {
         incrementLevel: () => set((state) => {
             const nextLevel = state.level + 1
             console.log('Level: ', nextLevel)
+            state.rotateCamera(1)
             return { level: nextLevel }
         }),
         decrementLevel: () => set((state) => {

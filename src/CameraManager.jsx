@@ -11,6 +11,7 @@ export default function CameraManager() {
     })
 
     const targetPosition = useRef({ x: 0, y: 16, z: 0 })
+    const targetRotation = useRef({ x: -Math.PI/2, y: 0, z: 0 })
 
     useEffect(() => {
         const unsubscribeSetPosition= useGame.subscribe(
@@ -24,19 +25,31 @@ export default function CameraManager() {
             (state) => state.level,
             (value) => {
                 targetPosition.current.y = targetPosition.current.y + (value-1) * props.levelHeightIncrease
+                targetPosition.current.z = -12 * (value-1)
             }
         )
+
+        const unsubscribeRotation = useGame.subscribe(
+            (state) => state.cameraRotationZ,
+            (value) => {
+                targetRotation.current.z = -value
+            }
+        )
+
         return () => {
             unsubscribeSetPosition()
             unsubscribeLevel()
+            unsubscribeRotation()
         }
     })
 
     useFrame((state) => {
         gsap.to(state.camera.position, {
-            x: targetPosition.current.x,
-            y: targetPosition.current.y,
             z: targetPosition.current.z,
+            duration: 1
+        })
+        gsap.to(state.camera.rotation, {
+            z: targetRotation.current.z,
             duration: 1
         })
     })

@@ -30,6 +30,7 @@ const Box = forwardRef(({group, placement = [0, 0, 5, 1], placeStar}, ref) => {
         },
         groupCascade() {
             // Blank -> LOCK
+            console.log("rotate")
             if(state === 'blank' || state == 'x') {
                 setState('lock')
                 gsap.to(box.current.rotation, {

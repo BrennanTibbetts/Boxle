@@ -23,14 +23,16 @@ root.render(
                 fov: 45,
                 near: 0.1,
                 far: 100,
-                position: [ 0, 16, 0]
+                position: [ 0, 60, 0]
             } }
         >
             <ResourceLoader>
                 <Experience/>
             </ResourceLoader>
         </Canvas>
-        <Leva />
+        <Leva
+            collapsed
+         />
         <Interface/>
     </KeyboardControls>
 )

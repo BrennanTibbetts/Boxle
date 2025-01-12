@@ -7,10 +7,11 @@ import { useControls } from "leva"
 export default function CameraManager() {
 
     const props = useControls("Camera", {
-        levelHeightIncrease: 0.4      
+        levelHeightIncrease: 0.4,
+        cameraHeightY: 16
     })
 
-    const targetPosition = useRef({ x: 0, y: 16, z: 0 })
+    const targetPosition = useRef({ x: 0, y: props.cameraHeightY, z: 0 })
     const targetRotation = useRef({ x: -Math.PI/2, y: 0, z: 0 })
 
     useEffect(() => {
@@ -45,6 +46,7 @@ export default function CameraManager() {
 
     useFrame((state) => {
         gsap.to(state.camera.position, {
+            y: targetPosition.current.y,
             z: targetPosition.current.z,
             duration: 1
         })

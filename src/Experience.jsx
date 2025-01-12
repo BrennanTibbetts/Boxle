@@ -9,7 +9,7 @@ export default function Experience()
 
     const props = useControls("Experience", {
         background: '#151517',
-        performance: true,
+        performance: false,
         polarCoordinates: [-0.5, 0.1]
     })
 

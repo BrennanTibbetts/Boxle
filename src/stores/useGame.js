@@ -10,7 +10,7 @@ const Phase = {
 export default create(subscribeWithSelector((set) => {
     return {
         // camera managment
-        cameraPosition: [0, 16, 0],
+        cameraPosition: [0, 50, 0],
         cameraRotationZ: 0,
         setCameraPosition: (newPosition) => set({ cameraPosition: newPosition }),
         rotateCamera: (times) => set((state) => { 

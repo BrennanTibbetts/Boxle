@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import useGame from "../stores/useGame"
-import filledHeart from "/boxle/heart-filled.svg"
-import emptyHeart from "/boxle/heart-empty.svg"
+import filledHeart from "/boxle/img/heart-filled.svg"
+import emptyHeart from "/boxle/img/heart-empty.svg"
 import { Text } from "@react-three/drei"
 import "../style.css"
 

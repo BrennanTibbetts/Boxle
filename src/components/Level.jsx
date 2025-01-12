@@ -38,8 +38,6 @@ const Level = memo(({index, levelMatrix, answerMatrix}) => {
             return
         }
         starsPlaced += 1
-        if(starsPlaced == levelMatrix.length)
-            triggerWin()
         
         const n = levelMatrix.length
         for (let r = 0; r < n; r++){
@@ -61,11 +59,6 @@ const Level = memo(({index, levelMatrix, answerMatrix}) => {
                 }
             }
         }
-    }
-
-    const triggerWin = () => {
-        setIsExploding(true)
-        incrementLevel()
     }
 
     const setBoxRef = (index, ref) => {

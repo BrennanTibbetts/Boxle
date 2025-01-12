@@ -4,7 +4,12 @@ import useGame from './stores/useGame.js'
 import { useEffect, useState, useRef } from 'react'
 
 export default function LevelManager() {
-    const [level, setLevel] = useState(1)
+
+    const currentLevel = useGame((state) => state.currentLevel)
+    const setCurrentLevel = useGame((state) => state.setCurrentLevel)
+
+    setCurrentLevel(currentLevel)
+
     const [boards, setBoards] = useState([])
     const [fadingLevels, setFadingLevels] = useState([])
     const previousLevel = useRef(null)
@@ -34,12 +39,12 @@ export default function LevelManager() {
             puzzles[Math.floor(Math.random() * puzzles.length)]
         )
         setBoards(generatedBoards)
-    }, []) // Run once on mount
+    }, [])
 
     // level subscription
     useEffect(() => {
         const unsubscribeLevel = useGame.subscribe(
-            (state) => state.level,
+            (state) => state.currentlevel,
             (value) => {
                 console.log('Previous level:', previousLevel.current, 'New level:', value, 'Boards length:', boards.length)
                 if (previousLevel.current !== null && value > previousLevel.current && boards.length > 0) {
@@ -60,7 +65,6 @@ export default function LevelManager() {
                         }])
                     }
                 }
-                setLevel(value)
                 previousLevel.current = value
             }
         )
@@ -72,26 +76,26 @@ export default function LevelManager() {
     }, [boards, fadingLevels])
 
     const getVisibleLevels = () => {
-        if (!boards.length || level === undefined) return []
+        if (!boards.length || currentLevel === undefined) return []
         
         const visibleLevels = []
         // Previous level (if exists)
-        if (level > 1) {
+        if (currentLevel > 1) {
             visibleLevels.push({
-                index: level - 1,
-                board: boards[level - 2]
+                index: currentLevel - 1,
+                board: boards[currentLevel- 2]
             })
         }
         // Current level
         visibleLevels.push({
-            index: level,
-            board: boards[level - 1]
+            index: currentLevel,
+            board: boards[currentLevel - 1]
         })
         // Next level (if exists)
-        if (level < boards.length) {
+        if (currentLevel < boards.length) {
             visibleLevels.push({
-                index: level + 1,
-                board: boards[level]
+                index: currentLevel + 1,
+                board: boards[currentLevel]
             })
         }
         return visibleLevels

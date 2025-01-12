@@ -17,7 +17,7 @@ export const BoxState = {
 export default create(subscribeWithSelector((set) => {
     return {
         // camera managment
-        cameraPosition: [0, 50, 0],
+        cameraPosition: [0, 0, 0],
         cameraRotationZ: 0,
         setCameraPosition: (newPosition) => set({ cameraPosition: newPosition }),
         rotateCamera: (times) => set((state) => {
@@ -59,59 +59,60 @@ export default create(subscribeWithSelector((set) => {
 
         // level management
         currentLevel: 1,
-        levels: [],
-        incrementLevel: () => ((state) => {
-            const nextLevel = state.currentLevel + 1
-            console.log('Next Level: ', nextLevel)
-            state.setCurrentLevel(nextLevel)
-        }),
-        decrementLevel: () => ((state) => {
-            const nextLevel = state.currentLevel - 1
-            console.log('Next Level: ', nextLevel)
-            state.setCurrentLevel(nextLevel)
-        }),
-        setCurrentLevel: (level, size = 5) => set((state) => {
-            console.log(state.currentLevel, " -> ", level)
-            if (!state.levels[level - 1]) {
-                state.levels[level - 1] = Array(size * size).fill(BoxState.BLANK)
-            }
-            return { currentLevel: level };
+        levels: {},
+        populateLevels: (boardLengths) => set(() => {
+            const levels = boardLengths.map((length) => {
+                return Array.from({ length }, () => Array.from({ length }, () => BoxState.BLANK))
+            })
+            console.log("Populated Levels:", levels)
+            return { levels }
         }),
         getLevelState: (level) => (state) => {
-            return state.levels[level - 1] || [];
+            return state.levels[level - 1] || []
         },
-        updateBoxState: (index, newState) => set((state) => {
-            console.log(index, newState);
+        updateBoxState: (row, col, newState) => set((state) => {
+            const currentLevel = state.currentLevel
+            let nextLevel = currentLevel
+            const levelState = state.levels[currentLevel - 1]
 
-            const currentLevel = state.currentLevel;
-            const levelSize = 4 // Calculate rows/columns
-            const updatedLevel = state.levels[currentLevel - 1].map((boxState, i) =>
-                i === index ? newState : boxState
-            );
+            // Update the specific cell in the row
+            const updatedRow = levelState[row].map((boxState, index) =>
+                index === col ? newState : boxState
+            )
+
+            // Update the specific row in the level
+            const updatedLevel = levelState.map((rowData, index) =>
+                index === row ? updatedRow : rowData
+            )
 
             // Check for stars
             if (newState === BoxState.STAR) {
-                const starCount = updatedLevel.filter((boxState) => boxState === BoxState.STAR).length;
+                const starCount = updatedLevel.flat().filter((boxState) => boxState === BoxState.STAR).length
+                const totalStars = updatedLevel.length// Total cells in a square grid
 
-                console.log(levelSize)
-                console.log(`Stars in level ${currentLevel}:`, starCount);
-                if (starCount >= levelSize) {
-                    console.log(`Level ${currentLevel} complete! Incrementing level.`);
-                    state.setCurrentLevel(currentLevel + 1); // Move to the next level
+                console.log(`Stars in level ${currentLevel}: ${starCount}/${totalStars}`)
+                if (starCount >= totalStars) {
+                    console.log(`Level ${currentLevel} complete!`)
+                    nextLevel = currentLevel + 1
                 }
             }
 
-            // Update levels
-            const updatedLevels = {
-                ...state.levels,
-                [currentLevel - 1]: updatedLevel
-            };
+            // Update levels (as an array)
+            const updatedLevels = state.levels.map((level, index) =>
+                index === currentLevel - 1 ? updatedLevel : level
+            )
 
-            return { levels: updatedLevels };
+            if (nextLevel > state.levels.length) {
+                nextLevel = currentLevel
+                console.log("All Levels Completed.")
+            }
+
+            console.log("Box", row, col, "->", newState)
+            return { levels: updatedLevels, currentLevel: nextLevel }
         }),
-        getBoxState: (index) => (state) => {
-            const levelState = state.levels[state.currentLevel - 1];
-            return levelState ? levelState[index] : BoxState.BLANK;
+        getBoxState: (row, col) => (state) => {
+            const levelState = state.levels[state.currentLevel - 1]
+            return levelState && levelState[row] ? levelState[row][col] : BoxState.BLANK
         },
 
         // lives Management

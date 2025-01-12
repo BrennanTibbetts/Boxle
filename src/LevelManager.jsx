@@ -6,15 +6,12 @@ import { useEffect, useState, useRef } from 'react'
 export default function LevelManager() {
 
     const currentLevel = useGame((state) => state.currentLevel)
-    const setCurrentLevel = useGame((state) => state.setCurrentLevel)
-
-    setCurrentLevel(currentLevel)
+    const populateLevels = useGame((state) => state.populateLevels)
 
     const [boards, setBoards] = useState([])
     const [fadingLevels, setFadingLevels] = useState([])
     const previousLevel = useRef(null)
     
-    // board initialization
     useEffect(() => {
         const getDateAsInteger = () => {
             const date = new Date()
@@ -36,10 +33,16 @@ export default function LevelManager() {
         const seed = getDateAsInteger()
         const random = seededRandom(seed)
         const generatedBoards = puzzleData.map(puzzles => 
-            puzzles[Math.floor(Math.random() * puzzles.length)]
+            puzzles[Math.floor(random() * puzzles.length)]
         )
         setBoards(generatedBoards)
-    }, [])
+        const boardLengths = []
+        generatedBoards.forEach((board) => {
+            boardLengths.push(board["Board"].length)
+        })
+        populateLevels(boardLengths)
+
+    }, [populateLevels])
 
     // level subscription
     useEffect(() => {

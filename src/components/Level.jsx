@@ -3,11 +3,9 @@ import { useControls } from 'leva'
 
 import Box from "./Box"
 import ExplosionConfetti from './Confetti'
-import useGame from "../stores/useGame"
 
 const Level = memo(({index, levelMatrix, answerMatrix}) => {
-    const [isExploding, setIsExploding] = useState(false)
-    const incrementLevel = useGame((state) => state.incrementLevel)
+    const [isExploding] = useState(false)
     const size = levelMatrix.length
     const props = useControls('Level', {
         boxSpacing: {
@@ -24,7 +22,6 @@ const Level = memo(({index, levelMatrix, answerMatrix}) => {
         }
     })
     
-    let starsPlaced = 0
     const boxRefs = useRef(Array(levelMatrix.length * levelMatrix[0].length).fill(null))
 
     const boxes = useMemo(() => {
@@ -37,7 +34,6 @@ const Level = memo(({index, levelMatrix, answerMatrix}) => {
             boxRefs.current[starRow * size + starColumn].declineStar()
             return
         }
-        starsPlaced += 1
         
         const n = levelMatrix.length
         for (let r = 0; r < n; r++){

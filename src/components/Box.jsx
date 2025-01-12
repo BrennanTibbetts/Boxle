@@ -10,9 +10,7 @@ const Box = forwardRef(({ group, placement, placeStar }, ref) => {
 
     const getBoxState = useGame((state) => state.getBoxState)
     const updateBoxState = useGame((state) => state.updateBoxState)
-    const boxIndex = placement[0] * placement[2] + placement[1]
-
-    const boxState = getBoxState(boxIndex)(useGame.getState())
+    const boxPlacement = [placement[0], placement[1]]
 
     const geometry = useMemo(() => useResource.getState().geometries.get('box'), [])
     const starGeometry = useMemo(() => useResource.getState().geometries.get(BoxState.STAR), [])
@@ -23,7 +21,7 @@ const Box = forwardRef(({ group, placement, placeStar }, ref) => {
 
     useImperativeHandle(ref, () => ({
         acceptStar() {
-            updateBoxState(boxIndex, BoxState.STAR)
+            updateBoxState(...boxPlacement, BoxState.STAR)
             gsap.to(box.current.rotation, {
                 x: Math.PI,
                 duration: 0.5,
@@ -33,7 +31,7 @@ const Box = forwardRef(({ group, placement, placeStar }, ref) => {
             decrementLives()
         },
         groupCascade() {
-            updateBoxState(boxIndex, BoxState.LOCK)
+            updateBoxState(...boxPlacement, BoxState.LOCK)
             gsap.to(box.current.rotation, {
                 x: -Math.PI / 2,
                 duration: 0.25,
@@ -41,7 +39,7 @@ const Box = forwardRef(({ group, placement, placeStar }, ref) => {
         },
         rowCascade(column) {
             const newState = column > placement[1] ? BoxState.LOCK : BoxState.LOCK
-            updateBoxState(boxIndex, newState)
+            updateBoxState(...boxPlacement, newState)
             gsap.to(box.current.rotation, {
                 x: -Math.PI / 2,
                 duration: 0.25,
@@ -49,14 +47,14 @@ const Box = forwardRef(({ group, placement, placeStar }, ref) => {
         },
         columnCascade(row) {
             const newState = row > placement[0] ? BoxState.LOCK : BoxState.LOCK
-            updateBoxState(boxIndex, newState)
+            updateBoxState(...boxPlacement, newState)
             gsap.to(box.current.rotation, {
                 x: -Math.PI / 2,
                 duration: 0.25,
             })
         },
         cornerCascade() {
-            updateBoxState(boxIndex, BoxState.LOCK)
+            updateBoxState(...boxPlacement, BoxState.LOCK)
             gsap.to(box.current.rotation, {
                 x: -Math.PI / 2,
                 duration: 0.25,
@@ -93,14 +91,14 @@ const Box = forwardRef(({ group, placement, placeStar }, ref) => {
     const singleClick = (e) => {
         e.stopPropagation()
 
-        const index = boxIndex
+        const boxState = getBoxState(...boxPlacement)(useGame.getState())
         switch (boxState) {
         case BoxState.BLANK:
-            updateBoxState(index, BoxState.MARK)
+            updateBoxState(...boxPlacement, BoxState.MARK)
             gsap.to(box.current.rotation, { x: Math.PI / 2, duration: 0.25 })
             break
         case BoxState.MARK:
-            updateBoxState(index, BoxState.BLANK)
+            updateBoxState(...boxPlacement, BoxState.BLANK)
             gsap.to(box.current.rotation, { x: 0, duration: 0.5 })
             break
         default:
@@ -112,6 +110,7 @@ const Box = forwardRef(({ group, placement, placeStar }, ref) => {
         e.stopPropagation()
         e.nativeEvent.preventDefault()
 
+        const boxState = getBoxState(...boxPlacement)(useGame.getState())
         if (
             boxState === BoxState.BLANK ||
             boxState === BoxState.MARK

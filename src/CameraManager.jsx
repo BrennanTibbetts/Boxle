@@ -23,8 +23,9 @@ export default function CameraManager() {
         )
 
         const unsubscribeLevel = useGame.subscribe(
-            (state) => state.level,
+            (state) => state.currentLevel,
             (value) => {
+                console.log(value)
                 targetPosition.current.y = targetPosition.current.y + (value-1) * props.levelHeightIncrease
                 targetPosition.current.z = -12 * (value-1)
             }

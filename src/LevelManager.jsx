@@ -1,5 +1,6 @@
 import puzzleData from '../data/puzzles.js'
 import Level from "./components/Level.jsx"
+import LivesDisplay from './components/LivesDisplay.jsx'
 import useGame from './stores/useGame.js'
 import { useEffect, useState, useRef } from 'react'
 
@@ -116,12 +117,14 @@ export default function LevelManager() {
                 />
             ))}
             {getVisibleLevels().map(({ index, board }) => (
-                <Level
-                    key={index}
-                    index={index-1}
-                    levelMatrix={board['Board']}
-                    answerMatrix={board['Solution']}
-                />
+                <>
+                    <Level
+                        key={index}
+                        index={index-1}
+                        levelMatrix={board['Board']}
+                        answerMatrix={board['Solution']}
+                    />
+                </>
             ))}
         </>
     )

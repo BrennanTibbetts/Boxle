@@ -12,7 +12,7 @@ const ResourceLoader = ({ children }) => {
   const { addGeometry, addMaterial, getGroupMaterial, updateGroupMaterials } = useResource()
   const { nodes } = useGLTF('https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/star/model.gltf')
 
-  const boxProps = useControls('Box', {
+  const props = useControls('Box', {
     boxSegments: {
       value: 1,
       min: 1,
@@ -25,13 +25,15 @@ const ResourceLoader = ({ children }) => {
       max: 0.5,
       step: 0.01
     },
-    boxWireframe: false
+    boxWireframe: false,
+    lifeBarBaseSegments: 2,
+    lifeBarBaseRadius: 0.025
   })
 
   useEffect(() => {
 
     // Create and add geometries
-    const boxGeometry = new RoundedBoxGeometry(1, 1, 1, boxProps.boxSegments, boxProps.boxRadius)
+    const boxGeometry = new RoundedBoxGeometry(1, 1, 1, props.boxSegments, props.boxRadius)
     addGeometry('box', boxGeometry)
     
     const starGeometry = nodes.star.geometry
@@ -40,21 +42,27 @@ const ResourceLoader = ({ children }) => {
     const markMaterial = new THREE.MeshStandardMaterial({color: '#272729'})
     addMaterial('mark', markMaterial)
 
+    const lifeBarGeometry = new RoundedBoxGeometry(1, 1, 1, props.boxSegments, props.boxRadius)
+    addGeometry('lifeBar', lifeBarGeometry)
+
+    const lifeBarMaterial = new THREE.MeshStandardMaterial({color: '#454b51'})
+    addMaterial('lifeBar', lifeBarMaterial)
+
     // Pre-create group materials
     for (let i = 0; i < COLORS.length; i++) {
-      getGroupMaterial(i, boxProps.boxWireframe)
+      getGroupMaterial(i, props.boxWireframe)
     }
 
     setResourcesReady(true)
     return () => {
       useResource.getState().dispose()
     }
-  }, [boxProps.boxSegments, boxProps.boxRadius, boxProps.boxWireframe, addGeometry, nodes.star.geometry, addMaterial, getGroupMaterial])
+  }, [props.boxSegments, props.boxRadius, props.boxWireframe, addGeometry, nodes.star.geometry, addMaterial, getGroupMaterial])
 
   // Update materials when wireframe setting changes
   useEffect(() => {
-    updateGroupMaterials(boxProps.boxWireframe)
-  }, [boxProps.boxWireframe, updateGroupMaterials])
+    updateGroupMaterials(props.boxWireframe)
+  }, [props.boxWireframe, updateGroupMaterials])
 
   if (!resourcesReady) {
     return <></>

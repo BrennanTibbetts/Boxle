@@ -3,13 +3,14 @@ import { useControls } from 'leva'
 
 import Box from "./Box"
 import ExplosionConfetti from './Confetti'
+import LivesDisplay from "./LivesDisplay"
 
 const Level = memo(({index, levelMatrix, answerMatrix}) => {
     const [isExploding] = useState(false)
     const size = levelMatrix.length
     const props = useControls('Level', {
         boxSpacing: {
-            value: 1.1,
+            value: 1,
             min: 1,
             max: 2,
             step: 0.01
@@ -82,6 +83,9 @@ const Level = memo(({index, levelMatrix, answerMatrix}) => {
                     />
                 )
             })}
+            <LivesDisplay
+                levelSize={size}
+            />
             <ExplosionConfetti
                 rate={2}
                 amount={20} 

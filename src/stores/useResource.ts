@@ -24,6 +24,10 @@ interface ResourceState {
     addTexture: (key: string, texture: THREE.Texture) => THREE.Texture
     addMaterial: (key: string, material: THREE.Material) => THREE.Material
     getGroupMaterial: (groupNumber: number, wireframe?: boolean) => THREE.MeshStandardMaterial
+    getStarMaterial: (groupNumber: number) => THREE.MeshStandardMaterial
+    getGlowMaterial: (groupNumber: number) => THREE.MeshBasicMaterial
+    updateStarMaterials: (emissiveIntensity: number) => void
+    updateGlowMaterials: (opacity: number, colorMix: number) => void
     setMaterialOffset: (offset: number) => void
     updateGroupMaterials: (wireframe: boolean) => void
     dispose: () => void
@@ -76,6 +80,67 @@ export const useResource = create<ResourceState>((set, get) => ({
             set({ materials: new Map(materials) })
         }
         return materials.get(key) as THREE.MeshStandardMaterial
+    },
+
+    getStarMaterial: (groupNumber) => {
+        const { materials, materialOffset } = get()
+        const index = (groupNumber + materialOffset) % COLORS.length
+        const key = `star-${index}`
+
+        if (!materials.has(key)) {
+            const groupColor = new THREE.Color(COLORS[index])
+            const mat = new THREE.MeshStandardMaterial({
+                color: groupColor,
+                emissive: groupColor.clone(),
+                emissiveIntensity: 3.8,
+            })
+            materials.set(key, mat)
+            set({ materials: new Map(materials) })
+        }
+        return materials.get(key) as THREE.MeshStandardMaterial
+    },
+
+    getGlowMaterial: (groupNumber) => {
+        const { materials, materialOffset } = get()
+        const index = (groupNumber + materialOffset) % COLORS.length
+        const key = `glow-${index}`
+
+        if (!materials.has(key)) {
+            const groupColor = new THREE.Color(COLORS[index])
+            const mat = new THREE.MeshBasicMaterial({
+                color: groupColor,
+                transparent: true,
+                opacity: 0.78,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.BackSide,
+            })
+            materials.set(key, mat)
+            set({ materials: new Map(materials) })
+        }
+        return materials.get(key) as THREE.MeshBasicMaterial
+    },
+
+    updateStarMaterials: (emissiveIntensity) => {
+        const { materials } = get()
+        materials.forEach((mat, key) => {
+            if (key.startsWith('star-')) {
+                (mat as THREE.MeshStandardMaterial).emissiveIntensity = emissiveIntensity
+            }
+        })
+    },
+
+    updateGlowMaterials: (opacity, colorMix) => {
+        const { materials } = get()
+        materials.forEach((mat, key) => {
+            if (key.startsWith('glow-')) {
+                const m = mat as THREE.MeshBasicMaterial
+                const index = parseInt(key.replace('glow-', ''))
+                const groupColor = new THREE.Color(COLORS[index])
+                m.color.copy(new THREE.Color(1, 1, 1).lerp(groupColor, colorMix))
+                m.opacity = opacity
+            }
+        })
     },
 
     setMaterialOffset: (offset) => set({ materialOffset: offset }),

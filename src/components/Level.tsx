@@ -2,7 +2,6 @@ import { memo } from 'react'
 import { useControls } from 'leva'
 
 import Box from './Box'
-import LivesDisplay from './LivesDisplay'
 import ExplosionConfetti from './Confetti'
 import useGame, { BoxState } from '../stores/useGame'
 
@@ -44,7 +43,6 @@ const Level = memo(({ levelIndex, levelMatrix, interactive = true }: LevelProps)
                     />
                 ))
             )}
-            <LivesDisplay levelSize={size} />
             <ExplosionConfetti
                 rate={2}
                 amount={20}

@@ -31,12 +31,16 @@ interface GameState {
     placeStar: (levelIndex: number, row: number, col: number) => void
     toggleMark: (levelIndex: number, row: number, col: number) => void
     getBoxState: (levelIndex: number, row: number, col: number) => BoxStateValue
+    clearMarks: (levelIndex: number) => void
 
     // Lives
     lives: number
     incrementLives: () => void
     decrementLives: () => void
     setLives: (lives: number) => void
+
+    // Star tracking (for cascade animation)
+    lastStarPosition: { levelIndex: number, row: number, col: number } | null
 }
 
 export default create<GameState>()(subscribeWithSelector((set, get) => ({
@@ -53,7 +57,7 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
     startTime: null,
     endTime: null,
     start: () => set({ phase: Phase.PLAYING, startTime: Date.now() }),
-    restart: () => set({ phase: Phase.READY, currentLevel: 1, lives: 3 }),
+    restart: () => set({ phase: Phase.READY, currentLevel: 1, lives: 3, lastStarPosition: null }),
     end: () => set({ phase: Phase.ENDED, endTime: Date.now() }),
 
     // Levels
@@ -110,7 +114,7 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
             i === levelIndex ? updatedLevel : level
         )
 
-        return { levels: updatedLevels, currentLevel: nextLevel }
+        return { levels: updatedLevels, currentLevel: nextLevel, lastStarPosition: { levelIndex, row, col } }
     }),
 
     toggleMark: (levelIndex, row, col) => set((state) => {
@@ -135,6 +139,15 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         return state.levels[levelIndex]?.[row]?.[col] ?? BoxState.BLANK
     },
 
+    clearMarks: (levelIndex) => set((state) => {
+        const levelState = state.levels[levelIndex]
+        if (!levelState) return {}
+        const updatedLevel = levelState.map((rowData) =>
+            rowData.map((cellState): BoxStateValue => cellState === BoxState.MARK ? BoxState.BLANK : cellState)
+        )
+        return { levels: state.levels.map((level, i) => i === levelIndex ? updatedLevel : level) }
+    }),
+
     // Lives
     lives: 3,
     incrementLives: () => set((state) => ({ lives: state.lives + 1 })),
@@ -144,4 +157,7 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         return { lives: newLives }
     }),
     setLives: (lives) => set({ lives }),
+
+    // Star tracking
+    lastStarPosition: null,
 })))

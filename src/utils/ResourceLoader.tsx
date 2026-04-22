@@ -24,9 +24,6 @@ export default function ResourceLoader({ children }: ResourceLoaderProps) {
         const boxGeometry = new RoundedBoxGeometry(1, 1, 1, props.boxSegments, props.boxRadius)
         addGeometry('box', boxGeometry)
 
-        const starGeometry = new THREE.TorusGeometry(0.3, 0.1, 8, 16)
-        addGeometry('star', starGeometry)
-
         const markMaterial = new THREE.MeshStandardMaterial({ color: '#272729' })
         addMaterial('mark', markMaterial)
 

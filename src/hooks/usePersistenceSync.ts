@@ -5,7 +5,14 @@ import usePersistence from '../stores/usePersistence'
 export function usePersistenceSync() {
     const configsLength = useGame((state) => state.levelConfigs.length)
 
-    // When puzzles are first populated, restore saved progress or start a new session
+    // Check streak expiry once on mount
+    useEffect(() => {
+        usePersistence.getState().checkStreakExpiry()
+    }, [])
+
+    // When puzzles are first populated: restore saved progress (or start new session),
+    // then begin saving. Save subscription is intentionally created AFTER restore so
+    // that the blank grids written by populatePuzzles don't overwrite saved state.
     useEffect(() => {
         if (!configsLength) return
 
@@ -20,12 +27,8 @@ export function usePersistenceSync() {
         } else {
             usePersistence.getState().startSession()
         }
-    }, [configsLength])
 
-    // Save game state to persistence on any meaningful change
-    useEffect(() => {
         const unsub = useGame.subscribe((state) => {
-            if (!state.levelConfigs.length) return
             usePersistence.getState().saveDaily({
                 currentLevel: state.currentLevel,
                 lives: state.lives,
@@ -34,19 +37,23 @@ export function usePersistenceSync() {
             })
         })
         return () => unsub()
-    }, [])
+    }, [configsLength])
 
-    // On session complete, update streak and best time stats
+    // On session end, record mistakes and (on win) update streak and best time
     useEffect(() => {
         const unsub = useGame.subscribe(
             (state) => state.phase,
             (phase) => {
                 if (phase !== Phase.ENDED) return
-                const { lives, startTime, endTime } = useGame.getState()
+                const { lives, startTime, endTime, sessionLivesLost } = useGame.getState()
+                const persistence = usePersistence.getState()
+
+                if (sessionLivesLost > 0) {
+                    persistence.recordMistakes(sessionLivesLost)
+                }
+
                 if (lives > 0 && startTime && endTime) {
-                    usePersistence.getState().completeSession(endTime - startTime)
-                } else if (lives === 0) {
-                    usePersistence.getState().recordLifeLost()
+                    persistence.completeSession(endTime - startTime)
                 }
             }
         )

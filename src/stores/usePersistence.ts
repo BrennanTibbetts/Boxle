@@ -26,11 +26,10 @@ interface PersistenceData {
     totalCompleted: number
     bestTimeMs: number | null
     totalHints: number
-    totalLivesLost: number
+    totalMistakes: number
     currentStreak: number
     longestStreak: number
     lastCompletedDate: string | null
-    isPremium: boolean
 }
 
 interface PersistenceState extends PersistenceData {
@@ -39,7 +38,8 @@ interface PersistenceState extends PersistenceData {
     startSession: () => void
     completeSession: (timeMs: number) => void
     recordHint: () => void
-    recordLifeLost: () => void
+    recordMistakes: (count: number) => void
+    checkStreakExpiry: () => void
 }
 
 const usePersistence = create<PersistenceState>()(
@@ -50,11 +50,10 @@ const usePersistence = create<PersistenceState>()(
             totalCompleted: 0,
             bestTimeMs: null,
             totalHints: 0,
-            totalLivesLost: 0,
+            totalMistakes: 0,
             currentStreak: 0,
             longestStreak: 0,
             lastCompletedDate: null,
-            isPremium: false,
 
             saveDaily: (data) => {
                 set({ daily: { date: getToday(), ...data } })
@@ -99,8 +98,18 @@ const usePersistence = create<PersistenceState>()(
                 set((state) => ({ totalHints: state.totalHints + 1 }))
             },
 
-            recordLifeLost: () => {
-                set((state) => ({ totalLivesLost: state.totalLivesLost + 1 }))
+            recordMistakes: (count) => {
+                set((state) => ({ totalMistakes: state.totalMistakes + count }))
+            },
+
+            checkStreakExpiry: () => {
+                const { lastCompletedDate, currentStreak } = get()
+                if (currentStreak === 0 || !lastCompletedDate) return
+                const today = getToday()
+                const yesterday = getYesterday()
+                if (lastCompletedDate !== today && lastCompletedDate !== yesterday) {
+                    set({ currentStreak: 0 })
+                }
             },
         }),
         {
@@ -111,11 +120,10 @@ const usePersistence = create<PersistenceState>()(
                 totalCompleted: state.totalCompleted,
                 bestTimeMs: state.bestTimeMs,
                 totalHints: state.totalHints,
-                totalLivesLost: state.totalLivesLost,
+                totalMistakes: state.totalMistakes,
                 currentStreak: state.currentStreak,
                 longestStreak: state.longestStreak,
                 lastCompletedDate: state.lastCompletedDate,
-                isPremium: state.isPremium,
             }),
         }
     )

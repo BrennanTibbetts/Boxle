@@ -1,5 +1,6 @@
 import useGame from '../stores/useGame'
 import useHint from '../stores/useHint'
+import usePersistence from '../stores/usePersistence'
 import { findBestHint } from '../utils/hintRules'
 import type { HintDescription } from '../utils/hintRules'
 import { useResource, COLORS } from '../stores/useResource'
@@ -66,6 +67,8 @@ export default function HUD() {
         if (!config || !grid) return
         const result = findBestHint(levelIndex, config.levelMatrix, grid)
         setHint(result)
+        useGame.getState().incrementSessionHint()
+        usePersistence.getState().recordHint()
     }
 
     return (

@@ -58,6 +58,8 @@ Each day, all players get the same sequence of 8 puzzles, scaling from 4×4 up t
 
 **Web-first.** Ship, validate product-market fit, then port to mobile. Do not let mobile architecture decisions block shipping the web version.
 
+**iOS will be a native Swift rewrite**, not a React Native or Expo port. The web codebase is web-only scaffolding. The important shared artifact is the **data schema** — design localStorage keys and stat shapes as if they will eventually map 1:1 to a backend API, because they will.
+
 ---
 
 ## The Three Game Modes
@@ -83,6 +85,20 @@ Each day, all players get the same sequence of 8 puzzles, scaling from 4×4 up t
 - Exact thresholds TBD based on playtesting
 
 **Rate-limiting philosophy:** Depth threshold only — not play counts, not energy timers. Give players enough free content to get genuinely hooked before hitting a wall. The free tier must feel generous.
+
+---
+
+## Accounts & Persistence
+
+**Accounts are a future feature, not a Phase 2 concern.** Casual players must be able to play with zero friction — no sign-up required. localStorage is the correct persistence mechanism for the web version.
+
+**With an account:** stats, streaks, and progress sync to the backend and survive across devices and platforms.
+
+**Without an account:** all data is localStorage-bound. If a user clears their browser or switches devices, their streak resets. This is expected and honest behavior — not a bug.
+
+**Schema discipline:** design localStorage keys and stat shapes as if they will be sent to a REST API. When accounts arrive, the sync layer becomes push-on-login / pull-on-new-device. A clean schema now makes that migration trivial.
+
+**Premium status is never stored in localStorage.** It is a backend/auth concern — derived from a JWT claim or API response after a verified purchase. A client-writable flag in localStorage is a security hole anyone can flip in DevTools. When Phase 5 arrives, premium state comes from the auth layer, not the persistence layer.
 
 ---
 
@@ -135,15 +151,15 @@ Show automatically on first visit (localStorage flag). Always accessible via the
 
 Work through these phases in order. Each phase is a prerequisite for the next.
 
-### Phase 1 — Foundation
-- [ ] Persistence layer (localStorage: progress, stats, streaks, unlock state)
-- [ ] Remove Leva debug panel from production builds
-- [ ] Game over / session complete screen (ENDED phase currently has no UI)
+### Phase 1 — Foundation ✅ Complete
+- [x] Persistence layer (localStorage: progress, stats, streaks, unlock state)
+- [x] Remove Leva debug panel from production builds
+- [x] Game over / session complete screen (ENDED phase currently has no UI)
 
-### Phase 2 — Retention Hooks
-- [ ] Streak tracking
-- [ ] Personal stats (per-session + all-time)
-- [ ] Shareable daily result card
+### Phase 2 — Retention Hooks ✅ Complete
+- [x] Streak tracking
+- [x] Personal stats (per-session + all-time)
+- [x] Shareable daily result card
 
 ### Phase 3 — Onboarding
 - [ ] Interactive tutorial level (guided 4×4 walkthrough)
@@ -163,6 +179,15 @@ Work through these phases in order. Each phase is a prerequisite for the next.
 - [ ] Backend + auth infrastructure
 - [ ] Global fastest daily solve leaderboard
 - [ ] Arcade high-score leaderboard
+
+---
+
+## Future Ideas (Unscheduled)
+
+Design and polish ideas to revisit after the phase roadmap is further along. Not prioritized, not blocked on.
+
+- **Level preview camera animation** — on level start, begin with the camera tilted/angled toward the far end of the grid, then animate it down to the normal play position. Gives the player a brief aerial overview of the full puzzle before settling into the default view.
+- **Click-and-hold star placement** — instead of an instant tap, holding a cell begins a slow fill/charge animation on that cell indicating a star is about to be placed. Releasing after the animation completes confirms the star; releasing early cancels. Adds tactile intention to placement and reduces accidental misclicks.
 
 ---
 

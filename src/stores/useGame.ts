@@ -7,6 +7,12 @@ import type { DecodedBoard } from '../types/puzzle'
 export { Phase, BoxState }
 export type { PhaseValue, BoxStateValue, LevelGrid }
 
+function makeBlankGrid(size: number): LevelGrid {
+    return Array.from({ length: size }, (): BoxStateValue[] =>
+        new Array<BoxStateValue>(size).fill(BoxState.BLANK)
+    )
+}
+
 interface GameState {
     // Camera
     cameraPosition: [number, number, number]
@@ -45,6 +51,12 @@ interface GameState {
     // Wrong placement (drives shake/flash animation before game over)
     wrongPlacement: { levelIndex: number, row: number, col: number } | null
     clearWrongPlacement: () => void
+
+    // Session stats (ephemeral, not persisted)
+    sessionHints: number
+    sessionLivesLost: number
+    levelMistakes: number[]
+    incrementSessionHint: () => void
 }
 
 export default create<GameState>()(subscribeWithSelector((set, get) => ({
@@ -69,11 +81,10 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         lives: 3,
         lastStarPosition: null,
         wrongPlacement: null,
-        levels: state.levelConfigs.map(({ levelMatrix }) =>
-            Array.from({ length: levelMatrix.length }, () =>
-                Array.from<BoxStateValue>({ length: levelMatrix.length }, () => BoxState.BLANK)
-            )
-        ),
+        sessionHints: 0,
+        sessionLivesLost: 0,
+        levelMistakes: state.levelConfigs.map(() => 0),
+        levels: state.levelConfigs.map(({ levelMatrix }) => makeBlankGrid(levelMatrix.length)),
     })),
     end: () => set({ phase: Phase.ENDED, endTime: Date.now() }),
 
@@ -82,18 +93,17 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
     levels: [],
     levelConfigs: [],
 
-    populatePuzzles: (configs) => set(() => ({
+    populatePuzzles: (configs) => set({
         levelConfigs: configs,
-        levels: configs.map(({ levelMatrix }) =>
-            Array.from({ length: levelMatrix.length }, () =>
-                Array.from<BoxStateValue>({ length: levelMatrix.length }, () => BoxState.BLANK)
-            )
-        ),
+        levels: configs.map(({ levelMatrix }) => makeBlankGrid(levelMatrix.length)),
         currentLevel: 1,
         startTime: Date.now(),
         endTime: null,
         wrongPlacement: null,
-    })),
+        sessionHints: 0,
+        sessionLivesLost: 0,
+        levelMistakes: configs.map(() => 0),
+    }),
 
     setCurrentLevel: (level) => set({ currentLevel: level }),
 
@@ -108,8 +118,16 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
 
         if (!isAnswer) {
             const newLives = state.lives - 1
+            const updatedMistakes = state.levelMistakes.map((count, i) =>
+                i === levelIndex ? count + 1 : count
+            )
             // Don't set Phase.ENDED here — the Box animation fires first, calls end() on complete
-            return { lives: Math.max(0, newLives), wrongPlacement: { levelIndex, row, col } }
+            return {
+                lives: Math.max(0, newLives),
+                wrongPlacement: { levelIndex, row, col },
+                sessionLivesLost: state.sessionLivesLost + 1,
+                levelMistakes: updatedMistakes,
+            }
         }
 
         const n = levelMatrix.length
@@ -191,4 +209,10 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
     // Wrong placement
     wrongPlacement: null,
     clearWrongPlacement: () => set({ wrongPlacement: null }),
+
+    // Session stats
+    sessionHints: 0,
+    sessionLivesLost: 0,
+    levelMistakes: [],
+    incrementSessionHint: () => set((state) => ({ sessionHints: state.sessionHints + 1 })),
 })))

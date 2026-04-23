@@ -45,10 +45,11 @@ useGame.subscribe(
                 }
             }
         } else if (hint.eliminateCells.length > 0) {
-            // Elimination hint: clear once every eliminate cell has been marked
-            const allMarked = hint.eliminateCells.every(
-                ({ row, col }) => levelGrid[row]?.[col] === BoxState.MARK
-            )
+            // Elimination hint: clear once every eliminate cell is resolved (marked or auto-locked by a star placement)
+            const allMarked = hint.eliminateCells.every(({ row, col }) => {
+                const s = levelGrid[row]?.[col]
+                return s === BoxState.MARK || s === BoxState.LOCK
+            })
             if (allMarked) {
                 useHint.getState().clearHint()
                 return

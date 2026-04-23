@@ -32,7 +32,9 @@ window.addEventListener('pointerdown', () => { dragMovementX = 0; dragMovementY 
 window.addEventListener('pointermove', (e) => {
     dragMovementX += e.movementX
     dragMovementY += e.movementY
-    if (e.buttons === 1 && pendingDragMark && !hasDragged) {
+    // On touch/pen, e.buttons is unreliably 0 during an active drag; use pressure instead
+    const isActive = e.buttons === 1 || (e.pointerType !== 'mouse' && e.pressure > 0)
+    if (isActive && pendingDragMark && !hasDragged) {
         hasDragged = true
         pendingDragMark()
         pendingDragMark = null

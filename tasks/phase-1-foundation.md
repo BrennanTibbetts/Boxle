@@ -20,7 +20,7 @@ The single most blocking gap. All other features (streaks, stats, unlock state) 
 Leva is currently visible to end users. Must be stripped before any public link is shared.
 
 - [x] Gate `<Leva>` in `src/index.tsx` behind `import.meta.env.DEV` — panel hidden in production builds, fully accessible in localhost
-- [ ] Verify the panel does not appear in a `vite build` + preview
+- [x] Verify the panel does not appear in a `vite build` + preview
 
 ## 1.3 Session Complete / Game Over Screen
 

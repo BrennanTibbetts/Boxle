@@ -22,7 +22,7 @@ root.render(
                 <Experience />
             </ResourceLoader>
         </Canvas>
-        {import.meta.env.DEV && <Leva collapsed theme={{ sizes: { rootWidth: '380px' } }} />}
+        <Leva hidden={!import.meta.env.DEV} collapsed theme={{ sizes: { rootWidth: '380px' } }} />
         <Interface />
     </KeyboardControls>
 )

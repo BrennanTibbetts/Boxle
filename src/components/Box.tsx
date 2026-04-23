@@ -75,9 +75,19 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         polygonOffsetUnits: -4,
     }), [])
 
+    const wrongMaterial = useMemo(() => new THREE.MeshBasicMaterial({
+        color: '#ef4444',
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -4,
+    }), [])
+
     const [hintMat, setHintMat] = useState<THREE.MeshStandardMaterial | null>(null)
 
-    useEffect(() => () => { dimMaterial.dispose() }, [])
+    useEffect(() => () => { dimMaterial.dispose(); wrongMaterial.dispose() }, [])
 
     useEffect(() => {
         if (!hintRole) {
@@ -90,10 +100,17 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         return () => clone.dispose()
     }, [hintRole])
 
-    const starMeshRef = useRef<Mesh>(null)
-    const glowRef     = useRef<Mesh>(null)
-    const markRef     = useRef<Mesh>(null)
-    const spinDirRef  = useRef({ y: 1, x: 0.4 })
+    const isWrongPlacement = useGame((state) =>
+        state.wrongPlacement?.levelIndex === levelIndex &&
+        state.wrongPlacement?.row === row &&
+        state.wrongPlacement?.col === col
+    )
+
+    const starMeshRef  = useRef<Mesh>(null)
+    const glowRef      = useRef<Mesh>(null)
+    const markRef      = useRef<Mesh>(null)
+    const wrongTlRef   = useRef<gsap.core.Timeline | null>(null)
+    const spinDirRef   = useRef({ y: 1, x: 0.4 })
     const prevStateRef = useRef<BoxStateValue>(BoxState.BLANK)
     const { ref: box, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation()
 
@@ -127,8 +144,23 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
             }
             if (markRef.current) gsap.to(markRef.current.scale, { x: lockMarkSize, z: lockMarkSize, duration: lockDuration * 0.8, delay, ease: 'back.out(2)' })
         } else if (boxState === BoxState.BLANK) {
-            gsap.to(box.current.rotation, { x: 0, y: 0, z: 0, duration: markDuration })
-            if (markRef.current) gsap.to(markRef.current.scale, { x: 0, z: 0, duration: markDuration * 0.75 })
+            // Kill any in-flight or delayed tweens before resetting
+            gsap.killTweensOf(box.current.rotation)
+            if (markRef.current)     gsap.killTweensOf(markRef.current.scale)
+            if (starMeshRef.current) gsap.killTweensOf(starMeshRef.current.scale)
+            if (glowRef.current)     gsap.killTweensOf(glowRef.current.scale)
+
+            if (prev === BoxState.LOCK || prev === BoxState.STAR) {
+                // Only happens on restart — instant reset, no animation
+                box.current.rotation.set(0, 0, 0)
+                if (markRef.current)     markRef.current.scale.set(0, 0.1, 0)
+                if (starMeshRef.current) { starMeshRef.current.scale.set(1, 1, 1); starMeshRef.current.rotation.set(0, 0, 0) }
+                if (glowRef.current)     glowRef.current.scale.set(0, 0, 0)
+            } else {
+                // User toggled off a mark — animate the flip back
+                gsap.to(box.current.rotation, { x: 0, y: 0, z: 0, duration: markDuration })
+                if (markRef.current) gsap.to(markRef.current.scale, { x: 0, z: 0, duration: markDuration * 0.75 })
+            }
         } else if (boxState === BoxState.STAR) {
             spinDirRef.current = {
                 y: Math.random() < 0.5 ? 1 : -1,
@@ -146,6 +178,35 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         const targetOpacity = hintActive && !hintRole ? hintDimOpacity : 0
         gsap.to(dimMaterial, { opacity: targetOpacity, duration: 0.3, ease: 'power2.out' })
     }, [hintActive, hintRole])
+
+    useEffect(() => {
+        if (!isWrongPlacement || !box.current) return
+
+        wrongTlRef.current?.kill()
+        const baseX = box.current.position.x
+
+        const tl = gsap.timeline({
+            onComplete: () => {
+                useGame.getState().clearWrongPlacement()
+                if (useGame.getState().lives === 0) useGame.getState().end()
+            },
+        })
+
+        // Red flash — peaks fast, lingers as it fades
+        tl.to(wrongMaterial, { opacity: 0.7, duration: 0.05, ease: 'none' })
+        tl.to(wrongMaterial, { opacity: 0,   duration: 0.4,  ease: 'power2.out' })
+
+        // Shake — runs in parallel with the flash
+        tl.to(box.current.position, { x: baseX + 0.22, duration: 0.05, ease: 'none'   }, 0)
+        tl.to(box.current.position, { x: baseX - 0.18, duration: 0.07, ease: 'none'   }, 0.05)
+        tl.to(box.current.position, { x: baseX + 0.13, duration: 0.07, ease: 'none'   }, 0.12)
+        tl.to(box.current.position, { x: baseX - 0.08, duration: 0.06, ease: 'none'   }, 0.19)
+        tl.to(box.current.position, { x: baseX + 0.03, duration: 0.05, ease: 'none'   }, 0.25)
+        tl.to(box.current.position, { x: baseX,        duration: 0.05, ease: 'power1.out' }, 0.30)
+
+        wrongTlRef.current = tl
+        return () => { tl.kill() }
+    }, [isWrongPlacement])
 
     useFrame((_, delta) => {
         if (boxState === BoxState.STAR && starMeshRef.current) {
@@ -241,11 +302,8 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
                 material={markMaterial}
                 scale={[0, 0.1, 0]}
             />
-            <mesh
-                geometry={geometry}
-                material={dimMaterial}
-                scale={1.0}
-            />
+            <mesh geometry={geometry} material={dimMaterial}   scale={1.0} />
+            <mesh geometry={geometry} material={wrongMaterial} scale={1.0} />
         </group>
     )
 }

@@ -41,6 +41,10 @@ interface GameState {
 
     // Star tracking (for cascade animation)
     lastStarPosition: { levelIndex: number, row: number, col: number } | null
+
+    // Wrong placement (drives shake/flash animation before game over)
+    wrongPlacement: { levelIndex: number, row: number, col: number } | null
+    clearWrongPlacement: () => void
 }
 
 export default create<GameState>()(subscribeWithSelector((set, get) => ({
@@ -57,7 +61,20 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
     startTime: null,
     endTime: null,
     start: () => set({ phase: Phase.PLAYING, startTime: Date.now() }),
-    restart: () => set({ phase: Phase.READY, currentLevel: 1, lives: 3, lastStarPosition: null }),
+    restart: () => set((state) => ({
+        phase: Phase.PLAYING,
+        startTime: Date.now(),
+        endTime: null,
+        currentLevel: 1,
+        lives: 3,
+        lastStarPosition: null,
+        wrongPlacement: null,
+        levels: state.levelConfigs.map(({ levelMatrix }) =>
+            Array.from({ length: levelMatrix.length }, () =>
+                Array.from<BoxStateValue>({ length: levelMatrix.length }, () => BoxState.BLANK)
+            )
+        ),
+    })),
     end: () => set({ phase: Phase.ENDED, endTime: Date.now() }),
 
     // Levels
@@ -73,6 +90,9 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
             )
         ),
         currentLevel: 1,
+        startTime: Date.now(),
+        endTime: null,
+        wrongPlacement: null,
     })),
 
     setCurrentLevel: (level) => set({ currentLevel: level }),
@@ -88,8 +108,8 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
 
         if (!isAnswer) {
             const newLives = state.lives - 1
-            if (newLives <= 0) return { lives: 3, phase: Phase.ENDED }
-            return { lives: newLives }
+            // Don't set Phase.ENDED here — the Box animation fires first, calls end() on complete
+            return { lives: Math.max(0, newLives), wrongPlacement: { levelIndex, row, col } }
         }
 
         const n = levelMatrix.length
@@ -114,7 +134,14 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
             i === levelIndex ? updatedLevel : level
         )
 
-        return { levels: updatedLevels, currentLevel: nextLevel, lastStarPosition: { levelIndex, row, col } }
+        const isSessionComplete = isComplete && state.currentLevel >= state.levels.length
+
+        return {
+            levels: updatedLevels,
+            currentLevel: nextLevel,
+            lastStarPosition: { levelIndex, row, col },
+            ...(isSessionComplete ? { phase: Phase.ENDED, endTime: Date.now() } : {}),
+        }
     }),
 
     toggleMark: (levelIndex, row, col) => set((state) => {
@@ -153,11 +180,15 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
     incrementLives: () => set((state) => ({ lives: state.lives + 1 })),
     decrementLives: () => set((state) => {
         const newLives = state.lives - 1
-        if (newLives <= 0) return { lives: 3, phase: Phase.ENDED }
+        if (newLives <= 0) return { lives: 0, endTime: Date.now(), phase: Phase.ENDED }
         return { lives: newLives }
     }),
     setLives: (lives) => set({ lives }),
 
     // Star tracking
     lastStarPosition: null,
+
+    // Wrong placement
+    wrongPlacement: null,
+    clearWrongPlacement: () => set({ wrongPlacement: null }),
 })))

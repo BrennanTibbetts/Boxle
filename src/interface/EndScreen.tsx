@@ -17,7 +17,7 @@ function buildShareGrid(
     isComplete: boolean,
 ): string {
     return Array.from({ length: levelCount }, (_, i) => {
-        if (i < levelsCompleted) return levelMistakes[i] === 0 ? '⭐' : '🟡'
+        if (i < levelsCompleted) return levelMistakes[i] === 0 ? '🎯' : '🟡'
         if (i === levelsCompleted && !isComplete) return '💀'
         return '⬜'
     }).join('')

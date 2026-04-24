@@ -1,4 +1,4 @@
-import { useControls } from 'leva'
+import { useControls, button } from 'leva'
 import { Perf } from 'r3f-perf'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 
@@ -10,6 +10,10 @@ export default function Experience() {
     const props = useControls('Experience', {
         background: '#151517',
         performance: false,
+        clearStorage: button(() => {
+            localStorage.clear()
+            window.location.reload()
+        }),
     })
 
     const bloom = useControls('Bloom', {

@@ -1,18 +1,19 @@
 import TimerDisplay from '../components/TimerDisplay'
 import ControlsManager from './ControlsManager'
 import HUD from './HUD'
+import HintDescription from './HintDescription'
 import EndScreen from './EndScreen'
-import { usePersistenceSync } from '../hooks/usePersistenceSync'
+import { DailyModeProvider } from '../modes/DailyModeProvider'
 
 export default function Interface() {
-    usePersistenceSync()
-
     return (
         <div className='interface'>
+            <DailyModeProvider />
             <HUD />
             <TimerDisplay />
-            <ControlsManager />
             <EndScreen />
+            <HintDescription />
+            <ControlsManager />
         </div>
     )
 }

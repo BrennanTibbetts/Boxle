@@ -1,42 +1,9 @@
 import useGame from '../stores/useGame'
 import useHint from '../stores/useHint'
+import useUI from '../stores/useUI'
 import usePersistence from '../stores/usePersistence'
 import { findBestHint } from '../utils/hintRules'
-import type { HintDescription } from '../utils/hintRules'
-import { useResource, COLORS } from '../stores/useResource'
-
-const COLOR_LABELS: Record<string, string> = {
-    gold: 'Yellow',
-    mediumpurple: 'Purple',
-    mediumaquamarine: 'Aqua',
-    lightcoral: 'Red',
-    lightyellow: 'White',
-    lightgreen: 'Green',
-    lightseagreen: 'Teal',
-    lightslategray: 'Gray',
-    lightsteelblue: 'Light Blue',
-    lime: 'Lime',
-    cornflowerblue: 'Blue',
-}
-
-function Description({ tokens }: { tokens: HintDescription }) {
-    const materialOffset = useResource((state) => state.materialOffset)
-    return (
-        <>
-            {tokens.map((token, i) => {
-                if (token.type === 'text') return <span key={i}>{token.content}</span>
-                if (token.type === 'region') {
-                    const color = COLORS[(token.groupId + materialOffset) % COLORS.length]
-                    const label = COLOR_LABELS[color] ?? color
-                    return <span key={i} style={{ color, fontWeight: 'bold' }}>{label}</span>
-                }
-                if (token.type === 'row') return <span key={i} style={{ color: '#7dd3fc', fontWeight: 'bold' }}>this row</span>
-                if (token.type === 'col') return <span key={i} style={{ color: '#86efac', fontWeight: 'bold' }}>this column</span>
-                return null
-            })}
-        </>
-    )
-}
+import RulesModal, { useFirstVisitRules } from './RulesModal'
 
 function HeartIcon({ filled }: { filled: boolean }) {
     return (
@@ -55,6 +22,10 @@ export default function HUD() {
     const activeHint = useHint((state) => state.activeHint)
     const setHint = useHint((state) => state.setHint)
     const clearHint = useHint((state) => state.clearHint)
+    const rulesOpen = useUI((state) => state.rulesOpen)
+    const setRulesOpen = useUI((state) => state.setRulesOpen)
+
+    useFirstVisitRules()
 
     const handleHint = () => {
         if (activeHint) {
@@ -73,36 +44,41 @@ export default function HUD() {
 
     return (
         <>
-        {activeHint && (
-            <div className="hint-description">
-                <Description tokens={activeHint.description} />
+            <div className="hud">
+                <div className="hud-section hud-level">
+                    <span className="hud-label">Level</span>
+                    <span className="hud-value">{currentLevel}</span>
+                </div>
+                <div className="hud-section hud-lives">
+                    {[1, 2, 3].map((i) => (
+                        <HeartIcon key={i} filled={lives >= i} />
+                    ))}
+                </div>
+                <div className="hud-section">
+                    <button className="hud-btn" onClick={() => clearMarks(currentLevel - 1)}>
+                        Clear Marks
+                    </button>
+                </div>
+                <div className="hud-section">
+                    <button
+                        className={`hud-btn hud-hint-btn${activeHint ? ' active' : ''}`}
+                        onClick={handleHint}
+                        title={activeHint ? 'Dismiss hint' : 'Show hint'}
+                    >
+                        💡
+                    </button>
+                </div>
+                <div className="hud-section">
+                    <button
+                        className={`hud-btn hud-rules-btn${rulesOpen ? ' active' : ''}`}
+                        onClick={() => setRulesOpen(!rulesOpen)}
+                        title={rulesOpen ? 'Close rules' : 'How to play'}
+                    >
+                        ?
+                    </button>
+                </div>
             </div>
-        )}
-        <div className="hud">
-            <div className="hud-section hud-level">
-                <span className="hud-label">Level</span>
-                <span className="hud-value">{currentLevel}</span>
-            </div>
-            <div className="hud-section hud-lives">
-                {[1, 2, 3].map((i) => (
-                    <HeartIcon key={i} filled={lives >= i} />
-                ))}
-            </div>
-            <div className="hud-section">
-                <button className="hud-btn" onClick={() => clearMarks(currentLevel - 1)}>
-                    Clear Marks
-                </button>
-            </div>
-            <div className="hud-section">
-                <button
-                    className={`hud-btn hud-hint-btn${activeHint ? ' active' : ''}`}
-                    onClick={handleHint}
-                    title={activeHint ? 'Dismiss hint' : 'Show hint'}
-                >
-                    💡
-                </button>
-            </div>
-        </div>
+            <RulesModal />
         </>
     )
 }

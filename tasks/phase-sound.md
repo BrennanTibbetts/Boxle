@@ -9,7 +9,7 @@ Not strictly sequenced with Phases 2–6. Can be implemented any time after Phas
 - **Aesthetic:** Tactile and clicky. Physical, not musical.
 - **Spatial:** Flat stereo only — no positional/directional audio.
 - **Music:** None for now.
-- **Cascade:** One sound per cell, fires at the moment the cell flips (locked to existing GSAP animation timing). Volume ramps up with distance from the source star — further cells are louder.
+- **Cascade:** One sound per box, fires at the moment the box flips (locked to existing GSAP animation timing). Volume ramps up with distance from the source boxle — further boxes are louder.
 - **Mark remove:** Softer, reversed-feel version of mark-place.
 - **Life lost:** Jarring physical mistake — thud or buzz character.
 - **Hint:** Very subtle.
@@ -21,10 +21,10 @@ Not strictly sequenced with Phases 2–6. Can be implemented any time after Phas
 
 Source these yourself. See format notes below before you go hunting.
 
-- [ ] `cascade-tick` — single short click/tap. Will play once per locking cell. Needs to sound good repeated rapidly (10+ times in <1s). Dry, no reverb tail.
+- [ ] `cascade-tick` — single short click/tap. Will play once per locking box. Needs to sound good repeated rapidly (10+ times in <1s). Dry, no reverb tail.
 - [ ] `mark-place` — satisfying tactile click. Similar character to cascade-tick but slightly heavier/more deliberate.
 - [ ] `mark-remove` — softer, reversed-feel of mark-place. Can be the same recording processed, or a separate lighter sound.
-- [ ] `star-place` — satisfying placement sound. Distinct from mark. Slightly more "complete" in character.
+- [ ] `boxle-place` — satisfying placement sound. Distinct from mark. Slightly more "complete" in character.
 - [ ] `life-lost` — jarring. Physical mistake. Thud, buzz, or hard click. Should feel like you hit something wrong.
 - [ ] `hint` — very subtle. Soft tone, chime, or short whoosh. Easy to miss, that's fine.
 - [ ] `session-complete` — TBD character. Hold off until other assets are in and you have a feel for the palette.
@@ -39,7 +39,7 @@ Source these yourself. See format notes below before you go hunting.
 - cascade-tick: *wood tap, mechanical click, snap, tick*
 - mark-place: *click, keyboard click, button press, thock*
 - mark-remove: *soft click, muted tap*
-- star-place: *pop, ding, positive click, confirm*
+- boxle-place: *pop, ding, positive click, confirm*
 - life-lost: *thud, buzz, error, wrong, hit*
 - hint: *chime, soft ding, whoosh, subtle notify*
 
@@ -70,11 +70,11 @@ All wiring happens at the call sites, not inside the store.
 - [ ] **`src/components/Box.tsx`** — mark-place and mark-remove  
   In `handleClick`, after `toggleMark` is called. Derive which sound to play from `boxState` at the moment of the click: `BLANK → MARK` plays mark-place, `MARK → BLANK` plays mark-remove.
 
-- [ ] **`src/components/Box.tsx`** — star-place  
-  In `handleClick` and `handleDoubleClick`, after `placeStar` is called and only if the state wasn't already `STAR` (guard against double-fire). Play `star-place`.
+- [ ] **`src/components/Box.tsx`** — boxle-place  
+  In `handleClick` and `handleDoubleClick`, after `placeBoxle` is called and only if the state wasn't already `BOXLE` (guard against double-fire). Play `boxle-place`.
 
 - [ ] **`src/stores/useGame.ts`** — life-lost  
-  In `placeStar`, at the point where a wrong placement is detected and lives are decremented. Play `life-lost`.
+  In `placeBoxle`, at the point where a wrong placement is detected and lives are decremented. Play `life-lost`.
 
 - [ ] **`src/interface/HUD.tsx` or `useHint.ts`** — hint  
   Wherever the hint action is triggered. Play `hint`.

@@ -9,10 +9,10 @@ interface BoxSettingsState {
     markSize: number
     lockMarkSize: number
     markDuration: number
-    // Star Box
+    // Boxle
     enableSpin: boolean
-    starSpinSpeed: number
-    starBoxScale: number
+    boxleSpinSpeed: number
+    boxleScale: number
     glowScale: number
     // Hints
     hintDimOpacity: number
@@ -26,9 +26,9 @@ const useBoxSettings = create<BoxSettingsState>()((set) => ({
     lockBaseDelay: 0.0,
     lockDelayPerUnit: 0.05,
     lockDuration: 0.25,
-    enableSpin: true,
-    starSpinSpeed: 1.2,
-    starBoxScale: 0.53,
+    enableSpin: false,
+    boxleSpinSpeed: 1.2,
+    boxleScale: 0.53,
     glowScale: 1.30,
     hintDimOpacity: 0.72,
     set: (partial) => set(partial),

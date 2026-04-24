@@ -1,5 +1,5 @@
 import gsap from 'gsap'
-import { useRef, useMemo, useEffect, useState } from 'react'
+import { useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { Mesh } from 'three'
@@ -42,7 +42,6 @@ window.addEventListener('pointermove', (e) => {
 })
 window.addEventListener('pointerup', () => {
     pendingDragMark = null
-    hasDragged = false
 })
 
 function getFlip(dx: number, dy: number) {
@@ -56,16 +55,16 @@ function getFlip(dx: number, dy: number) {
 
 export default function Box({ group, levelIndex, row, col, gridSize, spacing, interactive = true }: BoxProps) {
     const boxState = useGame((state) => state.levels[levelIndex]?.[row]?.[col] ?? BoxState.BLANK)
-    const placeStar = useGame((state) => state.placeStar)
+    const placeBoxle = useGame((state) => state.placeBoxle)
     const toggleMark = useGame((state) => state.toggleMark)
-    const hintRole   = useHint((state) => state.getCellRole(levelIndex, row, col))
+    const hintRole   = useHint((state) => state.getBoxRole(levelIndex, row, col))
     const hintActive = useHint((state) => state.activeHint !== null)
 
-    const geometry     = useMemo(() => useResource.getState().geometries.get('box')!, [])
-    const markMaterial = useMemo(() => useResource.getState().materials.get('mark')!, [])
-    const material     = useMemo(() => useResource.getState().getGroupMaterial(group), [group])
-    const starMaterial = useMemo(() => useResource.getState().getStarMaterial(group), [group])
-    const glowMaterial = useMemo(() => useResource.getState().getGlowMaterial(group), [group])
+    const geometry       = useMemo(() => useResource.getState().geometries.get('box')!, [])
+    const markMaterial   = useMemo(() => useResource.getState().materials.get('mark')!, [])
+    const material       = useMemo(() => useResource.getState().getGroupMaterial(group), [group])
+    const boxleMaterial = useMemo(() => useResource.getState().getBoxleMaterial(group), [group])
+    const glowMaterial   = useMemo(() => useResource.getState().getGlowMaterial(group), [group])
 
     const dimMaterial = useMemo(() => new THREE.MeshBasicMaterial({
         color: '#000000',
@@ -87,20 +86,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         polygonOffsetUnits: -4,
     }), [])
 
-    const [hintMat, setHintMat] = useState<THREE.MeshStandardMaterial | null>(null)
-
     useEffect(() => () => { dimMaterial.dispose(); wrongMaterial.dispose() }, [])
-
-    useEffect(() => {
-        if (!hintRole) {
-            setHintMat(prev => { prev?.dispose(); return null })
-            return
-        }
-        const clone = (material as THREE.MeshStandardMaterial).clone()
-        clone.depthTest = false
-        setHintMat(prev => { prev?.dispose(); return clone })
-        return () => clone.dispose()
-    }, [hintRole])
 
     const isWrongPlacement = useGame((state) =>
         state.wrongPlacement?.levelIndex === levelIndex &&
@@ -108,18 +94,18 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         state.wrongPlacement?.col === col
     )
 
-    const starMeshRef  = useRef<Mesh>(null)
-    const glowRef      = useRef<Mesh>(null)
-    const markRef      = useRef<Mesh>(null)
-    const wrongTlRef   = useRef<gsap.core.Timeline | null>(null)
-    const spinDirRef   = useRef({ y: 1, x: 0.4 })
-    const prevStateRef = useRef<BoxStateValue>(BoxState.BLANK)
+    const boxleMeshRef = useRef<Mesh>(null)
+    const glowRef       = useRef<Mesh>(null)
+    const markRef       = useRef<Mesh>(null)
+    const wrongTlRef    = useRef<gsap.core.Timeline | null>(null)
+    const spinDirRef    = useRef({ y: 1, x: 0.4 })
+    const prevStateRef  = useRef<BoxStateValue>(BoxState.BLANK)
     const { ref: box, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation()
 
     useEffect(() => {
         if (!box.current) return
 
-        const { lockBaseDelay, lockDelayPerUnit, lockDuration, starBoxScale, glowScale, markSize, lockMarkSize, markDuration } = useBoxSettings.getState()
+        const { lockBaseDelay, lockDelayPerUnit, lockDuration, boxleScale, glowScale, markSize, lockMarkSize, markDuration } = useBoxSettings.getState()
         const prev = prevStateRef.current
         prevStateRef.current = boxState
 
@@ -134,11 +120,11 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         } else if (boxState === BoxState.LOCK) {
             let delay = 0
             if (!alreadyFlipped) {
-                const starPos = useGame.getState().lastStarPosition
+                const boxlePos = useGame.getState().lastBoxlePosition
                 let flip = { x: Math.PI, y: 0, z: 0 }
-                if (starPos && starPos.levelIndex === levelIndex) {
-                    const dx = col - starPos.col
-                    const dy = row - starPos.row
+                if (boxlePos && boxlePos.levelIndex === levelIndex) {
+                    const dx = col - boxlePos.col
+                    const dy = row - boxlePos.row
                     delay = lockBaseDelay + lockDelayPerUnit * Math.sqrt(dx * dx + dy * dy)
                     flip = getFlip(dx, dy)
                 }
@@ -148,37 +134,38 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         } else if (boxState === BoxState.BLANK) {
             // Kill any in-flight or delayed tweens before resetting
             gsap.killTweensOf(box.current.rotation)
-            if (markRef.current)     gsap.killTweensOf(markRef.current.scale)
-            if (starMeshRef.current) gsap.killTweensOf(starMeshRef.current.scale)
-            if (glowRef.current)     gsap.killTweensOf(glowRef.current.scale)
+            if (markRef.current)       gsap.killTweensOf(markRef.current.scale)
+            if (boxleMeshRef.current) gsap.killTweensOf(boxleMeshRef.current.scale)
+            if (glowRef.current)       gsap.killTweensOf(glowRef.current.scale)
 
-            if (prev === BoxState.LOCK || prev === BoxState.STAR) {
+            if (prev === BoxState.LOCK || prev === BoxState.BOXLE) {
                 // Only happens on restart — instant reset, no animation
                 box.current.rotation.set(0, 0, 0)
-                if (markRef.current)     markRef.current.scale.set(0, 0.1, 0)
-                if (starMeshRef.current) { starMeshRef.current.scale.set(1, 1, 1); starMeshRef.current.rotation.set(0, 0, 0) }
-                if (glowRef.current)     glowRef.current.scale.set(0, 0, 0)
+                if (markRef.current)       markRef.current.scale.set(0, 0.1, 0)
+                if (boxleMeshRef.current) { boxleMeshRef.current.scale.set(1, 1, 1); boxleMeshRef.current.rotation.set(0, 0, 0) }
+                if (glowRef.current)       glowRef.current.scale.set(0, 0, 0)
             } else {
                 // User toggled off a mark — animate the flip back
                 gsap.to(box.current.rotation, { x: 0, y: 0, z: 0, duration: markDuration })
                 if (markRef.current) gsap.to(markRef.current.scale, { x: 0, z: 0, duration: markDuration * 0.75 })
             }
-        } else if (boxState === BoxState.STAR) {
+        } else if (boxState === BoxState.BOXLE) {
             spinDirRef.current = {
                 y: Math.random() < 0.5 ? 1 : -1,
                 x: (Math.random() * 0.6 + 0.2) * (Math.random() < 0.5 ? 1 : -1),
             }
             gsap.to(box.current.rotation, { x: 0, y: 0, z: 0, duration: 0.3, ease: 'back.out(1.5)' })
             if (markRef.current) gsap.to(markRef.current.scale, { x: 0, z: 0, duration: 0.15 })
-            if (starMeshRef.current) gsap.to(starMeshRef.current.scale, { x: starBoxScale, y: starBoxScale, z: starBoxScale, duration: 0.4, ease: 'back.out(1.5)' })
-            if (glowRef.current)     gsap.to(glowRef.current.scale,     { x: glowScale,    y: glowScale,    z: glowScale,    duration: 0.4, ease: 'back.out(1.5)' })
+            if (boxleMeshRef.current) gsap.to(boxleMeshRef.current.scale, { x: boxleScale, y: boxleScale, z: boxleScale, duration: 0.4, ease: 'back.out(1.5)' })
+            if (glowRef.current)       gsap.to(glowRef.current.scale,       { x: glowScale,   y: glowScale,   z: glowScale,   duration: 0.4, ease: 'back.out(1.5)' })
         }
     }, [boxState])
 
     useEffect(() => {
         const { hintDimOpacity } = useBoxSettings.getState()
-        const targetOpacity = hintActive && !hintRole ? hintDimOpacity : 0
-        gsap.to(dimMaterial, { opacity: targetOpacity, duration: 0.3, ease: 'power2.out' })
+        const dimmed = hintActive && !hintRole
+        const opacity = dimmed ? hintDimOpacity : 0
+        gsap.to(dimMaterial, { opacity, duration: 0.3, ease: 'power2.out' })
     }, [hintActive, hintRole])
 
     useEffect(() => {
@@ -211,11 +198,11 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     }, [isWrongPlacement])
 
     useFrame((_, delta) => {
-        if (boxState === BoxState.STAR && starMeshRef.current) {
-            const { enableSpin, starSpinSpeed } = useBoxSettings.getState()
+        if (boxState === BoxState.BOXLE && boxleMeshRef.current) {
+            const { enableSpin, boxleSpinSpeed } = useBoxSettings.getState()
             if (enableSpin) {
-                starMeshRef.current.rotation.y += delta * starSpinSpeed * spinDirRef.current.y
-                starMeshRef.current.rotation.x += delta * starSpinSpeed * spinDirRef.current.x
+                boxleMeshRef.current.rotation.y += delta * boxleSpinSpeed * spinDirRef.current.y
+                boxleMeshRef.current.rotation.x += delta * boxleSpinSpeed * spinDirRef.current.x
             }
         }
     })
@@ -233,7 +220,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         if (!interactive || isBlocked || e.nativeEvent.buttons !== 1) return
         if (e.nativeEvent.shiftKey) {
             if (boxState === BoxState.MARK) toggleMark(levelIndex, row, col)
-        } else if (!e.nativeEvent.ctrlKey) {
+        } else {
             if (boxState === BoxState.BLANK) toggleMark(levelIndex, row, col)
         }
     }
@@ -245,7 +232,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
             hasDragged = true
             pendingDragMark = null
             if (boxState === BoxState.MARK) toggleMark(levelIndex, row, col)
-        } else if (!e.nativeEvent.ctrlKey) {
+        } else {
             hasDragged = false
             pendingDragMark = boxState === BoxState.BLANK
                 ? () => toggleMark(levelIndex, row, col)
@@ -257,27 +244,22 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         if (!interactive || isBlocked) return
         e.stopPropagation()
         if (hasDragged || e.nativeEvent.shiftKey) return
-        if (e.nativeEvent.ctrlKey) {
-            if (boxState === BoxState.BLANK || boxState === BoxState.MARK) placeStar(levelIndex, row, col)
-        } else {
-            if (boxState === BoxState.BLANK || boxState === BoxState.MARK) toggleMark(levelIndex, row, col)
-        }
+        if (boxState === BoxState.BLANK || boxState === BoxState.MARK) toggleMark(levelIndex, row, col)
     }
 
     const handleDoubleClick = (e: ThreeEvent<MouseEvent>) => {
         if (!interactive || isBlocked) return
         e.stopPropagation()
         e.nativeEvent.preventDefault()
-        if (boxState === BoxState.BLANK || boxState === BoxState.MARK) placeStar(levelIndex, row, col)
+        if (boxState === BoxState.BLANK || boxState === BoxState.MARK) placeBoxle(levelIndex, row, col)
     }
 
-    const isStar = boxState === BoxState.STAR
+    const isBoxle = boxState === BoxState.BOXLE
 
     return (
         <group position={position} ref={box}>
             <mesh
-                ref={starMeshRef}
-                renderOrder={hintRole ? 2 : 0}
+                ref={boxleMeshRef}
                 onPointerDown={handlePointerDown}
                 onClick={handleClick}
                 onDoubleClick={handleDoubleClick}
@@ -287,7 +269,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
                 castShadow
                 receiveShadow
                 geometry={geometry}
-                material={hintMat ?? (isStar ? starMaterial : material)}
+                material={isBoxle ? boxleMaterial : material}
             >
                 <mesh
                     ref={glowRef}

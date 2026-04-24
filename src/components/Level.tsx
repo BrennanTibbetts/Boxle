@@ -24,7 +24,7 @@ const Level = memo(({ levelIndex, levelMatrix, interactive = true }: LevelProps)
     const isExploding = useGame((state) => {
         const level = state.levels[levelIndex]
         if (!level) return false
-        return level.flat().filter((s) => s === BoxState.STAR).length >= size
+        return level.flat().filter((s) => s === BoxState.BOXLE).length >= size
     })
 
     return (

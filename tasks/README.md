@@ -1,23 +1,31 @@
-> ## ⚠ READ FIRST — Execution Status (as of 2026-04-22)
+> ## ⚠ READ FIRST — Execution Status (as of 2026-04-23)
 >
-> **Current position: Phase 1 complete → Phase 2 is next.**
+> **Current position: Phase 3 framework built, tutorial content iterating.**
 >
 > | Phase | Status | Notes |
 > |-------|--------|-------|
-> | Phase 1 — Foundation | ✅ **Complete** (one step unverified) | All code in place: `usePersistence.ts`, `usePersistenceSync.ts`, `EndScreen.tsx`, Leva gated behind `import.meta.env.DEV`. One manual step outstanding: verify Leva panel is absent in a real `vite build && vite preview` run. |
-> | Phase 2 — Retention | 🔲 **Not started** | **Start here.** Streak tracking, personal stats display on end screen, shareable result card. All persistence infrastructure needed is already built in Phase 1. |
-> | Phase 3 — Onboarding | 🔲 Not started | Blocked until Phase 2 is done. |
-> | Phase 4 — New Modes | 🔲 Not started | Blocked until Phase 3. |
+> | Phase 1 — Foundation | ✅ **Complete** | All persistence / end-screen / prod-build work done. |
+> | Phase 2 — Retention | ✅ **Complete** | Streaks, per-session + all-time stats, shareable result card all shipped. |
+> | Phase 3 — Onboarding | 🟡 **In progress** | Framework complete: mode-provider architecture (`src/modes/*`), tutorial controller with info/system/player steps, 3-level walkthrough (4×4/5×5/6×6), first-visit modal. Content iterating — scripts are being refined based on playtest feedback; need a first-time-player validation pass. |
+> | Phase 4 — New Modes | 🔲 Not started | Infrastructure ready — follow the existing `ModeProvider` pattern for Arcade and Library. |
 > | Phase 5 — Monetization | 🔲 Not started | Blocked until Phase 4. |
 > | Phase 6 — Leaderboard | 🔲 Not started | Blocked until Phase 5. |
 >
-> **Open bug (unblocking):** Mobile drag-mark doesn't flip the initial pointer-down cell (works on desktop). Logged in `bugs.md`. Fix is non-blocking for Phase 2 work but should be resolved before any public share.
+> **Open bug (unblocking):** Mobile drag-mark doesn't flip the initial pointer-down box (works on desktop). Logged in `bugs.md`. Non-blocking, but fix before any public share.
 >
-> **Key files already built (Phase 1):**
-> - `src/stores/usePersistence.ts` — Zustand store with localStorage persist middleware
-> - `src/hooks/usePersistenceSync.ts` — syncs game state → persistence on every change
-> - `src/interface/EndScreen.tsx` — session-complete and game-over UI
-> - `src/index.tsx` — Leva gated behind `import.meta.env.DEV`
+> **Key new files from Phase 3:**
+> - `src/modes/DailyModeProvider.tsx`, `src/modes/TutorialModeProvider.tsx` — per-mode puzzle loading + persistence
+> - `src/stores/useTutorial.ts` — tutorial state (stepIndex, hand position, valid boxes, awaitingContinue)
+> - `src/tutorial/TutorialController.tsx` — async script runner with guided (`click`/`placeBoxle`) and auto (`autoMark`/`autoBoxle`) move types
+> - `src/tutorial/tutorialScripts.ts` — step sequences per level
+> - `src/tutorial/TutorialOverlay.tsx` — colored-text prompt bubble matching HUD styling
+> - `src/tutorial/TutorialHandInScene.tsx` — 3D hand cursor via `@react-three/drei` `Html`
+>
+> **Design conventions locked in during Phase 3** (apply to all future tutorial/hint content):
+> - Regions referenced by color, using exact `COLOR_LABELS` values from `src/interface/HUD.tsx`
+> - Rows/columns described spatially ("leftmost column", "bottom row") — never 0-indexed
+> - Styling matches in-game HUD (Bebas Neue, translucent-glass bubble)
+> - Use `autoMark`/`autoBoxle` for concept-teaching demos; use `click`/`placeBoxle` (user-executed) when the teaching is about the interaction itself
 
 # Boxle — Task Breakdown
 
@@ -25,12 +33,12 @@ Phases must be completed in order. Each is a prerequisite for the next.
 
 | File | Phase | Status |
 |------|-------|--------|
-| [phase-1-foundation.md](phase-1-foundation.md) | Persistence, debug cleanup, end screen | ✅ Done (verify prod build) |
-| [phase-2-retention.md](phase-2-retention.md) | Streaks, stats, shareable result card | Not started |
-| [phase-3-onboarding.md](phase-3-onboarding.md) | Interactive tutorial | Not started |
+| [phase-1-foundation.md](phase-1-foundation.md) | Persistence, debug cleanup, end screen | ✅ Done |
+| [phase-2-retention.md](phase-2-retention.md) | Streaks, stats, shareable result card | ✅ Done |
+| [phase-3-onboarding.md](phase-3-onboarding.md) | Interactive tutorial + mode provider architecture | 🟡 In progress (content iteration) |
 | [phase-4-new-modes.md](phase-4-new-modes.md) | Main menu, Arcade mode, Library mode | Not started |
 | [phase-5-monetization.md](phase-5-monetization.md) | Unlock state, depth gates, payment | Not started |
 | [phase-6-leaderboard.md](phase-6-leaderboard.md) | Backend, auth, global leaderboards | Not started |
-| [phase-sound.md](phase-sound.md) | Game feel audio (tactile SFX) | Waiting on assets — can implement any time after Phase 1 |
+| [phase-sound.md](phase-sound.md) | Game feel audio (tactile SFX) | Waiting on assets — can implement any time |
 
 See [PRODUCT_DIRECTION.md](../PRODUCT_DIRECTION.md) for the full strategic context behind these phases.

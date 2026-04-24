@@ -1,6 +1,6 @@
-export type RawCell = number | string
+export type RawBox = number | string
 
-export type RawBoard = RawCell[][]
+export type RawBoard = RawBox[][]
 
 export interface RawPuzzle {
     Board: RawBoard

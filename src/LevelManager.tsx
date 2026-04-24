@@ -1,15 +1,8 @@
-import puzzleDataRaw from '../data/puzzles.js'
-import type { RawPuzzle } from './types/puzzle'
 import Level from './components/Level'
-import { useDailyPuzzles } from './hooks/useDailyPuzzles'
 import { useLevelFade } from './hooks/useLevelFade'
 import useGame from './stores/useGame'
 
-const puzzleData = puzzleDataRaw as unknown as RawPuzzle[][]
-
 export default function LevelManager() {
-    useDailyPuzzles(puzzleData)
-
     const currentLevel = useGame((state) => state.currentLevel)
     const configs = useGame((state) => state.levelConfigs)
     const fadingLevels = useLevelFade()

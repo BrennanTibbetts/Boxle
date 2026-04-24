@@ -20,10 +20,10 @@ export function seededRandom(seed: number): () => number {
 export function decodeBoard(rawBoard: RawBoard): DecodedBoard {
     return {
         levelMatrix: rawBoard.map((row) =>
-            row.map((cell) => (typeof cell === 'string' ? parseInt(cell) : cell))
+            row.map((box) => (typeof box === 'string' ? parseInt(box) : box))
         ),
         answerMatrix: rawBoard.map((row) =>
-            row.map((cell) => typeof cell === 'string')
+            row.map((box) => typeof box === 'string')
         ),
     }
 }

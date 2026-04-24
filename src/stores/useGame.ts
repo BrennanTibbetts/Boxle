@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import { Phase, BoxState } from '../types/game'
-import type { PhaseValue, BoxStateValue, LevelGrid } from '../types/game'
+import { Phase, BoxState, GameMode } from '../types/game'
+import type { PhaseValue, BoxStateValue, LevelGrid, GameModeValue } from '../types/game'
 import type { DecodedBoard } from '../types/puzzle'
 
-export { Phase, BoxState }
-export type { PhaseValue, BoxStateValue, LevelGrid }
+export { Phase, BoxState, GameMode }
+export type { PhaseValue, BoxStateValue, LevelGrid, GameModeValue }
 
 function makeBlankGrid(size: number): LevelGrid {
     return Array.from({ length: size }, (): BoxStateValue[] =>
@@ -34,7 +34,7 @@ interface GameState {
     levelConfigs: DecodedBoard[]
     populatePuzzles: (configs: DecodedBoard[]) => void
     setCurrentLevel: (level: number) => void
-    placeStar: (levelIndex: number, row: number, col: number) => void
+    placeBoxle: (levelIndex: number, row: number, col: number) => void
     toggleMark: (levelIndex: number, row: number, col: number) => void
     getBoxState: (levelIndex: number, row: number, col: number) => BoxStateValue
     clearMarks: (levelIndex: number) => void
@@ -45,8 +45,8 @@ interface GameState {
     decrementLives: () => void
     setLives: (lives: number) => void
 
-    // Star tracking (for cascade animation)
-    lastStarPosition: { levelIndex: number, row: number, col: number } | null
+    // Boxle tracking (for cascade animation)
+    lastBoxlePosition: { levelIndex: number, row: number, col: number } | null
 
     // Wrong placement (drives shake/flash animation before game over)
     wrongPlacement: { levelIndex: number, row: number, col: number } | null
@@ -57,6 +57,10 @@ interface GameState {
     sessionLivesLost: number
     levelMistakes: number[]
     incrementSessionHint: () => void
+
+    // Mode
+    activeMode: GameModeValue
+    setMode: (mode: GameModeValue) => void
 }
 
 export default create<GameState>()(subscribeWithSelector((set, get) => ({
@@ -79,7 +83,7 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         endTime: null,
         currentLevel: 1,
         lives: 3,
-        lastStarPosition: null,
+        lastBoxlePosition: null,
         wrongPlacement: null,
         sessionHints: 0,
         sessionLivesLost: 0,
@@ -107,7 +111,7 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
 
     setCurrentLevel: (level) => set({ currentLevel: level }),
 
-    placeStar: (levelIndex, row, col) => set((state) => {
+    placeBoxle: (levelIndex, row, col) => set((state) => {
         const config = state.levelConfigs[levelIndex]
         const levelState = state.levels[levelIndex]
         if (!config || !levelState) return {}
@@ -132,18 +136,18 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
 
         const n = levelMatrix.length
         const updatedLevel: LevelGrid = levelState.map((rowData, r) =>
-            rowData.map((cellState, c): BoxStateValue => {
-                if (r === row && c === col) return BoxState.STAR
+            rowData.map((boxState, c): BoxStateValue => {
+                if (r === row && c === col) return BoxState.BOXLE
                 if (levelMatrix[r][c] === group) return BoxState.LOCK
                 if (r === row) return BoxState.LOCK
                 if (c === col) return BoxState.LOCK
                 if (Math.abs(r - row) === 1 && Math.abs(c - col) === 1) return BoxState.LOCK
-                return cellState
+                return boxState
             })
         )
 
-        const starCount = updatedLevel.flat().filter((s) => s === BoxState.STAR).length
-        const isComplete = starCount >= n
+        const boxleCount = updatedLevel.flat().filter((s) => s === BoxState.BOXLE).length
+        const isComplete = boxleCount >= n
         const nextLevel = isComplete
             ? Math.min(state.currentLevel + 1, state.levels.length)
             : state.currentLevel
@@ -157,7 +161,7 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         return {
             levels: updatedLevels,
             currentLevel: nextLevel,
-            lastStarPosition: { levelIndex, row, col },
+            lastBoxlePosition: { levelIndex, row, col },
             ...(isSessionComplete ? { phase: Phase.ENDED, endTime: Date.now() } : {}),
         }
     }),
@@ -171,7 +175,7 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
 
         const newState: BoxStateValue = current === BoxState.BLANK ? BoxState.MARK : BoxState.BLANK
         const updatedLevel = levelState.map((rowData, r) =>
-            rowData.map((cellState, c): BoxStateValue => r === row && c === col ? newState : cellState)
+            rowData.map((boxState, c): BoxStateValue => r === row && c === col ? newState : boxState)
         )
         const updatedLevels = state.levels.map((level, i) =>
             i === levelIndex ? updatedLevel : level
@@ -188,7 +192,7 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         const levelState = state.levels[levelIndex]
         if (!levelState) return {}
         const updatedLevel = levelState.map((rowData) =>
-            rowData.map((cellState): BoxStateValue => cellState === BoxState.MARK ? BoxState.BLANK : cellState)
+            rowData.map((boxState): BoxStateValue => boxState === BoxState.MARK ? BoxState.BLANK : boxState)
         )
         return { levels: state.levels.map((level, i) => i === levelIndex ? updatedLevel : level) }
     }),
@@ -203,8 +207,8 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
     }),
     setLives: (lives) => set({ lives }),
 
-    // Star tracking
-    lastStarPosition: null,
+    // Boxle tracking
+    lastBoxlePosition: null,
 
     // Wrong placement
     wrongPlacement: null,
@@ -215,4 +219,8 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
     sessionLivesLost: 0,
     levelMistakes: [],
     incrementSessionHint: () => set((state) => ({ sessionHints: state.sessionHints + 1 })),
+
+    // Mode
+    activeMode: GameMode.DAILY,
+    setMode: (mode) => set({ activeMode: mode }),
 })))

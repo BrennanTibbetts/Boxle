@@ -6,11 +6,19 @@ export const Phase = {
 
 export type PhaseValue = typeof Phase[keyof typeof Phase]
 
+export const GameMode = {
+    DAILY: 'daily',
+    ARCADE: 'arcade',
+    LIBRARY: 'library',
+} as const
+
+export type GameModeValue = typeof GameMode[keyof typeof GameMode]
+
 export const BoxState = {
     BLANK: 'blank',
     LOCK: 'lock',
     MARK: 'mark',
-    STAR: 'star',
+    BOXLE: 'boxle',
 } as const
 
 export type BoxStateValue = typeof BoxState[keyof typeof BoxState]

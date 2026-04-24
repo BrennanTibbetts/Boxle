@@ -26,7 +26,7 @@ Stats to track per session and accumulate all-time:
 
 The viral loop. Spoiler-free — shows outcome shape, not puzzle content.
 
-- [x] Define the result format: 8-cell emoji grid — ⭐ clean, 🟡 with mistakes, 💀 game over, ⬜ not reached
+- [x] Define the result format: 8-box emoji grid — 🎯 clean, 🟡 with mistakes, 💀 game over, ⬜ not reached
 - [x] Generate the share text string: date header, emoji grid, streak line
 - [x] "Share" button on end screen: `navigator.share()` on mobile, clipboard copy + "Copied!" feedback on desktop
 - [ ] Test on desktop (clipboard) and mobile (native share sheet)

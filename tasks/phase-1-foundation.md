@@ -26,7 +26,7 @@ Leva is currently visible to end users. Must be stripped before any public link 
 
 The `ENDED` phase in `src/stores/useGame.ts` currently has no UI. Players just stare at a frozen board.
 
-- [x] Fix `placeStar` in `useGame.ts` — session complete (all 8 levels done) now triggers `Phase.ENDED`; was previously undetected
+- [x] Fix `placeBoxle` in `useGame.ts` — session complete (all 8 levels done) now triggers `Phase.ENDED`; was previously undetected
 - [x] Fix `lives` on game over — was incorrectly reset to 3 at the ENDED moment; now stays at 0 so end screen can distinguish outcomes
 - [x] Fix `restart` — now resets board state to blank, resets timer, goes straight to PLAYING (previously went to READY with no handler)
 - [x] Build `src/interface/EndScreen.tsx` — 2D overlay showing levels completed, elapsed time (session complete) or a "Try Again" button (game over)

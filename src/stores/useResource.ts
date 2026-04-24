@@ -24,9 +24,9 @@ interface ResourceState {
     addTexture: (key: string, texture: THREE.Texture) => THREE.Texture
     addMaterial: (key: string, material: THREE.Material) => THREE.Material
     getGroupMaterial: (groupNumber: number, wireframe?: boolean) => THREE.MeshStandardMaterial
-    getStarMaterial: (groupNumber: number) => THREE.MeshStandardMaterial
+    getBoxleMaterial: (groupNumber: number) => THREE.MeshStandardMaterial
     getGlowMaterial: (groupNumber: number) => THREE.MeshBasicMaterial
-    updateStarMaterials: (emissiveIntensity: number) => void
+    updateBoxleMaterials: (emissiveIntensity: number) => void
     updateGlowMaterials: (opacity: number, colorMix: number) => void
     setMaterialOffset: (offset: number) => void
     updateGroupMaterials: (wireframe: boolean) => void
@@ -82,10 +82,10 @@ export const useResource = create<ResourceState>((set, get) => ({
         return materials.get(key) as THREE.MeshStandardMaterial
     },
 
-    getStarMaterial: (groupNumber) => {
+    getBoxleMaterial: (groupNumber) => {
         const { materials, materialOffset } = get()
         const index = (groupNumber + materialOffset) % COLORS.length
-        const key = `star-${index}`
+        const key = `boxle-${index}`
 
         if (!materials.has(key)) {
             const groupColor = new THREE.Color(COLORS[index])
@@ -121,10 +121,10 @@ export const useResource = create<ResourceState>((set, get) => ({
         return materials.get(key) as THREE.MeshBasicMaterial
     },
 
-    updateStarMaterials: (emissiveIntensity) => {
+    updateBoxleMaterials: (emissiveIntensity) => {
         const { materials } = get()
         materials.forEach((mat, key) => {
-            if (key.startsWith('star-')) {
+            if (key.startsWith('boxle-')) {
                 (mat as THREE.MeshStandardMaterial).emissiveIntensity = emissiveIntensity
             }
         })

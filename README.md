@@ -1,30 +1,30 @@
 # Boxle
 
-A daily 3D Star Battle puzzle game built with React and Three.js. Each day presents a fresh sequence of puzzles across multiple grid sizes.
+A daily 3D logic puzzle game built with React and Three.js. Each day presents a fresh sequence of puzzles across multiple grid sizes.
 
 ---
 
-## Star Battle Rules
+## Rules
 
-Star Battle (also called "Two Not Touch") is a logic puzzle played on an N×N grid divided into N regions.
+Boxle is played on an N×N grid of boxes, divided into N colored regions.
 
-**Goal:** Place exactly S stars per row, per column, and per region.
+**Goal:** Place exactly S boxles per row, per column, and per region.
 
 **Rules:**
-1. Every row must contain exactly S stars.
-2. Every column must contain exactly S stars.
-3. Every region (outlined area) must contain exactly S stars.
-4. No two stars may touch — not even diagonally.
+1. Every row must contain exactly S boxles.
+2. Every column must contain exactly S boxles.
+3. Every region (outlined area) must contain exactly S boxles.
+4. No two boxles may touch — not even diagonally.
 
 The puzzle has a unique solution derivable through logic alone.
 
 **Common variants:**
 
-| Stars (S) | Typical grid size |
-|-----------|------------------|
-| 1         | 8×8              |
-| 2         | 10×10            |
-| 3         | 14×14            |
+| Boxles (S) | Typical grid size |
+|-------------|-------------------|
+| 1           | 8×8               |
+| 2           | 10×10             |
+| 3           | 14×14             |
 
 ---
 
@@ -41,7 +41,7 @@ Opens at `http://localhost:3000`. The daily puzzle sequence is seeded from the c
 
 ## Puzzle Generator
 
-The generator lives in `puzzle-generator/` and produces valid, uniquely-solvable Star Battle puzzles procedurally.
+The generator lives in `puzzle-generator/` and produces valid, uniquely-solvable puzzles procedurally.
 
 ### Usage
 
@@ -53,7 +53,7 @@ node generate.js --n <gridSize> [options]
 | Flag      | Default | Description |
 |-----------|---------|-------------|
 | `--n`     | required | Grid size. S=1 supports 4–11; S=2 requires 8–11 |
-| `--s`     | `1`     | Stars per row/column/region |
+| `--s`     | `1`     | Boxles per row/column/region |
 | `--count` | `10`    | Number of puzzles to generate |
 | `--out`   | auto    | Output file path |
 | `--seed`  | random  | Master PRNG seed (same seed → same puzzles) |
@@ -65,7 +65,7 @@ node generate.js --n <gridSize> [options]
 # Generate 50 standard 8×8 puzzles
 node generate.js --n 8 --count 50
 
-# Generate 2-star 10×10 puzzles, reproducible
+# Generate 2-boxle 10×10 puzzles, reproducible
 node generate.js --n 10 --s 2 --count 20 --seed 42
 
 # Append to an existing puzzle file
@@ -78,18 +78,18 @@ Output goes to `generated-puzzles/` by default.
 
 The generator is fully procedural — it never creates a random board and checks validity. Instead:
 
-1. **Star placement** — Stars are placed row by row via backtracking. Every star placed satisfies the row, column, and adjacency constraints by construction.
-2. **Region growth** — N connected regions are grown simultaneously from the star seed cells using a randomized BFS. Regions are contiguous by construction.
-3. **Uniqueness repair** — The board is iteratively adjusted until only one valid star placement exists. A constraint solver identifies alternative solutions and guides targeted boundary adjustments to eliminate them.
+1. **Boxle placement** — Boxles are placed row by row via backtracking. Every boxle placed satisfies the row, column, and adjacency constraints by construction.
+2. **Region growth** — N connected regions are grown simultaneously from the boxle seed boxes using a randomized BFS. Regions are contiguous by construction.
+3. **Uniqueness repair** — The board is iteratively adjusted until only one valid boxle placement exists. A constraint solver identifies alternative solutions and guides targeted boundary adjustments to eliminate them.
 
 ### Data format
 
 Puzzles are stored as a single N×N integer matrix. The encoding is:
 
-- **Regular cell** in region `r` → integer `r`
-- **Star cell** in region `r` → string `"r*"`
+- **Regular box** in region `r` → integer `r`
+- **Boxle box** in region `r` → string `"r*"`
 
-To decode: if the value is a string ending in `*`, it's a star in that region.
+To decode: if the value is a string ending in `*`, it's a boxle in that region.
 
 ```json
 [

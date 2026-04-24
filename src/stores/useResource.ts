@@ -26,6 +26,8 @@ interface ResourceState {
     getGroupMaterial: (groupNumber: number, wireframe?: boolean) => THREE.MeshStandardMaterial
     getBoxleMaterial: (groupNumber: number) => THREE.MeshStandardMaterial
     getGlowMaterial: (groupNumber: number) => THREE.MeshBasicMaterial
+    getDimMaterial: () => THREE.MeshBasicMaterial
+    getWrongMaterial: () => THREE.MeshBasicMaterial
     updateBoxleMaterials: (emissiveIntensity: number) => void
     updateGlowMaterials: (opacity: number, colorMix: number) => void
     setMaterialOffset: (offset: number) => void
@@ -114,6 +116,44 @@ export const useResource = create<ResourceState>((set, get) => ({
                 blending: THREE.AdditiveBlending,
                 depthWrite: false,
                 side: THREE.BackSide,
+            })
+            materials.set(key, mat)
+            set({ materials: new Map(materials) })
+        }
+        return materials.get(key) as THREE.MeshBasicMaterial
+    },
+
+    getDimMaterial: () => {
+        const { materials } = get()
+        const key = 'dim'
+        if (!materials.has(key)) {
+            const mat = new THREE.MeshBasicMaterial({
+                color: '#000000',
+                transparent: true,
+                opacity: 0,
+                depthWrite: false,
+                polygonOffset: true,
+                polygonOffsetFactor: -1,
+                polygonOffsetUnits: -4,
+            })
+            materials.set(key, mat)
+            set({ materials: new Map(materials) })
+        }
+        return materials.get(key) as THREE.MeshBasicMaterial
+    },
+
+    getWrongMaterial: () => {
+        const { materials } = get()
+        const key = 'wrong'
+        if (!materials.has(key)) {
+            const mat = new THREE.MeshBasicMaterial({
+                color: '#ef4444',
+                transparent: true,
+                opacity: 0,
+                depthWrite: false,
+                polygonOffset: true,
+                polygonOffsetFactor: -2,
+                polygonOffsetUnits: -4,
             })
             materials.set(key, mat)
             set({ materials: new Map(materials) })

@@ -28,5 +28,10 @@ The viral loop. Spoiler-free — shows outcome shape, not puzzle content.
 
 - [x] Define the result format: 8-box emoji grid — 🎯 clean, 🟡 with mistakes, 💀 game over, ⬜ not reached
 - [x] Generate the share text string: date header, emoji grid, streak line
-- [x] "Share" button on end screen: `navigator.share()` on mobile, clipboard copy + "Copied!" feedback on desktop
-- [ ] Test on desktop (clipboard) and mobile (native share sheet)
+- [x] "Share" button on end screen: clipboard copy + "Copied!" feedback (web/desktop only for now; mobile native share is out of scope until platform strategy shifts)
+
+---
+
+## Deferred follow-ups
+
+- [ ] **Real sharing surface** — when we're ready to push for virality, revisit: `navigator.share()` wiring for mobile, OG preview images on the shared URL, proper Twitter/Bluesky/iMessage link previews. Tracked here so we don't forget once mobile is in the picture.

@@ -55,7 +55,7 @@ export default function ExplosionConfetti({
                 color: colors[Math.floor(Math.random() * colors.length)],
                 side: THREE.DoubleSide,
             })
-            const particle = new THREE.Mesh(geometry, material) as THREE.Mesh & {
+            const particle = new THREE.Mesh(geometry, material) as unknown as THREE.Mesh & {
                 life: number
                 destination: { x: number; y: number; z: number }
                 rotateSpeedX: number

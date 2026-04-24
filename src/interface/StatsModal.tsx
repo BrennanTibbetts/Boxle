@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import usePersistence from '../stores/usePersistence'
+
+type StatsTab = 'daily' | 'arcade' | 'library'
 
 function formatTime(ms: number): string {
     const totalSeconds = Math.floor(ms / 1000)
@@ -7,70 +10,140 @@ function formatTime(ms: number): string {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
-export default function StatsModal({ onClose }: { onClose: () => void }) {
-    const totalSessions = usePersistence((s) => s.totalSessions)
-    const totalCompleted = usePersistence((s) => s.totalCompleted)
-    const bestTimeMs = usePersistence((s) => s.bestTimeMs)
-    const totalHints = usePersistence((s) => s.totalHints)
-    const totalMistakes = usePersistence((s) => s.totalMistakes)
-    const currentStreak = usePersistence((s) => s.currentStreak)
-    const longestStreak = usePersistence((s) => s.longestStreak)
+function StatItem({ value, label }: { value: string | number; label: string }) {
+    return (
+        <div className="stats-item">
+            <span className="stats-value">{value}</span>
+            <span className="stats-label">{label}</span>
+        </div>
+    )
+}
 
-    const winRate = totalSessions > 0 ? Math.round((totalCompleted / totalSessions) * 100) : 0
+function DailyStats() {
+    const daily = usePersistence((s) => s.stats.daily)
+    const winRate = daily.sessionsPlayed > 0
+        ? Math.round((daily.sessionsCompleted / daily.sessionsPlayed) * 100)
+        : 0
+
+    return (
+        <>
+            <div className="stats-section">
+                <div className="stats-row">
+                    <StatItem
+                        value={daily.currentStreak > 0 ? `🔥 ${daily.currentStreak}` : daily.currentStreak}
+                        label="Streak"
+                    />
+                    <StatItem value={daily.longestStreak} label="Best Streak" />
+                </div>
+            </div>
+            <div className="stats-section">
+                <div className="stats-row">
+                    <StatItem value={daily.sessionsPlayed} label="Played" />
+                    <StatItem value={daily.sessionsCompleted} label="Completed" />
+                    <StatItem value={`${winRate}%`} label="Win Rate" />
+                </div>
+            </div>
+            <div className="stats-section">
+                <div className="stats-row">
+                    {daily.bestTimeMs !== null && (
+                        <StatItem value={formatTime(daily.bestTimeMs)} label="Best Time" />
+                    )}
+                    <StatItem value={daily.hintsUsed} label="Hints" />
+                    <StatItem value={daily.livesLost} label="Mistakes" />
+                </div>
+            </div>
+        </>
+    )
+}
+
+function ArcadeStats() {
+    const arcade = usePersistence((s) => s.stats.arcade)
+    return (
+        <>
+            <div className="stats-section">
+                <div className="stats-row">
+                    <StatItem
+                        value={arcade.deepestSizeEver > 0 ? `${arcade.deepestSizeEver}×${arcade.deepestSizeEver}` : '—'}
+                        label="Deepest"
+                    />
+                </div>
+            </div>
+            <div className="stats-section">
+                <div className="stats-row">
+                    <StatItem value={arcade.runsPlayed} label="Runs" />
+                    <StatItem value={arcade.runsCompleted} label="Cleared" />
+                </div>
+            </div>
+            <div className="stats-section">
+                <div className="stats-row">
+                    <StatItem value={arcade.hintsUsed} label="Hints" />
+                    <StatItem value={arcade.livesLost} label="Mistakes" />
+                </div>
+            </div>
+        </>
+    )
+}
+
+function LibraryStats() {
+    const library = usePersistence((s) => s.stats.library)
+    const sizes = Object.keys(library.tierCompletions).map(Number).sort((a, b) => a - b)
+    const totalCompleted = sizes.reduce((sum, s) => sum + (library.tierCompletions[s] ?? 0), 0)
+
+    return (
+        <>
+            <div className="stats-section">
+                <div className="stats-row">
+                    <StatItem value={totalCompleted} label="Total Completed" />
+                </div>
+            </div>
+            {sizes.length > 0 && (
+                <div className="stats-section">
+                    <div className="stats-tier-list">
+                        {sizes.map((size) => (
+                            <div key={size} className="stats-tier-row">
+                                <span className="stats-tier-size">{size}×{size}</span>
+                                <span className="stats-tier-count">{library.tierCompletions[size]}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+            <div className="stats-section">
+                <div className="stats-row">
+                    <StatItem value={library.hintsUsed} label="Hints" />
+                    <StatItem value={library.livesLost} label="Mistakes" />
+                </div>
+            </div>
+        </>
+    )
+}
+
+export default function StatsModal({ onClose }: { onClose: () => void }) {
+    const [tab, setTab] = useState<StatsTab>('daily')
 
     return (
         <div className="stats-overlay" onClick={onClose}>
             <div className="stats-card" onClick={(e) => e.stopPropagation()}>
                 <h2 className="stats-title">Stats</h2>
 
-                <div className="stats-section">
-                    <div className="stats-row">
-                        <div className="stats-item">
-                            <span className="stats-value">{currentStreak > 0 ? `🔥 ${currentStreak}` : currentStreak}</span>
-                            <span className="stats-label">Streak</span>
-                        </div>
-                        <div className="stats-item">
-                            <span className="stats-value">{longestStreak}</span>
-                            <span className="stats-label">Best Streak</span>
-                        </div>
-                    </div>
+                <div className="stats-tabs">
+                    <button
+                        className={`stats-tab${tab === 'daily' ? ' active' : ''}`}
+                        onClick={() => setTab('daily')}
+                    >Daily</button>
+                    <button
+                        className={`stats-tab${tab === 'arcade' ? ' active' : ''}`}
+                        onClick={() => setTab('arcade')}
+                    >Arcade</button>
+                    <button
+                        className={`stats-tab${tab === 'library' ? ' active' : ''}`}
+                        onClick={() => setTab('library')}
+                    >Library</button>
                 </div>
 
-                <div className="stats-section">
-                    <div className="stats-row">
-                        <div className="stats-item">
-                            <span className="stats-value">{totalSessions}</span>
-                            <span className="stats-label">Played</span>
-                        </div>
-                        <div className="stats-item">
-                            <span className="stats-value">{totalCompleted}</span>
-                            <span className="stats-label">Completed</span>
-                        </div>
-                        <div className="stats-item">
-                            <span className="stats-value">{winRate}%</span>
-                            <span className="stats-label">Win Rate</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="stats-section">
-                    <div className="stats-row">
-                        {bestTimeMs !== null && (
-                            <div className="stats-item">
-                                <span className="stats-value">{formatTime(bestTimeMs)}</span>
-                                <span className="stats-label">Best Time</span>
-                            </div>
-                        )}
-                        <div className="stats-item">
-                            <span className="stats-value">{totalHints}</span>
-                            <span className="stats-label">Hints</span>
-                        </div>
-                        <div className="stats-item">
-                            <span className="stats-value">{totalMistakes}</span>
-                            <span className="stats-label">Mistakes</span>
-                        </div>
-                    </div>
-                </div>
+                {tab === 'daily' && <DailyStats />}
+                {tab === 'arcade' && <ArcadeStats />}
+                {tab === 'library' && <LibraryStats />}
 
                 <button className="hud-btn end-btn" onClick={onClose}>Close</button>
             </div>

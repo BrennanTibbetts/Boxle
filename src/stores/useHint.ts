@@ -1,7 +1,11 @@
 import { create } from 'zustand'
+import { subscribeWithSelector } from 'zustand/middleware'
+import gsap from 'gsap'
 import { BoxState } from '../types/game'
 import type { HintBoxRole, HintResult } from '../utils/hintRules'
 import useGame from './useGame'
+import { useResource } from './useResource'
+import useBoxSettings from './useBoxSettings'
 
 interface HintState {
     activeHint: HintResult | null
@@ -10,7 +14,7 @@ interface HintState {
     getBoxRole: (levelIndex: number, row: number, col: number) => HintBoxRole | null
 }
 
-const useHint = create<HintState>((set, get) => ({
+const useHint = create<HintState>()(subscribeWithSelector((set, get) => ({
     activeHint: null,
 
     setHint: (hint) => set({ activeHint: hint }),
@@ -25,7 +29,20 @@ const useHint = create<HintState>((set, get) => ({
         if (hint.eliminateBoxes.some(c => c.row === row && c.col === col)) return 'eliminate'
         return null
     },
-}))
+})))
+
+useHint.subscribe(
+    (state) => state.activeHint !== null,
+    (isActive) => {
+        const dim = useResource.getState().getDimMaterial()
+        const { hintDimOpacity } = useBoxSettings.getState()
+        gsap.to(dim, {
+            opacity: isActive ? hintDimOpacity : 0,
+            duration: 0.3,
+            ease: 'power2.out',
+        })
+    }
+)
 
 useGame.subscribe(
     (state) => state.levels,

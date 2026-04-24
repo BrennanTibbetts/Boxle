@@ -7,6 +7,7 @@ export const Phase = {
 export type PhaseValue = typeof Phase[keyof typeof Phase]
 
 export const GameMode = {
+    MENU: 'menu',
     DAILY: 'daily',
     ARCADE: 'arcade',
     LIBRARY: 'library',

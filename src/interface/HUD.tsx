@@ -1,4 +1,4 @@
-import useGame from '../stores/useGame'
+import useGame, { GameMode } from '../stores/useGame'
 import useHint from '../stores/useHint'
 import useUI from '../stores/useUI'
 import usePersistence from '../stores/usePersistence'
@@ -24,6 +24,7 @@ export default function HUD() {
     const clearHint = useHint((state) => state.clearHint)
     const rulesOpen = useUI((state) => state.rulesOpen)
     const setRulesOpen = useUI((state) => state.setRulesOpen)
+    const setMode = useGame((state) => state.setMode)
 
     useFirstVisitRules()
 
@@ -38,8 +39,11 @@ export default function HUD() {
         if (!config || !grid) return
         const result = findBestHint(levelIndex, config.levelMatrix, grid)
         setHint(result)
-        useGame.getState().incrementSessionHint()
-        usePersistence.getState().recordHint()
+        const game = useGame.getState()
+        game.incrementSessionHint()
+        if (game.activeMode !== GameMode.MENU) {
+            usePersistence.getState().recordHint(game.activeMode)
+        }
     }
 
     return (
@@ -75,6 +79,15 @@ export default function HUD() {
                         title={rulesOpen ? 'Close rules' : 'How to play'}
                     >
                         ?
+                    </button>
+                </div>
+                <div className="hud-section">
+                    <button
+                        className="hud-btn hud-menu-btn"
+                        onClick={() => setMode(GameMode.MENU)}
+                        title="Main menu"
+                    >
+                        ☰
                     </button>
                 </div>
             </div>

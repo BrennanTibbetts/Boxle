@@ -1,41 +1,48 @@
+import { useMemo } from 'react'
+import { COLORS } from '../stores/useResource'
+
 interface IconProps {
     size?: number
 }
 
-export function BoxleIcon({ size = 18 }: IconProps) {
+// Match the real game: a rounded region-colored box with a rounded inner shape.
+// Inner shape tells you the state: small dark (mark), larger dark (lock), bright (boxle).
+const DARK_INNER = '#1a1a1c'
+const BRIGHT_INNER = '#fffbe0'
+
+// 'lightyellow' is too close to the cream boxle inner — skip it for BoxleIcon.
+const BOXLE_POOL = COLORS.filter(c => c !== 'lightyellow')
+
+function pickFrom(pool: string[]): string {
+    return pool[Math.floor(Math.random() * pool.length)]
+}
+
+export function MarkIcon({ size = 29 }: IconProps) {
+    const outer = useMemo(() => pickFrom(COLORS), [])
     return (
         <svg className="box-icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-            <defs>
-                <radialGradient id="boxle-grad" cx="50%" cy="45%" r="55%">
-                    <stop offset="0%" stopColor="#fffbd0" />
-                    <stop offset="55%" stopColor="#fde047" />
-                    <stop offset="100%" stopColor="#c89a0e" />
-                </radialGradient>
-            </defs>
-            <rect x="2" y="2" width="20" height="20" rx="5" fill="url(#boxle-grad)" />
-            <path
-                d="M12 6 L13.5 10.5 L18 12 L13.5 13.5 L12 18 L10.5 13.5 L6 12 L10.5 10.5 Z"
-                fill="#fffbe0"
-                opacity="0.9"
-            />
+            <rect x="2" y="2" width="20" height="20" rx="5" fill={outer} />
+            <rect x="9" y="9" width="6" height="6" rx="1.4" fill={DARK_INNER} />
         </svg>
     )
 }
 
-export function MarkIcon({ size = 18 }: IconProps) {
+export function LockIcon({ size = 29 }: IconProps) {
+    const outer = useMemo(() => pickFrom(COLORS), [])
     return (
         <svg className="box-icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="2" y="2" width="20" height="20" rx="5" fill="#2c2c2f" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
-            <circle cx="12" cy="12" r="2.4" fill="#b8b8bd" />
+            <rect x="2" y="2" width="20" height="20" rx="5" fill={outer} />
+            <rect x="5.5" y="5.5" width="13" height="13" rx="2.6" fill={DARK_INNER} />
         </svg>
     )
 }
 
-export function LockIcon({ size = 18 }: IconProps) {
+export function BoxleIcon({ size = 29 }: IconProps) {
+    const outer = useMemo(() => pickFrom(BOXLE_POOL), [])
     return (
         <svg className="box-icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="2" y="2" width="20" height="20" rx="5" fill="#1e1e21" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
-            <circle cx="12" cy="12" r="4.8" fill="#8a8a90" />
+            <rect x="2" y="2" width="20" height="20" rx="5" fill={outer} />
+            <rect x="6.5" y="6.5" width="11" height="11" rx="2.2" fill={BRIGHT_INNER} />
         </svg>
     )
 }

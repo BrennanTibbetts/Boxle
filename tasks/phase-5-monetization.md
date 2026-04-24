@@ -9,13 +9,20 @@ Price: **$2.99 one-time unlock**. Daily puzzle is always free. No subscriptions,
 ## 5.1 Unlock State in Persistence
 
 - [ ] Add `isPremium: boolean` to the persistence schema
-- [ ] Default to `false`; set to `true` on successful purchase
-- [ ] All gate checks read from this single flag — no per-feature flags
+- [ ] **Always `false` locally** in the web (no-account) path — localStorage cannot grant premium. The field exists in the schema so the shape matches the future backend/account path 1:1 (see [PRODUCT_DIRECTION.md](../PRODUCT_DIRECTION.md) "Accounts & Persistence")
+- [ ] Gate checks read `isPremium` from the authoritative source: the auth layer / server when an account is linked, the (always-false) local flag otherwise. Do **not** let DevTools-flipping localStorage unlock gates
 
 ## 5.2 Depth Gates
 
-- [ ] Arcade: when player reaches 9×9 and `!isPremium`, intercept with upsell screen instead of loading the puzzle
-- [ ] Library: when player tries to unlock a tier above the free threshold and `!isPremium`, intercept with upsell screen
+Phase 4 already stubbed the gate hook (`src/utils/gates.ts` — `canPlayAt(size, mode)` currently returns `true` for everything). Phase 5 replaces the body.
+
+**Placeholder thresholds** (revisit after playtesting — starting permissive to surface the full content):
+- Arcade: free up to **10×10**; paid unlocks **11×11 through 15×15**
+- Library: free through **tier 7 (7×7)**; paid unlocks **tiers 8 and above**
+
+- [ ] Replace `canPlayAt` body: return `false` when `!isPremium` and `size > threshold` for the given mode
+- [ ] Arcade: on next-size transition, if gate rejects, show upsell screen instead of loading the next puzzle (run does not end — "subscribe to keep going")
+- [ ] Library: on tier-unlock attempt, if gate rejects, show upsell screen
 - [ ] Upsell screen: brief pitch + price + purchase button; dismissible (player returns to where they were)
 
 ## 5.3 Payment Integration

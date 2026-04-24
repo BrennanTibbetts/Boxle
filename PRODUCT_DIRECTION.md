@@ -31,10 +31,10 @@ Each day, all players get the same sequence of 8 puzzles, scaling from 4×4 up t
 - Stats modal: win rate, best time, all-time hints and mistakes
 
 **What is missing or prototype-only:**
-- Tutorial content iteration ongoing — framework complete, scripts for 4×4/5×5/6×6 being refined
-- Only one game mode is user-visible (Daily); the mode-provider architecture supports others but Arcade and Library providers are not built
+- Onboarding is a single static rules slide (`RulesModal`). The interactive tutorial system was removed on 2026-04-23; whether we need more than a rules slide is pinned on real playtester feedback
+- Only one game mode exists (Daily); mode-provider scaffolding is in place for Arcade/Library but those providers aren't built
 - No monetization infrastructure
-- No main menu or pause UI (mode switch is only triggered from the Tutorial button + TutorialEndScreen)
+- No main menu or pause UI — the app launches straight into the daily
 - `version: 0.0.0` in package.json — pre-release
 
 **Key files to know:**
@@ -42,21 +42,18 @@ Each day, all players get the same sequence of 8 puzzles, scaling from 4×4 up t
 - [src/stores/usePersistence.ts](src/stores/usePersistence.ts) — localStorage persistence (stats, streaks, daily save)
 - [src/hooks/usePersistenceSync.ts](src/hooks/usePersistenceSync.ts) — wires game state to persistence; restore-then-subscribe ordering is intentional
 - [src/LevelManager.tsx](src/LevelManager.tsx) — pure renderer; reads `levelConfigs` from store, no longer loads puzzles itself
-- [src/components/Box.tsx](src/components/Box.tsx) — box interaction, all input handling, animations (includes tutorial click interception)
+- [src/components/Box.tsx](src/components/Box.tsx) — box interaction, all input handling, animations
 - [src/utils/hintRules.ts](src/utils/hintRules.ts) — all 13 hint deduction rules
 - [src/stores/useHint.ts](src/stores/useHint.ts) — active hint + `HintBoxRole` resolution; auto-clears on boxle placement
 - [src/hooks/useDailyPuzzles.ts](src/hooks/useDailyPuzzles.ts) — date-seeded puzzle selection and decoding
 - [src/utils/puzzle.ts](src/utils/puzzle.ts) — seed math and board decode logic
-- [src/interface/HUD.tsx](src/interface/HUD.tsx) — 2D overlay (level counter, lives, hint button); defines `COLOR_LABELS` used across UI
+- [src/interface/HUD.tsx](src/interface/HUD.tsx) — 2D overlay (level counter, lives, hint button, `?` rules button); defines `COLOR_LABELS` used across UI
 - [src/interface/Interface.tsx](src/interface/Interface.tsx) — mode-routed UI shell; mounts mode providers + conditional overlays
 - [src/interface/EndScreen.tsx](src/interface/EndScreen.tsx) — session complete / game over overlay with share and stats
 - [src/interface/StatsModal.tsx](src/interface/StatsModal.tsx) — all-time stats overlay
+- [src/interface/RulesModal.tsx](src/interface/RulesModal.tsx) — static rules slide; first-visit auto-open via `boxle-rules-seen` flag, also openable from HUD `?` button
 - [data/puzzles.js](data/puzzles.js) — aggregates all 680 puzzles from 8 JSON files
 - [src/modes/DailyModeProvider.tsx](src/modes/DailyModeProvider.tsx) — loads the daily sequence + runs persistence sync
-- [src/modes/TutorialModeProvider.tsx](src/modes/TutorialModeProvider.tsx) — loads the 3 tutorial boards, no persistence
-- [src/tutorial/TutorialController.tsx](src/tutorial/TutorialController.tsx) — async script runner for system/player/info steps
-- [src/tutorial/tutorialScripts.ts](src/tutorial/tutorialScripts.ts) — step sequences for the three tutorial levels
-- [src/components/TutorialButton.tsx](src/components/TutorialButton.tsx) — switches active mode to `tutorial`
 
 ---
 
@@ -110,7 +107,7 @@ Each day, all players get the same sequence of 8 puzzles, scaling from 4×4 up t
 
 **Schema discipline:** design localStorage keys and stat shapes as if they will be sent to a REST API. When accounts arrive, the sync layer becomes push-on-login / pull-on-new-device. A clean schema now makes that migration trivial.
 
-**Premium status is never stored in localStorage.** It is a backend/auth concern — derived from a JWT claim or API response after a verified purchase. A client-writable flag in localStorage is a security hole anyone can flip in DevTools. When Phase 5 arrives, premium state comes from the auth layer, not the persistence layer.
+**Premium status is never *authoritative* from localStorage.** The persistence schema includes `isPremium: boolean` for 1:1 parity with the future backend payload, but in the no-account web path it is always `false` — a passive mirror, never a source of truth. Unlock decisions must come from the auth layer (JWT claim / API response after a verified purchase) when an account is linked. A locally flipped flag must never unlock content; assume DevTools exists.
 
 ---
 
@@ -148,25 +145,16 @@ All four of these must be built. Persistence (localStorage) is the prerequisite.
 
 ## Onboarding
 
-The tutorial is a **three-level guided walkthrough** (4×4 → 5×5 → 6×6), each level teaching a progressively more advanced technique. It uses the same puzzle engine as the daily mode but runs under `TutorialModeProvider` with its own step-scripted controller — no persistence, no life loss, nudge animation on invalid clicks.
+**Current state (as of 2026-04-23):** a single static **rules slide**, no guided walkthrough.
 
-**Level progression:**
-- **4×4 — The Basics**: regions, the one-boxle-per-region rule, adjacency, and single-box regions as the first forced placement.
-- **5×5 — Column Ownership**: when a region's boxes are all in one column, that column belongs to the region; other regions lose their boxes there.
-- **6×6 — Row & Column Ownership**: same technique applied to rows, with richer cascades.
+The interactive tutorial (three-level walkthrough, bot-driven demos, in-scene hand cursor, step-scripted controller) was built and then removed — it had become too complex for the value it delivered. The rules slide ([src/interface/RulesModal.tsx](src/interface/RulesModal.tsx)) explains regions, rows/columns, adjacency, and mark/boxle interaction; it auto-opens on first visit (via `boxle-rules-seen` in localStorage) and is reachable any time from the `?` button in the HUD.
 
-**Step types** ([src/types/tutorial.ts](src/types/tutorial.ts)):
-- `info` — rule-explanation slide with a "Got it →" continue button.
-- `system` — scripted demonstration. Moves include `moveTo`, `pause`, `click`, `placeBoxle` (user executes the guided click), and `autoMark`/`autoBoxle` (bot executes without user input — used when the teaching is the *concept*, not the click).
-- `player` — user applies what was just taught; any box in `validBoxes` is accepted.
+Whether a richer onboarding is needed is an **open question pinned on real playtester observation**. Don't rebuild the guided tutorial speculatively — watch first-time players with the rules slide first.
 
-**Design conventions** (keep consistent across future tutorial content, hint text, and any user-facing explanation of regions/rows/cols):
-- Reference regions by color, not index — and use the `COLOR_LABELS` from [src/interface/HUD.tsx](src/interface/HUD.tsx) exactly (`Yellow`, `Purple`, `Aqua`, `Red`, `White`, `Green`, ...). Rendering picks them up and styles each occurrence in the region's color, matching the hint description format.
+**Design conventions** (apply to rules copy, hint text, and any future user-facing explanation of regions/rows/cols):
+- Reference regions by color, not index — use the `COLOR_LABELS` from [src/interface/HUD.tsx](src/interface/HUD.tsx) exactly (`Yellow`, `Purple`, `Aqua`, `Red`, `White`, `Green`, ...). The hint-description renderer styles each occurrence in the region's color.
 - Describe rows/columns spatially ("leftmost column", "bottom row", "fourth column from the left") — never use 0-indexed coordinates in user-facing text.
 - Styling matches the in-game HUD — Bebas Neue with the translucent-glass bubble (`backdrop-filter: blur(6px)`), not a dark modal card.
-- Hand cursor is a single `👆` emoji; pressing is a scale+translate tween, not an emoji swap. The `Html` wrapper must have `pointerEvents: 'none'` so clicks pass through to the box underneath.
-
-**First-visit flow:** `TutorialModal` checks `boxle-tutorial-seen` in localStorage on mount and offers "Start Tutorial" / "Skip". The tutorial button in the HUD always re-opens the tutorial (independent of the flag).
 
 ---
 
@@ -184,20 +172,21 @@ Work through these phases in order. Each phase is a prerequisite for the next.
 - [x] Personal stats (per-session + all-time)
 - [x] Shareable daily result card
 
-### Phase 3 — Onboarding 🟡 In progress (framework complete, content iterating)
-- [x] Mode-provider architecture (`GameMode` enum, `DailyModeProvider`, `TutorialModeProvider`); doubles as the foundation for Phase 4
-- [x] Tutorial controller: async script runner supporting `info` / `system` / `player` steps with both guided-user-click and bot-auto-executed moves
-- [x] Three-level walkthrough (4×4, 5×5, 6×6) with 3D hand cursor, colored region references, HUD-matched styling
-- [x] First-visit modal + persistent `boxle-tutorial-seen` flag; Tutorial button re-opens anytime
-- [ ] Script content polish across all three levels (ongoing review)
-- [ ] Playtest with a first-time player to validate step-by-step clarity
+### Phase 3 — Onboarding ✅ Closed for now (tutorial gutted; pinned on playtester feedback)
+- [x] Mode-provider scaffolding (`GameMode` enum, `DailyModeProvider`); still the foundation for Phase 4
+- [x] Static `RulesModal` with first-visit auto-open (`boxle-rules-seen`) and HUD `?` button
+- [ ] **Pinned:** observe real first-time players with the rules slide before deciding whether to reintroduce any guided tutorial pieces
 
 ### Phase 4 — New Modes
-- [ ] Arcade mode provider (auto-scaling survival, depth/score tracking)
-- [ ] Library mode provider (batch progression through size tiers)
-- [ ] Mode selection UI (home/main menu screen)
+- [ ] Runtime puzzle generator + pre-generation buffer (Arcade/Library generate on-demand; Daily keeps the curated pool)
+- [ ] Stats schema migration to per-mode nested shape; streak stays daily-only
+- [ ] Main Menu (2D overlay, tiles for Daily / Arcade / Library + How to Play + Stats)
+- [ ] Boot-state routing: resume-first when daily in-flight, menu when daily complete, daily-first on a new day
+- [ ] Arcade mode provider (3 lives per run, random survival, 4×4 → 15×15 cap, no score display yet)
+- [ ] Library mode provider (batches of 10, completing a batch unlocks size+1, replays free)
+- [ ] Phase 5 gate hooks stubbed (always-allow body) at the Arcade next-size and Library tier-unlock call sites
 
-**Note on Phase 4 infrastructure:** The mode-provider pattern from Phase 3 (`src/modes/*`) is designed to be the integration point for Arcade and Library. Each new mode mounts its own provider in `Interface.tsx` and owns its own puzzle-loading + persistence strategy. Do not re-architect — follow the existing pattern.
+**Note on Phase 4 infrastructure:** The mode-provider pattern (`src/modes/*`) is the integration point. Each mode mounts its own provider in `Interface.tsx` and owns its own puzzle-loading + persistence strategy. Do not re-architect — follow the existing pattern.
 
 ### Phase 5 — Monetization
 - [ ] Unlock state in persistence layer (free vs. paid per mode)
@@ -217,6 +206,9 @@ Design and polish ideas to revisit after the phase roadmap is further along. Not
 
 - **Level preview camera animation** — on level start, begin with the camera tilted/angled toward the far end of the grid, then animate it down to the normal play position. Gives the player a brief aerial overview of the full puzzle before settling into the default view.
 - **Click-and-hold boxle placement** — instead of an instant tap, holding a box begins a slow fill/charge animation on that box indicating a boxle is about to be placed. Releasing after the animation completes confirms the boxle; releasing early cancels. Adds tactile intention to placement and reduces accidental misclicks.
+- **Real share surface** — current share button is clipboard-only. When virality is a priority and mobile is in scope, add `navigator.share()`, OG preview images, and platform-specific link previews (Twitter/Bluesky/iMessage).
+- **Bake-off the two puzzle generators** — my generator vs. a friend's alternate algorithm. Both are more than sufficient today; worth comparing output distribution, speed, and uniqueness before committing to one for on-demand (Arcade) or infinite generation.
+- **Infinity mode** — both generators are fast enough to produce puzzles on-demand at runtime. A fourth mode that generates forever is feasible; park it until Arcade/Library prove the appetite for endless play.
 
 ---
 

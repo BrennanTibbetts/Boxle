@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import useGame, { Phase } from '../stores/useGame'
+import useGame, { Phase, GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
+import useArcadeRun from '../stores/useArcadeRun'
 import StatsModal from './StatsModal'
 
 function formatTime(ms: number): string {
@@ -23,24 +24,21 @@ function buildShareGrid(
     }).join('')
 }
 
-export default function EndScreen() {
-    const phase = useGame((state) => state.phase)
+function DailyEndContent() {
     const lives = useGame((state) => state.lives)
     const currentLevel = useGame((state) => state.currentLevel)
     const levelCount = useGame((state) => state.levelConfigs.length)
     const startTime = useGame((state) => state.startTime)
     const endTime = useGame((state) => state.endTime)
     const restart = useGame((state) => state.restart)
+    const setMode = useGame((state) => state.setMode)
     const sessionHints = useGame((state) => state.sessionHints)
     const sessionLivesLost = useGame((state) => state.sessionLivesLost)
     const levelMistakes = useGame((state) => state.levelMistakes)
-
-    const currentStreak = usePersistence((state) => state.currentStreak)
+    const currentStreak = usePersistence((state) => state.stats.daily.currentStreak)
 
     const [shareLabel, setShareLabel] = useState('Share')
     const [showStats, setShowStats] = useState(false)
-
-    if (phase !== Phase.ENDED) return null
 
     const isComplete = lives > 0
     const elapsed = startTime && endTime ? endTime - startTime : null
@@ -55,10 +53,6 @@ export default function EndScreen() {
     ].filter(Boolean).join('\n')
 
     const handleShare = async () => {
-        if (navigator.share) {
-            navigator.share({ text: shareText }).catch(() => {})
-            return
-        }
         await navigator.clipboard.writeText(shareText)
         setShareLabel('Copied!')
         setTimeout(() => setShareLabel('Share'), 2000)
@@ -66,8 +60,7 @@ export default function EndScreen() {
 
     return (
         <>
-        {showStats && <StatsModal onClose={() => setShowStats(false)} />}
-        <div className="end-screen">
+            {showStats && <StatsModal onClose={() => setShowStats(false)} />}
             <div className="end-card">
                 <h1 className="end-title">
                     {isComplete ? 'Puzzle Complete' : 'Game Over'}
@@ -111,13 +104,78 @@ export default function EndScreen() {
                     <button className="hud-btn end-btn" onClick={() => setShowStats(true)}>
                         Stats
                     </button>
+                    <button className="hud-btn end-btn" onClick={() => setMode(GameMode.MENU)}>
+                        Menu
+                    </button>
                     {isComplete
                         ? <p className="end-sub">See you tomorrow!</p>
                         : <button className="hud-btn end-btn" onClick={restart}>Try Again</button>
                     }
                 </div>
             </div>
-        </div>
         </>
+    )
+}
+
+function ArcadeEndContent() {
+    const setMode = useGame((state) => state.setMode)
+    const startNewRun = useArcadeRun((s) => s.startNewRun)
+    const currentSize = useArcadeRun((s) => s.currentSize)
+    const puzzlesCompleted = useArcadeRun((s) => s.puzzlesCompleted)
+    const capReached = useArcadeRun((s) => s.capReached)
+    const sessionHints = useGame((state) => state.sessionHints)
+    const sessionLivesLost = useGame((state) => state.sessionLivesLost)
+
+    return (
+        <div className="end-card">
+            <h1 className="end-title">
+                {capReached ? 'Run Complete' : 'Run Ended'}
+            </h1>
+
+            <div className="end-stats">
+                <div className="end-stat">
+                    <span className="end-stat-label">Deepest</span>
+                    <span className="end-stat-value">{currentSize}×{currentSize}</span>
+                </div>
+                <div className="end-stat">
+                    <span className="end-stat-label">Puzzles</span>
+                    <span className="end-stat-value">{puzzlesCompleted}</span>
+                </div>
+                {sessionHints > 0 && (
+                    <div className="end-stat">
+                        <span className="end-stat-label">Hints</span>
+                        <span className="end-stat-value">{sessionHints}</span>
+                    </div>
+                )}
+                {sessionLivesLost > 0 && (
+                    <div className="end-stat">
+                        <span className="end-stat-label">Mistakes</span>
+                        <span className="end-stat-value">{sessionLivesLost}</span>
+                    </div>
+                )}
+            </div>
+
+            <div className="end-actions">
+                <button className="hud-btn end-btn" onClick={() => startNewRun()}>
+                    New Run
+                </button>
+                <button className="hud-btn end-btn" onClick={() => setMode(GameMode.MENU)}>
+                    Menu
+                </button>
+            </div>
+        </div>
+    )
+}
+
+export default function EndScreen() {
+    const phase = useGame((state) => state.phase)
+    const activeMode = useGame((state) => state.activeMode)
+
+    if (phase !== Phase.ENDED) return null
+
+    return (
+        <div className="end-screen">
+            {activeMode === GameMode.ARCADE ? <ArcadeEndContent /> : <DailyEndContent />}
+        </div>
     )
 }

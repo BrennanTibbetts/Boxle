@@ -1,7 +1,8 @@
 import { useControls } from 'leva'
 import { useRef } from 'react'
 import { useHelper } from '@react-three/drei'
-import { DirectionalLightHelper, DirectionalLight } from 'three'
+import type { RefObject } from 'react'
+import { DirectionalLightHelper, DirectionalLight, Object3D } from 'three'
 
 export default function Lights() {
     const dl = useControls('directionalLight', {
@@ -23,7 +24,7 @@ export default function Lights() {
     })
 
     const lightRef = useRef<DirectionalLight>(null)
-    useHelper(dl.helper && lightRef, DirectionalLightHelper)
+    useHelper(dl.helper && (lightRef as RefObject<Object3D>), DirectionalLightHelper)
 
     return <>
         <directionalLight

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import useGame, { Phase } from '../stores/useGame'
+import useGame, { Phase, GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 
 export function usePersistenceSync() {
@@ -25,7 +25,7 @@ export function usePersistenceSync() {
                 phase: saved.phase,
             })
         } else {
-            usePersistence.getState().startSession()
+            usePersistence.getState().startDailySession()
         }
 
         const unsub = useGame.subscribe((state) => {
@@ -48,12 +48,10 @@ export function usePersistenceSync() {
                 const { lives, startTime, endTime, sessionLivesLost } = useGame.getState()
                 const persistence = usePersistence.getState()
 
-                if (sessionLivesLost > 0) {
-                    persistence.recordMistakes(sessionLivesLost)
-                }
+                persistence.recordLivesLost(GameMode.DAILY, sessionLivesLost)
 
                 if (lives > 0 && startTime && endTime) {
-                    persistence.completeSession(endTime - startTime)
+                    persistence.completeDailySession(endTime - startTime)
                 }
             }
         )

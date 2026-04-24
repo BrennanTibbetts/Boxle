@@ -1,1 +1,0 @@
-erase i bug when i say it's fixed.

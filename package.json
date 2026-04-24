@@ -9,6 +9,10 @@
     "deploy": "vercel --prod"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.184.0",
     "@vitejs/plugin-react": "^6.0.1",
     "vercel": "^52.0.0",
     "vite": "^8.0.9"

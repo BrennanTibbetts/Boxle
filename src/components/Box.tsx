@@ -1,7 +1,6 @@
 import gsap from 'gsap'
-import { useRef, useMemo, useEffect } from 'react'
+import { useRef, useMemo, useEffect, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import * as THREE from 'three'
 import type { Mesh } from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
 
@@ -63,30 +62,10 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     const geometry       = useMemo(() => useResource.getState().geometries.get('box')!, [])
     const markMaterial   = useMemo(() => useResource.getState().materials.get('mark')!, [])
     const material       = useMemo(() => useResource.getState().getGroupMaterial(group), [group])
-    const boxleMaterial = useMemo(() => useResource.getState().getBoxleMaterial(group), [group])
+    const boxleMaterial  = useMemo(() => useResource.getState().getBoxleMaterial(group), [group])
     const glowMaterial   = useMemo(() => useResource.getState().getGlowMaterial(group), [group])
-
-    const dimMaterial = useMemo(() => new THREE.MeshBasicMaterial({
-        color: '#000000',
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -4,
-    }), [])
-
-    const wrongMaterial = useMemo(() => new THREE.MeshBasicMaterial({
-        color: '#ef4444',
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        polygonOffset: true,
-        polygonOffsetFactor: -2,
-        polygonOffsetUnits: -4,
-    }), [])
-
-    useEffect(() => () => { dimMaterial.dispose(); wrongMaterial.dispose() }, [])
+    const dimMaterial    = useMemo(() => useResource.getState().getDimMaterial(), [])
+    const wrongMaterial  = useMemo(() => useResource.getState().getWrongMaterial(), [])
 
     const isWrongPlacement = useGame((state) =>
         state.wrongPlacement?.levelIndex === levelIndex &&
@@ -161,12 +140,18 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         }
     }, [boxState])
 
+    // Dim overlay only mounts when this box is being dimmed by an active hint.
+    // Lingers briefly after the hint clears so the shared fade-out tween can finish.
+    const [showDim, setShowDim] = useState(false)
+    const needsDim = hintActive && !hintRole
     useEffect(() => {
-        const { hintDimOpacity } = useBoxSettings.getState()
-        const dimmed = hintActive && !hintRole
-        const opacity = dimmed ? hintDimOpacity : 0
-        gsap.to(dimMaterial, { opacity, duration: 0.3, ease: 'power2.out' })
-    }, [hintActive, hintRole])
+        if (needsDim) {
+            setShowDim(true)
+        } else {
+            const t = setTimeout(() => setShowDim(false), 350)
+            return () => clearTimeout(t)
+        }
+    }, [needsDim])
 
     useEffect(() => {
         if (!isWrongPlacement || !box.current) return
@@ -256,6 +241,12 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
 
     const isBoxle = boxState === BoxState.BOXLE
 
+    // When a boxle is placed, the visible extent is the glow (child of the boxle
+    // mesh), so dim coverage shrinks to boxleScale * glowScale in world space.
+    const boxleScaleSetting = useBoxSettings((s) => s.boxleScale)
+    const glowScaleSetting = useBoxSettings((s) => s.glowScale)
+    const dimScale = isBoxle ? boxleScaleSetting * glowScaleSetting : 1.0
+
     return (
         <group position={position} ref={box}>
             <mesh
@@ -286,8 +277,8 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
                 material={markMaterial}
                 scale={[0, 0.1, 0]}
             />
-            <mesh geometry={geometry} material={dimMaterial}   scale={1.0} />
-            <mesh geometry={geometry} material={wrongMaterial} scale={1.0} />
+            {showDim && <mesh geometry={geometry} material={dimMaterial} scale={dimScale} />}
+            {isWrongPlacement && <mesh geometry={geometry} material={wrongMaterial} scale={1.0} />}
         </group>
     )
 }

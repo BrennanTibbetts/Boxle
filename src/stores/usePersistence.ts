@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { BoxStateValue, PhaseValue } from '../types/game'
 
+type TrackedMode = 'daily' | 'arcade' | 'library'
+
 function getToday(): string {
     return new Date().toISOString().slice(0, 10)
 }
@@ -20,60 +22,140 @@ export interface DailySave {
     phase: PhaseValue
 }
 
-interface PersistenceData {
-    daily: DailySave | null
-    totalSessions: number
-    totalCompleted: number
+export interface DailyStats {
+    sessionsPlayed: number
+    sessionsCompleted: number
     bestTimeMs: number | null
-    totalHints: number
-    totalMistakes: number
+    hintsUsed: number
+    livesLost: number
     currentStreak: number
     longestStreak: number
     lastCompletedDate: string | null
 }
 
+export interface ArcadeStats {
+    runsPlayed: number
+    runsCompleted: number
+    deepestSizeEver: number
+    hintsUsed: number
+    livesLost: number
+}
+
+export interface LibraryStats {
+    tierCompletions: Record<number, number>
+    hintsUsed: number
+    livesLost: number
+}
+
+export interface ModeStats {
+    daily: DailyStats
+    arcade: ArcadeStats
+    library: LibraryStats
+}
+
+export interface LibraryProgress {
+    unlockedMaxSize: number
+}
+
+interface PersistenceData {
+    dailySave: DailySave | null
+    stats: ModeStats
+    libraryProgress: LibraryProgress
+    isPremium: boolean
+}
+
 interface PersistenceState extends PersistenceData {
+    // Daily save slot
     saveDaily: (data: Omit<DailySave, 'date'>) => void
     loadDaily: () => Omit<DailySave, 'date'> | null
-    startSession: () => void
-    completeSession: (timeMs: number) => void
-    recordHint: () => void
-    recordMistakes: (count: number) => void
+
+    // Daily lifecycle
+    startDailySession: () => void
+    completeDailySession: (timeMs: number) => void
     checkStreakExpiry: () => void
+
+    // Arcade lifecycle
+    startArcadeRun: () => void
+    endArcadeRun: (params: { deepestSize: number; completed: boolean }) => void
+
+    // Library lifecycle
+    recordLibraryPuzzleCompletion: (size: number) => void
+    unlockLibrarySize: (size: number) => void
+
+    // Cross-mode counters
+    recordHint: (mode: TrackedMode) => void
+    recordLivesLost: (mode: TrackedMode, count: number) => void
+}
+
+const initialDaily: DailyStats = {
+    sessionsPlayed: 0,
+    sessionsCompleted: 0,
+    bestTimeMs: null,
+    hintsUsed: 0,
+    livesLost: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    lastCompletedDate: null,
+}
+
+const initialArcade: ArcadeStats = {
+    runsPlayed: 0,
+    runsCompleted: 0,
+    deepestSizeEver: 0,
+    hintsUsed: 0,
+    livesLost: 0,
+}
+
+const initialLibrary: LibraryStats = {
+    tierCompletions: {},
+    hintsUsed: 0,
+    livesLost: 0,
+}
+
+const initialLibraryProgress: LibraryProgress = {
+    unlockedMaxSize: 4,
 }
 
 const usePersistence = create<PersistenceState>()(
     persist(
         (set, get) => ({
-            daily: null,
-            totalSessions: 0,
-            totalCompleted: 0,
-            bestTimeMs: null,
-            totalHints: 0,
-            totalMistakes: 0,
-            currentStreak: 0,
-            longestStreak: 0,
-            lastCompletedDate: null,
+            dailySave: null,
+            stats: {
+                daily: initialDaily,
+                arcade: initialArcade,
+                library: initialLibrary,
+            },
+            libraryProgress: initialLibraryProgress,
+            isPremium: false,
 
             saveDaily: (data) => {
-                set({ daily: { date: getToday(), ...data } })
+                set({ dailySave: { date: getToday(), ...data } })
             },
 
             loadDaily: () => {
-                const { daily } = get()
-                if (!daily || daily.date !== getToday()) return null
-                const { date: _date, ...rest } = daily
+                const { dailySave } = get()
+                if (!dailySave || dailySave.date !== getToday()) return null
+                const { date: _date, ...rest } = dailySave
                 return rest
             },
 
-            startSession: () => {
-                set((state) => ({ totalSessions: state.totalSessions + 1 }))
+            startDailySession: () => {
+                set((state) => ({
+                    stats: {
+                        ...state.stats,
+                        daily: {
+                            ...state.stats.daily,
+                            sessionsPlayed: state.stats.daily.sessionsPlayed + 1,
+                        },
+                    },
+                }))
             },
 
-            completeSession: (timeMs) => {
+            completeDailySession: (timeMs) => {
                 const today = getToday()
                 set((state) => {
-                    const { lastCompletedDate, currentStreak, longestStreak } = state
+                    const daily = state.stats.daily
+                    const { lastCompletedDate, currentStreak, longestStreak, bestTimeMs } = daily
 
                     let newStreak = currentStreak
                     if (lastCompletedDate === getYesterday()) {
@@ -83,47 +165,120 @@ const usePersistence = create<PersistenceState>()(
                     }
 
                     return {
-                        totalCompleted: state.totalCompleted + 1,
-                        bestTimeMs: state.bestTimeMs === null || timeMs < state.bestTimeMs
-                            ? timeMs
-                            : state.bestTimeMs,
-                        currentStreak: newStreak,
-                        longestStreak: Math.max(longestStreak, newStreak),
-                        lastCompletedDate: today,
+                        stats: {
+                            ...state.stats,
+                            daily: {
+                                ...daily,
+                                sessionsCompleted: daily.sessionsCompleted + 1,
+                                bestTimeMs: bestTimeMs === null || timeMs < bestTimeMs ? timeMs : bestTimeMs,
+                                currentStreak: newStreak,
+                                longestStreak: Math.max(longestStreak, newStreak),
+                                lastCompletedDate: today,
+                            },
+                        },
                     }
                 })
             },
 
-            recordHint: () => {
-                set((state) => ({ totalHints: state.totalHints + 1 }))
-            },
-
-            recordMistakes: (count) => {
-                set((state) => ({ totalMistakes: state.totalMistakes + count }))
-            },
-
             checkStreakExpiry: () => {
-                const { lastCompletedDate, currentStreak } = get()
-                if (currentStreak === 0 || !lastCompletedDate) return
+                const daily = get().stats.daily
+                if (daily.currentStreak === 0 || !daily.lastCompletedDate) return
                 const today = getToday()
                 const yesterday = getYesterday()
-                if (lastCompletedDate !== today && lastCompletedDate !== yesterday) {
-                    set({ currentStreak: 0 })
+                if (daily.lastCompletedDate !== today && daily.lastCompletedDate !== yesterday) {
+                    set((state) => ({
+                        stats: {
+                            ...state.stats,
+                            daily: { ...state.stats.daily, currentStreak: 0 },
+                        },
+                    }))
                 }
+            },
+
+            startArcadeRun: () => {
+                set((state) => ({
+                    stats: {
+                        ...state.stats,
+                        arcade: {
+                            ...state.stats.arcade,
+                            runsPlayed: state.stats.arcade.runsPlayed + 1,
+                        },
+                    },
+                }))
+            },
+
+            endArcadeRun: ({ deepestSize, completed }) => {
+                set((state) => ({
+                    stats: {
+                        ...state.stats,
+                        arcade: {
+                            ...state.stats.arcade,
+                            runsCompleted: state.stats.arcade.runsCompleted + (completed ? 1 : 0),
+                            deepestSizeEver: Math.max(state.stats.arcade.deepestSizeEver, deepestSize),
+                        },
+                    },
+                }))
+            },
+
+            recordLibraryPuzzleCompletion: (size) => {
+                set((state) => {
+                    const tierCompletions = state.stats.library.tierCompletions
+                    return {
+                        stats: {
+                            ...state.stats,
+                            library: {
+                                ...state.stats.library,
+                                tierCompletions: {
+                                    ...tierCompletions,
+                                    [size]: (tierCompletions[size] ?? 0) + 1,
+                                },
+                            },
+                        },
+                    }
+                })
+            },
+
+            unlockLibrarySize: (size) => {
+                set((state) => ({
+                    libraryProgress: {
+                        ...state.libraryProgress,
+                        unlockedMaxSize: Math.max(state.libraryProgress.unlockedMaxSize, size),
+                    },
+                }))
+            },
+
+            recordHint: (mode) => {
+                set((state) => {
+                    const modeStats = state.stats[mode]
+                    return {
+                        stats: {
+                            ...state.stats,
+                            [mode]: { ...modeStats, hintsUsed: modeStats.hintsUsed + 1 },
+                        },
+                    }
+                })
+            },
+
+            recordLivesLost: (mode, count) => {
+                if (count <= 0) return
+                set((state) => {
+                    const modeStats = state.stats[mode]
+                    return {
+                        stats: {
+                            ...state.stats,
+                            [mode]: { ...modeStats, livesLost: modeStats.livesLost + count },
+                        },
+                    }
+                })
             },
         }),
         {
-            name: 'boxle-v1',
+            name: 'boxle-v2',
             partialize: (state) => ({
-                daily: state.daily,
-                totalSessions: state.totalSessions,
-                totalCompleted: state.totalCompleted,
-                bestTimeMs: state.bestTimeMs,
-                totalHints: state.totalHints,
-                totalMistakes: state.totalMistakes,
-                currentStreak: state.currentStreak,
-                longestStreak: state.longestStreak,
-                lastCompletedDate: state.lastCompletedDate,
+                dailySave: state.dailySave,
+                stats: state.stats,
+                libraryProgress: state.libraryProgress,
+                isPremium: state.isPremium,
             }),
         }
     )

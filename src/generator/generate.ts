@@ -282,31 +282,42 @@ function generateRegions(N: number, S: number, stars: Cell[], masterSeed: number
     return null
 }
 
-export function defaultBoxlesPerRegion(N: number): number {
-    // 1-boxle for small grids, 2 for everything 10 and above. Arcade uses the
-    // same scaling for 12–15. Revisit if generator struggles at those sizes.
-    return N >= 10 ? 2 : 1
+export function defaultBoxlesPerRegion(_N: number): number {
+    // Forced to 1 across the board: the generator's S>1 codepath has known
+    // indexing bugs (see project_boxle_generator_s2_broken in memory). Every
+    // runtime-generated puzzle is a 1-boxle-per-region puzzle until that's
+    // fixed. Revisit when S>1 is back on the table.
+    return 1
 }
 
 export function generateBoard(N: number, S: number = defaultBoxlesPerRegion(N), seed?: number): RawBoard | null {
     const masterSeed = seed ?? Math.floor(Math.random() * 2_000_000_000) + 1
 
-    for (let attempt = 0; attempt < 100; attempt++) {
-        const stars = placeStars(N, S, seededRng(masterSeed * 1000 + attempt + 1))
-        if (!stars) continue
+    // The S>1 codepath has known correctness bugs in this port (region indexing
+    // assumes one star per region). Wrap in try/catch so a hard crash inside
+    // the algorithm becomes a graceful null return — callers (mode providers)
+    // already handle null by ending the run cleanly.
+    try {
+        for (let attempt = 0; attempt < 100; attempt++) {
+            const stars = placeStars(N, S, seededRng(masterSeed * 1000 + attempt + 1))
+            if (!stars) continue
 
-        const board = generateRegions(N, S, stars, masterSeed * 999 + attempt + 1)
-        if (!board) continue
+            const board = generateRegions(N, S, stars, masterSeed * 999 + attempt + 1)
+            if (!board) continue
 
-        const starKeySet = new Set(stars.map(([r, c]) => r * N + c))
-        const compactBoard: RawBoard = Array.from({ length: N }, (_, r) =>
-            Array.from({ length: N }, (_, c) => {
-                const regionId = board[r][c]
-                return starKeySet.has(r * N + c) ? `${regionId}*` : regionId
-            })
-        )
+            const starKeySet = new Set(stars.map(([r, c]) => r * N + c))
+            const compactBoard: RawBoard = Array.from({ length: N }, (_, r) =>
+                Array.from({ length: N }, (_, c) => {
+                    const regionId = board[r][c]
+                    return starKeySet.has(r * N + c) ? `${regionId}*` : regionId
+                })
+            )
 
-        return compactBoard
+            return compactBoard
+        }
+    } catch (err) {
+        console.warn(`generateBoard(${N}, ${S}) threw — returning null`, err)
+        return null
     }
     return null
 }

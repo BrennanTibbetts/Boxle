@@ -48,6 +48,15 @@ export default function HUD() {
 
     return (
         <>
+            <div className="hud-corner">
+                <button
+                    className="hud-btn hud-menu-btn"
+                    onClick={() => setMode(GameMode.MENU)}
+                    title="Main menu"
+                >
+                    ☰ Menu
+                </button>
+            </div>
             <div className="hud">
                 <div className="hud-section hud-level">
                     <span className="hud-label">Level</span>
@@ -79,15 +88,6 @@ export default function HUD() {
                         title={rulesOpen ? 'Close rules' : 'How to play'}
                     >
                         ?
-                    </button>
-                </div>
-                <div className="hud-section">
-                    <button
-                        className="hud-btn hud-menu-btn"
-                        onClick={() => setMode(GameMode.MENU)}
-                        title="Main menu"
-                    >
-                        ☰
                     </button>
                 </div>
             </div>

@@ -8,7 +8,7 @@
 
 Boxle is a **daily logic puzzle game** with a 3D presentation. Each puzzle is a grid of boxes divided into colored regions; the goal is to place exactly N boxles such that each row, column, and region contains exactly N, and no two boxles are adjacent (including diagonally).
 
-Each day, all players get the same sequence of 8 puzzles, scaling from 4×4 up to 11×11. The date-based seed ensures the experience is shared and therefore social.
+Each day, all players get the same sequence of 5 puzzles, scaling from 4×4 up to 8×8. The date-based seed ensures the experience is shared and therefore social.
 
 **Core loop:** Place boxles → wrong placement costs a life (3 lives total) → complete the grid to advance → finish all 8 to end the session.
 
@@ -74,7 +74,7 @@ Each day, all players get the same sequence of 8 puzzles, scaling from 4×4 up t
 ## The Three Game Modes
 
 ### 1. Daily Puzzle — Free, Always
-- 8 puzzles per day, 4×4 → 11×11, date-seeded, same for all players worldwide
+- 5 puzzles per day, 4×4 → 8×8, date-seeded, same for all players worldwide
 - Capped: completing the sequence is the natural endpoint each day
 - This is the daily ritual, the primary acquisition hook, and the sharing surface
 - Never paywalled
@@ -224,8 +224,7 @@ Design and polish ideas to revisit after the phase roadmap is further along. Not
 
 ## Puzzle Content Notes
 
-- 680 puzzles total across 8 grid sizes (4×4 through 11×11)
-- Generator lives in [puzzle-generator/generate.js](puzzle-generator/generate.js) — offline tool, not integrated into the game
-- At 8 puzzles/day, the current pool gives ~85 unique daily sessions before repetition
-- Expanding the pool (especially 10×10 and 11×11, currently 50 and 30 puzzles) should happen before shipping Arcade and Library modes
-- 1-boxle constraint for sizes 4–9; 2-boxle constraint for 10–11
+- Daily uses the pre-generated pool for sizes 4×4 through 8×8 (the 9/10/11 JSON files still exist in `data/` but are no longer imported — kept as reference, can be re-enabled if we scale the daily back up)
+- Arcade and Library generate on-demand via the runtime generator in [src/generator/generate.ts](src/generator/generate.ts), ported from [puzzle-generator/generate.js](puzzle-generator/generate.js)
+- At 5 puzzles/day, the 4–8 pool size gives plenty of unique daily sessions before any repetition
+- 1-boxle constraint for sizes 4–9; 2-boxle constraint for 10+ (Arcade territory)

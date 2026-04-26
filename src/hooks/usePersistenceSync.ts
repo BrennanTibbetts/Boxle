@@ -39,20 +39,38 @@ export function usePersistenceSync() {
         return () => unsub()
     }, [configsLength])
 
-    // On session end, record mistakes and (on win) update streak and best time
+    // On session end, record mistakes, (on win) update streak and best time,
+    // and snapshot today's result for the main-menu performance modal.
     useEffect(() => {
         const unsub = useGame.subscribe(
             (state) => state.phase,
             (phase) => {
                 if (phase !== Phase.ENDED) return
-                const { lives, startTime, endTime, sessionLivesLost } = useGame.getState()
+                const game = useGame.getState()
+                const { lives, startTime, endTime, sessionLivesLost, sessionHints, currentLevel, levelConfigs, levelMistakes } = game
                 const persistence = usePersistence.getState()
 
                 persistence.recordLivesLost(GameMode.DAILY, sessionLivesLost)
 
-                if (lives > 0 && startTime && endTime) {
-                    persistence.completeDailySession(endTime - startTime)
+                const isComplete = lives > 0
+                const elapsedMs = startTime && endTime ? endTime - startTime : null
+                const levelCount = levelConfigs.length
+                const levelsCompleted = isComplete ? levelCount : currentLevel - 1
+
+                if (isComplete && elapsedMs !== null) {
+                    persistence.completeDailySession(elapsedMs)
                 }
+
+                persistence.recordDailyResult({
+                    date: new Date().toISOString().slice(0, 10),
+                    isComplete,
+                    levelsCompleted,
+                    levelCount,
+                    elapsedMs,
+                    hintsUsed: sessionHints,
+                    livesLost: sessionLivesLost,
+                    levelMistakes: [...levelMistakes],
+                })
             }
         )
         return () => unsub()

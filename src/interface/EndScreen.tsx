@@ -122,15 +122,12 @@ function ArcadeEndContent() {
     const startNewRun = useArcadeRun((s) => s.startNewRun)
     const currentSize = useArcadeRun((s) => s.currentSize)
     const puzzlesCompleted = useArcadeRun((s) => s.puzzlesCompleted)
-    const capReached = useArcadeRun((s) => s.capReached)
-    const sessionHints = useGame((state) => state.sessionHints)
-    const sessionLivesLost = useGame((state) => state.sessionLivesLost)
+    const runHintsUsed = useArcadeRun((s) => s.runHintsUsed)
+    const runLivesLost = useArcadeRun((s) => s.runLivesLost)
 
     return (
         <div className="end-card">
-            <h1 className="end-title">
-                {capReached ? 'Run Complete' : 'Run Ended'}
-            </h1>
+            <h1 className="end-title">Run Ended</h1>
 
             <div className="end-stats">
                 <div className="end-stat">
@@ -141,16 +138,16 @@ function ArcadeEndContent() {
                     <span className="end-stat-label">Puzzles</span>
                     <span className="end-stat-value">{puzzlesCompleted}</span>
                 </div>
-                {sessionHints > 0 && (
+                {runHintsUsed > 0 && (
                     <div className="end-stat">
                         <span className="end-stat-label">Hints</span>
-                        <span className="end-stat-value">{sessionHints}</span>
+                        <span className="end-stat-value">{runHintsUsed}</span>
                     </div>
                 )}
-                {sessionLivesLost > 0 && (
+                {runLivesLost > 0 && (
                     <div className="end-stat">
                         <span className="end-stat-label">Mistakes</span>
-                        <span className="end-stat-value">{sessionLivesLost}</span>
+                        <span className="end-stat-value">{runLivesLost}</span>
                     </div>
                 )}
             </div>

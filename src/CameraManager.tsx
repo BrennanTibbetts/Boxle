@@ -10,7 +10,7 @@ export default function CameraManager() {
     const props = useControls('Camera', {
         levelHeightIncrease: 0.4,
         cameraHeightY: 16,
-        boardSpacing: 12,
+        boardSpacing: 16,
     })
 
     useEffect(() => {

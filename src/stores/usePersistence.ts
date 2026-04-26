@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { BoxStateValue, PhaseValue } from '../types/game'
+import type { DecodedBoard } from '../types/puzzle'
 
 type TrackedMode = 'daily' | 'arcade' | 'library'
 
@@ -22,6 +23,33 @@ export interface DailySave {
     phase: PhaseValue
 }
 
+export interface ArcadeSave {
+    // Run-level state
+    currentSize: number
+    puzzlesCompleted: number
+    runHintsUsed: number
+    runLivesLost: number
+    // Game-level state (per-puzzle progress)
+    levelConfigs: DecodedBoard[]
+    levels: BoxStateValue[][][]
+    levelMistakes: number[]
+    currentLevel: number
+    lives: number
+    sessionHints: number
+    sessionLivesLost: number
+}
+
+export interface DailyResult {
+    date: string
+    isComplete: boolean
+    levelsCompleted: number
+    levelCount: number
+    elapsedMs: number | null
+    hintsUsed: number
+    livesLost: number
+    levelMistakes: number[]
+}
+
 export interface DailyStats {
     sessionsPlayed: number
     sessionsCompleted: number
@@ -31,11 +59,11 @@ export interface DailyStats {
     currentStreak: number
     longestStreak: number
     lastCompletedDate: string | null
+    lastResult: DailyResult | null
 }
 
 export interface ArcadeStats {
     runsPlayed: number
-    runsCompleted: number
     deepestSizeEver: number
     hintsUsed: number
     livesLost: number
@@ -59,6 +87,10 @@ export interface LibraryProgress {
 
 interface PersistenceData {
     dailySave: DailySave | null
+    arcadeSave: ArcadeSave | null
+    // The last non-menu mode the player was in. Used by boot routing so a
+    // refresh drops them back where they were instead of at the menu.
+    lastActiveMode: TrackedMode | null
     stats: ModeStats
     libraryProgress: LibraryProgress
     isPremium: boolean
@@ -72,11 +104,17 @@ interface PersistenceState extends PersistenceData {
     // Daily lifecycle
     startDailySession: () => void
     completeDailySession: (timeMs: number) => void
+    recordDailyResult: (result: DailyResult) => void
     checkStreakExpiry: () => void
 
     // Arcade lifecycle
     startArcadeRun: () => void
-    endArcadeRun: (params: { deepestSize: number; completed: boolean }) => void
+    endArcadeRun: (params: { deepestSize: number }) => void
+    saveArcade: (save: ArcadeSave) => void
+    clearArcade: () => void
+
+    // Tracks the last non-menu mode the player was in.
+    setLastActiveMode: (mode: TrackedMode) => void
 
     // Library lifecycle
     recordLibraryPuzzleCompletion: (size: number) => void
@@ -96,11 +134,11 @@ const initialDaily: DailyStats = {
     currentStreak: 0,
     longestStreak: 0,
     lastCompletedDate: null,
+    lastResult: null,
 }
 
 const initialArcade: ArcadeStats = {
     runsPlayed: 0,
-    runsCompleted: 0,
     deepestSizeEver: 0,
     hintsUsed: 0,
     livesLost: 0,
@@ -120,6 +158,8 @@ const usePersistence = create<PersistenceState>()(
     persist(
         (set, get) => ({
             dailySave: null,
+            arcadeSave: null,
+            lastActiveMode: null,
             stats: {
                 daily: initialDaily,
                 arcade: initialArcade,
@@ -180,6 +220,15 @@ const usePersistence = create<PersistenceState>()(
                 })
             },
 
+            recordDailyResult: (result) => {
+                set((state) => ({
+                    stats: {
+                        ...state.stats,
+                        daily: { ...state.stats.daily, lastResult: result },
+                    },
+                }))
+            },
+
             checkStreakExpiry: () => {
                 const daily = get().stats.daily
                 if (daily.currentStreak === 0 || !daily.lastCompletedDate) return
@@ -207,18 +256,24 @@ const usePersistence = create<PersistenceState>()(
                 }))
             },
 
-            endArcadeRun: ({ deepestSize, completed }) => {
+            endArcadeRun: ({ deepestSize }) => {
                 set((state) => ({
                     stats: {
                         ...state.stats,
                         arcade: {
                             ...state.stats.arcade,
-                            runsCompleted: state.stats.arcade.runsCompleted + (completed ? 1 : 0),
                             deepestSizeEver: Math.max(state.stats.arcade.deepestSizeEver, deepestSize),
                         },
                     },
+                    arcadeSave: null,
                 }))
             },
+
+            saveArcade: (save) => set({ arcadeSave: save }),
+
+            clearArcade: () => set({ arcadeSave: null }),
+
+            setLastActiveMode: (mode) => set({ lastActiveMode: mode }),
 
             recordLibraryPuzzleCompletion: (size) => {
                 set((state) => {
@@ -276,6 +331,8 @@ const usePersistence = create<PersistenceState>()(
             name: 'boxle-v2',
             partialize: (state) => ({
                 dailySave: state.dailySave,
+                arcadeSave: state.arcadeSave,
+                lastActiveMode: state.lastActiveMode,
                 stats: state.stats,
                 libraryProgress: state.libraryProgress,
                 isPremium: state.isPremium,

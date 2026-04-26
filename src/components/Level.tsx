@@ -18,7 +18,7 @@ const Level = memo(({ levelIndex, levelMatrix, interactive = true }: LevelProps)
 
     const props = useControls('Level', {
         boxSpacing: { value: 1, min: 1, max: 2, step: 0.01 },
-        boardSpacing: { value: 12, min: 10, max: 20, step: 0.1 },
+        boardSpacing: { value: 16, min: 10, max: 24, step: 0.1 },
     })
 
     const isExploding = useGame((state) => {

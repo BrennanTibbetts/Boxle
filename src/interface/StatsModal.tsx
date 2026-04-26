@@ -71,7 +71,6 @@ function ArcadeStats() {
             <div className="stats-section">
                 <div className="stats-row">
                     <StatItem value={arcade.runsPlayed} label="Runs" />
-                    <StatItem value={arcade.runsCompleted} label="Cleared" />
                 </div>
             </div>
             <div className="stats-section">

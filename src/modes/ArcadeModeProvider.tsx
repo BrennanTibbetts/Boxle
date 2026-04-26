@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 import useGame, { Phase, BoxState, GameMode } from '../stores/useGame'
 import type { BoxStateValue, LevelGrid } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
+import type { ArcadeSave } from '../stores/usePersistence'
 import useArcadeRun, { ARCADE_START_SIZE, ARCADE_MAX_SIZE } from '../stores/useArcadeRun'
-import { generateBoard } from '../generator/generate'
-import { decodeBoard } from '../utils/puzzle'
 import { canPlayAt } from '../utils/gates'
+import { prefetchPuzzle, takeOrGenerate, resetPrefetch } from '../generator/prefetch'
 
 function makeBlankGrid(size: number): LevelGrid {
     return Array.from({ length: size }, () =>
@@ -13,83 +13,180 @@ function makeBlankGrid(size: number): LevelGrid {
     )
 }
 
-function loadPuzzleForSize(size: number): boolean {
-    const raw = generateBoard(size)
-    if (!raw) return false
-    const decoded = decodeBoard(raw)
-    useGame.setState({
-        levelConfigs: [decoded],
-        levels: [makeBlankGrid(size)],
-        currentLevel: 1,
-        phase: Phase.PLAYING,
-        startTime: Date.now(),
-        endTime: null,
-        wrongPlacement: null,
-        lastBoxlePosition: null,
-        sessionHints: 0,
-        sessionLivesLost: 0,
-        levelMistakes: [0],
-    })
-    return true
+function snapshot(): ArcadeSave {
+    const game = useGame.getState()
+    const run = useArcadeRun.getState()
+    return {
+        currentSize: run.currentSize,
+        puzzlesCompleted: run.puzzlesCompleted,
+        runHintsUsed: run.runHintsUsed,
+        runLivesLost: run.runLivesLost,
+        levelConfigs: game.levelConfigs,
+        levels: game.levels,
+        levelMistakes: game.levelMistakes,
+        currentLevel: game.currentLevel,
+        lives: game.lives,
+        sessionHints: game.sessionHints,
+        sessionLivesLost: game.sessionLivesLost,
+    }
 }
 
 export function ArcadeModeProvider() {
     const runId = useArcadeRun((s) => s.runId)
 
     useEffect(() => {
-        const arcade = useArcadeRun.getState()
         const persistence = usePersistence.getState()
+        const arcade = useArcadeRun.getState()
+        const existing = persistence.arcadeSave
 
-        persistence.startArcadeRun()
-        useGame.setState({ lives: 3 })
-        loadPuzzleForSize(ARCADE_START_SIZE)
+        if (existing) {
+            // Resume: restore previous run state into useGame + useArcadeRun.
+            // Note: we deliberately do NOT call startArcadeRun here — that
+            // counter is for runs *started*, not resumed.
+            useGame.setState({
+                levelConfigs: existing.levelConfigs,
+                levels: existing.levels,
+                levelMistakes: existing.levelMistakes,
+                currentLevel: existing.currentLevel,
+                phase: Phase.PLAYING,
+                startTime: Date.now(),
+                endTime: null,
+                wrongPlacement: null,
+                lastBoxlePosition: null,
+                lives: existing.lives,
+                sessionHints: existing.sessionHints,
+                sessionLivesLost: existing.sessionLivesLost,
+            })
+            useArcadeRun.setState({
+                currentSize: existing.currentSize,
+                puzzlesCompleted: existing.puzzlesCompleted,
+                runHintsUsed: existing.runHintsUsed,
+                runLivesLost: existing.runLivesLost,
+            })
+            resetPrefetch('arcade')
+            prefetchPuzzle('arcade', Math.min(existing.currentSize + 1, ARCADE_MAX_SIZE))
+        } else {
+            // Fresh run.
+            persistence.startArcadeRun()
+            resetPrefetch('arcade')
 
-        const unsub = useGame.subscribe(
+            const first = takeOrGenerate('arcade', ARCADE_START_SIZE)
+            if (!first) {
+                persistence.endArcadeRun({ deepestSize: 0 })
+                useGame.setState({ phase: Phase.ENDED })
+                return
+            }
+
+            useGame.setState({
+                levelConfigs: [first],
+                levels: [makeBlankGrid(ARCADE_START_SIZE)],
+                levelMistakes: [0],
+                currentLevel: 1,
+                phase: Phase.PLAYING,
+                startTime: Date.now(),
+                endTime: null,
+                wrongPlacement: null,
+                lastBoxlePosition: null,
+                lives: 3,
+                sessionHints: 0,
+                sessionLivesLost: 0,
+            })
+            arcade.setCurrentSize(ARCADE_START_SIZE)
+            prefetchPuzzle('arcade', Math.min(ARCADE_START_SIZE + 1, ARCADE_MAX_SIZE))
+            // Persist the freshly initialised state immediately so a reload
+            // before any move still resumes the same run.
+            persistence.saveArcade(snapshot())
+        }
+
+        // Debounced auto-save — flushes ~250ms after any relevant state change.
+        let saveTimeout: ReturnType<typeof setTimeout> | null = null
+        const scheduleSave = () => {
+            if (useGame.getState().phase !== Phase.PLAYING) return
+            if (saveTimeout !== null) clearTimeout(saveTimeout)
+            saveTimeout = setTimeout(() => {
+                if (useGame.getState().phase !== Phase.PLAYING) return
+                usePersistence.getState().saveArcade(snapshot())
+                saveTimeout = null
+            }, 250)
+        }
+        const unsubLevels = useGame.subscribe((s) => s.levels, scheduleSave)
+        const unsubLives = useGame.subscribe((s) => s.lives, scheduleSave)
+        const unsubLevelConfigs = useGame.subscribe((s) => s.levelConfigs, scheduleSave)
+
+        const unsubPhase = useGame.subscribe(
             (state) => state.phase,
             (phase, prevPhase) => {
                 if (phase !== Phase.ENDED || prevPhase === Phase.ENDED) return
 
                 const game = useGame.getState()
-                const { currentSize } = useArcadeRun.getState()
+                const run = useArcadeRun.getState()
 
-                // Record mistakes that happened during this puzzle
                 if (game.sessionLivesLost > 0) {
                     persistence.recordLivesLost('arcade', game.sessionLivesLost)
                 }
+                run.addPuzzleStats(game.sessionHints, game.sessionLivesLost)
 
                 if (game.lives === 0) {
-                    // Game over — end run, let EndScreen render
-                    persistence.endArcadeRun({ deepestSize: currentSize, completed: false })
+                    // Run over — endArcadeRun also clears arcadeSave.
+                    persistence.endArcadeRun({ deepestSize: run.currentSize })
                     return
                 }
 
-                // Puzzle completed. Advance or hit the cap.
-                useArcadeRun.getState().incrementPuzzlesCompleted()
+                run.incrementPuzzlesCompleted()
 
-                if (currentSize >= ARCADE_MAX_SIZE) {
-                    persistence.endArcadeRun({ deepestSize: currentSize, completed: true })
-                    useArcadeRun.getState().markCapReached()
-                    return
-                }
-
-                const nextSize = currentSize + 1
+                // Arcade is infinite. Grid size grows up to ARCADE_MAX_SIZE, then
+                // stays there — every subsequent puzzle is a fresh board at the
+                // cap size until the player runs out of lives.
+                const nextSize = Math.min(run.currentSize + 1, ARCADE_MAX_SIZE)
 
                 if (!canPlayAt(nextSize, GameMode.ARCADE)) {
-                    // Phase 5 will swap this for an upsell-screen interception. For
-                    // now the gate always allows, so this branch never runs.
-                    persistence.endArcadeRun({ deepestSize: currentSize, completed: false })
+                    persistence.endArcadeRun({ deepestSize: run.currentSize })
                     return
                 }
 
-                useArcadeRun.getState().setCurrentSize(nextSize)
-
-                if (!loadPuzzleForSize(nextSize)) {
-                    // Generator failed — end the run defensively
-                    persistence.endArcadeRun({ deepestSize: currentSize, completed: false })
+                const next = takeOrGenerate('arcade', nextSize)
+                if (!next) {
+                    persistence.endArcadeRun({ deepestSize: run.currentSize })
+                    return
                 }
+
+                if (nextSize !== run.currentSize) run.setCurrentSize(nextSize)
+                prefetchPuzzle('arcade', Math.min(nextSize + 1, ARCADE_MAX_SIZE))
+
+                const newLevelNumber = game.levelConfigs.length + 1
+
+                useGame.setState({
+                    levelConfigs: [...game.levelConfigs, next],
+                    levels: [...game.levels, makeBlankGrid(nextSize)],
+                    levelMistakes: [...game.levelMistakes, 0],
+                    currentLevel: newLevelNumber,
+                    phase: Phase.PLAYING,
+                    startTime: Date.now(),
+                    endTime: null,
+                    wrongPlacement: null,
+                    lastBoxlePosition: null,
+                    sessionHints: 0,
+                    sessionLivesLost: 0,
+                    // lives preserved across puzzles for the run
+                })
+                // Save right after advance so the new level is in the snapshot.
+                usePersistence.getState().saveArcade(snapshot())
             }
         )
-        return () => unsub()
+
+        return () => {
+            unsubPhase()
+            unsubLevels()
+            unsubLives()
+            unsubLevelConfigs()
+            // Flush any pending debounced save before unmount.
+            if (saveTimeout !== null) {
+                clearTimeout(saveTimeout)
+                if (useGame.getState().phase === Phase.PLAYING) {
+                    usePersistence.getState().saveArcade(snapshot())
+                }
+            }
+        }
     }, [runId])
 
     return null

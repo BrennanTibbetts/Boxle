@@ -24,53 +24,37 @@ let dragMovementX = 0
 let dragMovementY = 0
 let downX = 0
 let downY = 0
+// Identifies the box that received the most recent pointerdown so its
+// synthetic pointerenter (which R3F fires right after pointerdown for a new
+// touch contact) can be ignored. Without this, the start box gets toggled
+// once by the synthetic enter and again by the pendingDragMark — net BLANK.
+// Cleared when the synthetic enter is consumed and again on pointerup, so a
+// later drag-back into the same box still toggles correctly.
+let startBoxKey: string | null = null
 
 const onPointerDown = (e: PointerEvent) => {
     dragMovementX = 0
     dragMovementY = 0
     downX = e.clientX
     downY = e.clientY
-    // eslint-disable-next-line no-console
-    console.log('[drag] window pointerdown', {
-        pointerType: e.pointerType,
-        clientX: e.clientX,
-        clientY: e.clientY,
-        target: (e.target as Element | null)?.nodeName ?? 'unknown',
-    })
 }
 
-function maybeStartDrag(e: PointerEvent, source: string = 'window'): void {
-    const dx = e.clientX - downX
-    const dy = e.clientY - downY
-    const dist2 = dx * dx + dy * dy
+function maybeStartDrag(e: PointerEvent): void {
+    if (hasDragged || !pendingDragMark) return
+
+    // Mouse: require primary button held. Touch: always active between
+    // pointerdown and pointerup (no hover state). Pen: pressure check to
+    // avoid drag-marking on hover.
     const isActive =
         e.pointerType === 'touch' ? true :
         e.pointerType === 'pen'   ? e.pressure > 0 || e.buttons === 1 :
         /* mouse */                 e.buttons === 1
-    // eslint-disable-next-line no-console
-    console.log('[drag] maybeStartDrag', {
-        source,
-        pointerType: e.pointerType,
-        buttons: e.buttons,
-        pressure: e.pressure,
-        clientX: e.clientX,
-        clientY: e.clientY,
-        downX,
-        downY,
-        dx,
-        dy,
-        distance: Math.sqrt(dist2).toFixed(2),
-        threshold: DRAG_THRESHOLD_PX,
-        hasDragged,
-        hasPending: !!pendingDragMark,
-        isActive,
-    })
-    if (hasDragged || !pendingDragMark) return
     if (!isActive) return
-    if (dist2 < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
 
-    // eslint-disable-next-line no-console
-    console.log('[drag] firing pendingDragMark from', source)
+    const dx = e.clientX - downX
+    const dy = e.clientY - downY
+    if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
+
     hasDragged = true
     pendingDragMark()
     pendingDragMark = null
@@ -84,6 +68,7 @@ const onPointerMove = (e: PointerEvent) => {
 
 const onPointerUp = () => {
     pendingDragMark = null
+    startBoxKey = null
 }
 
 window.addEventListener('pointerdown', onPointerDown)
@@ -116,10 +101,11 @@ export const dragTracker = {
         dragMovementX = 0
         dragMovementY = 0
     },
-    distanceFromDown(x: number, y: number): number {
-        const dx = x - downX
-        const dy = y - downY
-        return Math.sqrt(dx * dx + dy * dy)
+    setStartBox(key: string | null): void { startBoxKey = key },
+    consumeStartBox(key: string): boolean {
+        if (startBoxKey !== key) return false
+        startBoxKey = null
+        return true
     },
     maybeStartDrag,
 }

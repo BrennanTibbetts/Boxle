@@ -30,24 +30,47 @@ const onPointerDown = (e: PointerEvent) => {
     dragMovementY = 0
     downX = e.clientX
     downY = e.clientY
+    // eslint-disable-next-line no-console
+    console.log('[drag] window pointerdown', {
+        pointerType: e.pointerType,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        target: (e.target as Element | null)?.nodeName ?? 'unknown',
+    })
 }
 
-function maybeStartDrag(e: PointerEvent): void {
-    if (hasDragged || !pendingDragMark) return
-
-    // Mouse: require primary button held. Touch: always active between
-    // pointerdown and pointerup (no hover state). Pen: pressure check to
-    // avoid drag-marking on hover.
+function maybeStartDrag(e: PointerEvent, source: string = 'window'): void {
+    const dx = e.clientX - downX
+    const dy = e.clientY - downY
+    const dist2 = dx * dx + dy * dy
     const isActive =
         e.pointerType === 'touch' ? true :
         e.pointerType === 'pen'   ? e.pressure > 0 || e.buttons === 1 :
         /* mouse */                 e.buttons === 1
+    // eslint-disable-next-line no-console
+    console.log('[drag] maybeStartDrag', {
+        source,
+        pointerType: e.pointerType,
+        buttons: e.buttons,
+        pressure: e.pressure,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        downX,
+        downY,
+        dx,
+        dy,
+        distance: Math.sqrt(dist2).toFixed(2),
+        threshold: DRAG_THRESHOLD_PX,
+        hasDragged,
+        hasPending: !!pendingDragMark,
+        isActive,
+    })
+    if (hasDragged || !pendingDragMark) return
     if (!isActive) return
+    if (dist2 < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
 
-    const dx = e.clientX - downX
-    const dy = e.clientY - downY
-    if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
-
+    // eslint-disable-next-line no-console
+    console.log('[drag] firing pendingDragMark from', source)
     hasDragged = true
     pendingDragMark()
     pendingDragMark = null
@@ -92,6 +115,11 @@ export const dragTracker = {
         downY = y
         dragMovementX = 0
         dragMovementY = 0
+    },
+    distanceFromDown(x: number, y: number): number {
+        const dx = x - downX
+        const dy = y - downY
+        return Math.sqrt(dx * dx + dy * dy)
     },
     maybeStartDrag,
 }

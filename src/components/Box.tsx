@@ -205,7 +205,17 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     const handlePointerEnter = (e: ThreeEvent<PointerEvent>) => {
         if (!interactive || isBlocked) return
         pointerEnter(e)
+        const dist = dragTracker.distanceFromDown(e.nativeEvent.clientX, e.nativeEvent.clientY)
+        // eslint-disable-next-line no-console
+        console.log('[Box] pointerenter', { row, col, pointerType: e.nativeEvent.pointerType, buttons: e.nativeEvent.buttons, hasDragged: dragTracker.hasDragged, distFromDown: dist.toFixed(2) })
         if (e.nativeEvent.buttons !== 1) return
+        // Touch fires a synthetic pointerenter on the start box right after
+        // pointerdown — at the same coordinates. Without this guard, we'd
+        // toggle the start box here AND again when pendingDragMark fires
+        // mid-drag, leaving it unmarked. Real drag-into events move at
+        // least a box-width away from the down position, so a few-px window
+        // is plenty to distinguish them.
+        if (dist < 3) return
         if (e.nativeEvent.shiftKey) {
             if (boxState === BoxState.MARK) toggleMark(levelIndex, row, col)
         } else {
@@ -240,6 +250,17 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         if (!interactive || isBlocked) return
         e.stopPropagation()
         const isTouch = e.nativeEvent.pointerType !== 'mouse'
+        // eslint-disable-next-line no-console
+        console.log('[Box] pointerdown', {
+            row,
+            col,
+            pointerType: e.nativeEvent.pointerType,
+            buttons: e.nativeEvent.buttons,
+            pressure: e.nativeEvent.pressure,
+            clientX: e.nativeEvent.clientX,
+            clientY: e.nativeEvent.clientY,
+            boxState,
+        })
 
         if (e.nativeEvent.shiftKey) {
             dragTracker.setHasDragged(true)
@@ -255,6 +276,8 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
                 ? () => toggleMark(levelIndex, row, col)
                 : null
         )
+        // eslint-disable-next-line no-console
+        console.log('[Box] armed pending drag-mark', { row, col, hasPending: boxState === BoxState.BLANK })
 
         // Touch/pen: long-press places. Tap (release before timer) falls
         // through to handleClick which toggles the mark.
@@ -275,14 +298,27 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     }
 
     // Drag-mark for the *starting* box. Subsequent boxes get marked via
-    // handlePointerEnter as the pointer crosses into them — this handler
-    // fires while the pointer is still on the start box and converts the
-    // pending mark once movement clears the drag threshold. Routed through
-    // R3F's per-mesh event because window-level pointermove isn't reliable
-    // on iOS Safari for the very first move of a captured pointer.
+    // handlePointerEnter as the pointer crosses into them — these two
+    // handlers cover the *origin* box, which would otherwise only get a
+    // pointerdown event and never a pointerenter (pointer was already on
+    // it when contact began). pointerleave is the most reliable trigger
+    // on iOS Safari because R3F fires it as the raycast result changes —
+    // the same path that already works for pointerenter on box 2.
+    // pointermove is the fallback for big-box-small-drag cases where the
+    // pointer never leaves the origin box but still passes the threshold.
     const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
         if (!interactive || isBlocked) return
-        dragTracker.maybeStartDrag(e.nativeEvent)
+        // eslint-disable-next-line no-console
+        console.log('[Box] pointermove', { row, col, pointerType: e.nativeEvent.pointerType, x: e.nativeEvent.clientX, y: e.nativeEvent.clientY })
+        dragTracker.maybeStartDrag(e.nativeEvent, `Box(${row},${col}).move`)
+    }
+
+    const handlePointerLeave = (e: ThreeEvent<PointerEvent>) => {
+        pointerLeave(e)
+        if (!interactive || isBlocked) return
+        // eslint-disable-next-line no-console
+        console.log('[Box] pointerleave', { row, col, pointerType: e.nativeEvent.pointerType, x: e.nativeEvent.clientX, y: e.nativeEvent.clientY })
+        dragTracker.maybeStartDrag(e.nativeEvent, `Box(${row},${col}).leave`)
     }
 
     const handleClick = (e: ThreeEvent<MouseEvent>) => {
@@ -317,7 +353,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
                 onDoubleClick={handleDoubleClick}
                 onContextMenu={handleDoubleClick}
                 onPointerEnter={handlePointerEnter}
-                onPointerLeave={pointerLeave}
+                onPointerLeave={handlePointerLeave}
                 castShadow
                 receiveShadow
                 geometry={geometry}

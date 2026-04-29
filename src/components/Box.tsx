@@ -249,6 +249,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         }
 
         dragTracker.setHasDragged(false)
+        dragTracker.setDownPosition(e.nativeEvent.clientX, e.nativeEvent.clientY)
         dragTracker.setPendingDragMark(
             boxState === BoxState.BLANK
                 ? () => toggleMark(levelIndex, row, col)
@@ -271,6 +272,17 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
                 onCancel: () => animateChargeOut(),
             })
         }
+    }
+
+    // Drag-mark for the *starting* box. Subsequent boxes get marked via
+    // handlePointerEnter as the pointer crosses into them — this handler
+    // fires while the pointer is still on the start box and converts the
+    // pending mark once movement clears the drag threshold. Routed through
+    // R3F's per-mesh event because window-level pointermove isn't reliable
+    // on iOS Safari for the very first move of a captured pointer.
+    const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
+        if (!interactive || isBlocked) return
+        dragTracker.maybeStartDrag(e.nativeEvent)
     }
 
     const handleClick = (e: ThreeEvent<MouseEvent>) => {
@@ -300,6 +312,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
             <mesh
                 ref={boxleMeshRef}
                 onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
                 onClick={handleClick}
                 onDoubleClick={handleDoubleClick}
                 onContextMenu={handleDoubleClick}

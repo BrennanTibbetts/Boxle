@@ -1,12 +1,20 @@
 // Singleton drag tracker shared across all Box instances. Drag-marking works
-// by hovering between boxes, so the state has to be global (not per-box). The
-// listeners install once at module load; HMR cleans them up to avoid stacking
-// across hot reloads in dev.
+// by hovering between boxes, so the state has to be global (not per-box).
 //
-// A drag is only committed once the pointer has moved past `DRAG_THRESHOLD_PX`
-// from the pointerdown position. Without this, touch-screen jitter on a tap
-// would fire `pendingDragMark` immediately, marking a box that the user only
-// meant to long-press.
+// Drag-start detection runs through `maybeStartDrag` (called from the Box's
+// R3F onPointerMove and as a window-level fallback). A drag is only
+// committed once the pointer has moved past `DRAG_THRESHOLD_PX` from the
+// pointerdown position — without this, touch-screen jitter on a tap would
+// fire `pendingDragMark` immediately and mark a box the user only meant to
+// long-press.
+//
+// Why R3F event over window event for the primary path: on iOS Safari,
+// when R3F captures the pointer at pointerdown, the very first pointermove
+// for that pointer doesn't always bubble to window before R3F raycasts and
+// dispatches its synthetic events. Result: the *starting* box of a touch
+// drag was never seen by a window listener. R3F's per-mesh pointermove
+// fires reliably on the same channel that already works for boxes 2+ via
+// pointerenter, so we route through that.
 
 const DRAG_THRESHOLD_PX = 6
 
@@ -24,20 +32,17 @@ const onPointerDown = (e: PointerEvent) => {
     downY = e.clientY
 }
 
-const onPointerMove = (e: PointerEvent) => {
-    dragMovementX += e.movementX
-    dragMovementY += e.movementY
+function maybeStartDrag(e: PointerEvent): void {
+    if (hasDragged || !pendingDragMark) return
+
     // Mouse: require primary button held. Touch: always active between
     // pointerdown and pointerup (no hover state). Pen: pressure check to
-    // avoid drag-marking on hover. The first touch pointermove on iOS
-    // Safari reports `buttons: 0` and `pressure: 0` before stabilising —
-    // checking pointerType sidesteps that quirk so the very first box of a
-    // touch drag actually gets marked.
+    // avoid drag-marking on hover.
     const isActive =
         e.pointerType === 'touch' ? true :
         e.pointerType === 'pen'   ? e.pressure > 0 || e.buttons === 1 :
         /* mouse */                 e.buttons === 1
-    if (!isActive || !pendingDragMark || hasDragged) return
+    if (!isActive) return
 
     const dx = e.clientX - downX
     const dy = e.clientY - downY
@@ -46,6 +51,12 @@ const onPointerMove = (e: PointerEvent) => {
     hasDragged = true
     pendingDragMark()
     pendingDragMark = null
+}
+
+const onPointerMove = (e: PointerEvent) => {
+    dragMovementX += e.movementX
+    dragMovementY += e.movementY
+    maybeStartDrag(e)
 }
 
 const onPointerUp = () => {
@@ -70,4 +81,17 @@ export const dragTracker = {
     get movementY(): number { return dragMovementY },
     setHasDragged(value: boolean): void { hasDragged = value },
     setPendingDragMark(fn: (() => void) | null): void { pendingDragMark = fn },
+    // Seed the down position from the R3F pointerdown event. We can't trust
+    // the window-level pointerdown to have fired by the time the Box handler
+    // runs (and on iOS Safari, with R3F pointer-capture, it may not fire at
+    // all for the in-canvas pointer). Without an authoritative down position,
+    // the threshold check in maybeStartDrag would compare against stale
+    // coordinates from a previous interaction.
+    setDownPosition(x: number, y: number): void {
+        downX = x
+        downY = y
+        dragMovementX = 0
+        dragMovementY = 0
+    },
+    maybeStartDrag,
 }

@@ -858,12 +858,23 @@ div.content {
         font-size: 0.8rem;
     }
 
+    /* Tall content (Library tier picker) needs to scroll on short screens —
+       centered flex would clip the top and bottom rows otherwise. */
+    .menu-overlay {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding: 24px 0 calc(24px + env(safe-area-inset-bottom, 0px));
+    }
     .menu-content {
-        gap: 24px;
-        padding: 24px 16px;
+        gap: 20px;
+        padding: 16px;
+        margin: auto 0;
+        width: 100%;
+        max-width: 480px;
+        box-sizing: border-box;
     }
     .menu-title {
-        font-size: 3rem;
+        font-size: 2.6rem;
     }
     .menu-tiles {
         gap: 14px;
@@ -879,14 +890,21 @@ div.content {
     .library-tier-grid {
         grid-template-columns: repeat(3, 1fr);
         max-width: 100%;
-        gap: 10px;
+        gap: 8px;
     }
     .library-tier-card {
-        min-height: 84px;
-        padding: 10px 6px;
+        min-height: 70px;
+        padding: 8px 4px;
+        gap: 2px;
     }
     .library-tier-size {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
+    }
+    .library-tier-batches,
+    .library-tier-progress,
+    .library-tier-locked {
+        font-size: 0.65rem;
+        letter-spacing: 0.04em;
     }
 
     .end-card {
@@ -974,9 +992,6 @@ div.content {
 }
 
 @media (max-width: 480px) {
-    .library-tier-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
     .end-card {
         padding: 22px 18px;
         gap: 14px;

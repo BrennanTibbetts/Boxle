@@ -2,27 +2,50 @@
 // by hovering between boxes, so the state has to be global (not per-box). The
 // listeners install once at module load; HMR cleans them up to avoid stacking
 // across hot reloads in dev.
+//
+// A drag is only committed once the pointer has moved past `DRAG_THRESHOLD_PX`
+// from the pointerdown position. Without this, touch-screen jitter on a tap
+// would fire `pendingDragMark` immediately, marking a box that the user only
+// meant to long-press.
+
+const DRAG_THRESHOLD_PX = 6
 
 let pendingDragMark: (() => void) | null = null
 let hasDragged = false
 let dragMovementX = 0
 let dragMovementY = 0
+let downX = 0
+let downY = 0
 
-const onPointerDown = () => {
+const onPointerDown = (e: PointerEvent) => {
     dragMovementX = 0
     dragMovementY = 0
+    downX = e.clientX
+    downY = e.clientY
 }
 
 const onPointerMove = (e: PointerEvent) => {
     dragMovementX += e.movementX
     dragMovementY += e.movementY
-    // On touch/pen, e.buttons is unreliably 0 during an active drag; use pressure instead
-    const isActive = e.buttons === 1 || (e.pointerType !== 'mouse' && e.pressure > 0)
-    if (isActive && pendingDragMark && !hasDragged) {
-        hasDragged = true
-        pendingDragMark()
-        pendingDragMark = null
-    }
+    // Mouse: require primary button held. Touch: always active between
+    // pointerdown and pointerup (no hover state). Pen: pressure check to
+    // avoid drag-marking on hover. The first touch pointermove on iOS
+    // Safari reports `buttons: 0` and `pressure: 0` before stabilising —
+    // checking pointerType sidesteps that quirk so the very first box of a
+    // touch drag actually gets marked.
+    const isActive =
+        e.pointerType === 'touch' ? true :
+        e.pointerType === 'pen'   ? e.pressure > 0 || e.buttons === 1 :
+        /* mouse */                 e.buttons === 1
+    if (!isActive || !pendingDragMark || hasDragged) return
+
+    const dx = e.clientX - downX
+    const dy = e.clientY - downY
+    if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
+
+    hasDragged = true
+    pendingDragMark()
+    pendingDragMark = null
 }
 
 const onPointerUp = () => {

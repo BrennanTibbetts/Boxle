@@ -115,6 +115,13 @@ div.content {
     z-index: 10;
 }
 
+.hud-row {
+    /* Wrappers are transparent on desktop — sections flow as siblings of
+       .hud, keeping the original single-row layout. Mobile media query
+       below promotes them to real flex rows for the vertical stack. */
+    display: contents;
+}
+
 .hud-section {
     display: flex;
     flex-direction: row;
@@ -174,6 +181,7 @@ div.content {
     transition: background 0.15s ease, color 0.15s ease;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    white-space: nowrap;
 }
 
 .hud-btn:hover {
@@ -902,33 +910,35 @@ div.content {
         overflow-y: auto;
     }
 
-    /* HUD: tighter row, larger tap targets, no overflow at 320px */
+    /* HUD: vertical stack — info row (level + lives) on top, action
+       buttons on the bottom row. Wrappers become real flex rows here. */
     .hud {
-        gap: 10px;
-        padding: 6px 10px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 8px 12px;
         bottom: calc(12px + env(safe-area-inset-bottom, 0px));
         max-width: calc(100vw - 16px);
     }
+    .hud-row {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+    }
+    .hud-row-actions {
+        gap: 10px;
+    }
     .hud-label {
-        display: none;
+        font-size: 0.8rem;
     }
     .hud-value {
-        font-size: 1.2rem;
-    }
-    .hud-section.hud-level {
-        gap: 0;
-    }
-    .hud-section.hud-level::before {
-        content: 'L';
-        font-family: 'Bebas Neue', cursive;
-        font-size: 0.85rem;
-        color: rgba(255, 255, 255, 0.45);
-        letter-spacing: 0.06em;
-        margin-right: 2px;
+        font-size: 1.3rem;
     }
     .hud-heart {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
     }
     .hud-btn {
         min-height: 44px;
@@ -939,9 +949,14 @@ div.content {
         padding: 4px 10px;
     }
     .hud-hint-btn,
-    .hud-rules-btn {
+    .hud-rules-btn,
+    .hud-clear-btn {
         font-size: 1.05rem;
         padding: 0 12px;
+    }
+    .hud-clear-btn {
+        font-size: 1.1rem;
+        line-height: 1;
     }
     .hud-corner .hud-menu-btn {
         font-size: 0.85rem;

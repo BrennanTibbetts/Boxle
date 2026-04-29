@@ -3,6 +3,7 @@ import useHint from '../stores/useHint'
 import useUI from '../stores/useUI'
 import usePersistence from '../stores/usePersistence'
 import { findBestHint } from '../utils/hintRules'
+import { useIsMobile } from '../hooks/useIsMobile'
 import RulesModal, { useFirstVisitRules } from './RulesModal'
 
 function HeartIcon({ filled }: { filled: boolean }) {
@@ -26,6 +27,7 @@ export default function HUD() {
     const rulesOpen = useUI((state) => state.rulesOpen)
     const setRulesOpen = useUI((state) => state.setRulesOpen)
     const setMode = useGame((state) => state.setMode)
+    const isMobile = useIsMobile()
 
     useFirstVisitRules()
 
@@ -59,37 +61,46 @@ export default function HUD() {
                 </button>
             </div>
             <div className="hud">
-                <div className="hud-section hud-level">
-                    <span className="hud-label">Level</span>
-                    <span className="hud-value">{currentLevel}</span>
+                <div className="hud-row hud-row-info">
+                    <div className="hud-section hud-level">
+                        <span className="hud-label">Level</span>
+                        <span className="hud-value">{currentLevel}</span>
+                    </div>
+                    <div className="hud-section hud-lives">
+                        {[1, 2, 3].map((i) => (
+                            <HeartIcon key={i} filled={lives >= i} />
+                        ))}
+                    </div>
                 </div>
-                <div className="hud-section hud-lives">
-                    {[1, 2, 3].map((i) => (
-                        <HeartIcon key={i} filled={lives >= i} />
-                    ))}
-                </div>
-                <div className="hud-section">
-                    <button className="hud-btn" onClick={() => clearMarks(currentLevel - 1)}>
-                        Clear Marks
-                    </button>
-                </div>
-                <div className="hud-section">
-                    <button
-                        className={`hud-btn hud-hint-btn${activeHint ? ' active' : ''}`}
-                        onClick={handleHint}
-                        title={activeHint ? 'Dismiss hint' : 'Show hint'}
-                    >
-                        💡
-                    </button>
-                </div>
-                <div className="hud-section">
-                    <button
-                        className={`hud-btn hud-rules-btn${rulesOpen ? ' active' : ''}`}
-                        onClick={() => setRulesOpen(!rulesOpen)}
-                        title={rulesOpen ? 'Close rules' : 'How to play'}
-                    >
-                        ?
-                    </button>
+                <div className="hud-row hud-row-actions">
+                    <div className="hud-section">
+                        <button
+                            className="hud-btn hud-clear-btn"
+                            onClick={() => clearMarks(currentLevel - 1)}
+                            title="Clear marks"
+                            aria-label="Clear marks"
+                        >
+                            {isMobile ? '✕' : 'Clear Marks'}
+                        </button>
+                    </div>
+                    <div className="hud-section">
+                        <button
+                            className={`hud-btn hud-hint-btn${activeHint ? ' active' : ''}`}
+                            onClick={handleHint}
+                            title={activeHint ? 'Dismiss hint' : 'Show hint'}
+                        >
+                            💡
+                        </button>
+                    </div>
+                    <div className="hud-section">
+                        <button
+                            className={`hud-btn hud-rules-btn${rulesOpen ? ' active' : ''}`}
+                            onClick={() => setRulesOpen(!rulesOpen)}
+                            title={rulesOpen ? 'Close rules' : 'How to play'}
+                        >
+                            ?
+                        </button>
+                    </div>
                 </div>
             </div>
             <RulesModal />

@@ -4,6 +4,7 @@ import { defineConfig } from 'vite'
 export default defineConfig(({ mode }) => ({
     root: 'src/',
     publicDir: '../public/',
+    envDir: '../',
     plugins: [react()],
     server: {
         host: true,

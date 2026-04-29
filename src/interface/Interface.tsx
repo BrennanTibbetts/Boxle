@@ -5,6 +5,8 @@ import HUD from './HUD'
 import HintDescription from './HintDescription'
 import EndScreen from './EndScreen'
 import MainMenu from './MainMenu'
+import AccountButton from './AccountButton'
+import AuthModal from './AuthModal'
 import { DailyModeProvider } from '../modes/DailyModeProvider'
 import { ArcadeModeProvider } from '../modes/ArcadeModeProvider'
 import { LibraryModeProvider } from '../modes/LibraryModeProvider'
@@ -90,6 +92,9 @@ export default function Interface() {
             )}
 
             {activeMode === GameMode.MENU && <MainMenu />}
+
+            <AccountButton />
+            <AuthModal />
         </div>
     )
 }

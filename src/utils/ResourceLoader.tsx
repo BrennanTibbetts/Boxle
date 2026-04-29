@@ -12,7 +12,6 @@ interface ResourceLoaderProps {
 
 export default function ResourceLoader({ children }: ResourceLoaderProps) {
     const [resourcesReady, setResourcesReady] = useState(false)
-    const { addGeometry, addMaterial, getGroupMaterial, updateGroupMaterials } = useResource()
 
     const props = useControls('Box', {
         boxSegments: { value: 1, min: 1, max: 10, step: 1 },
@@ -21,6 +20,16 @@ export default function ResourceLoader({ children }: ResourceLoaderProps) {
     })
 
     useEffect(() => {
+        const {
+            addGeometry,
+            addMaterial,
+            getGroupMaterial,
+            getBoxleMaterial,
+            getGlowMaterial,
+            getDimMaterial,
+            getWrongMaterial,
+        } = useResource.getState()
+
         const boxGeometry = new RoundedBoxGeometry(1, 1, 1, props.boxSegments, props.boxRadius)
         addGeometry('box', boxGeometry)
 
@@ -35,15 +44,19 @@ export default function ResourceLoader({ children }: ResourceLoaderProps) {
 
         for (let i = 0; i < COLORS.length; i++) {
             getGroupMaterial(i, props.boxWireframe)
+            getBoxleMaterial(i)
+            getGlowMaterial(i)
         }
+        getDimMaterial()
+        getWrongMaterial()
 
         setResourcesReady(true)
         return () => { useResource.getState().dispose() }
-    }, [props.boxSegments, props.boxRadius, props.boxWireframe, addGeometry, addMaterial, getGroupMaterial])
+    }, [props.boxSegments, props.boxRadius, props.boxWireframe])
 
     useEffect(() => {
-        updateGroupMaterials(props.boxWireframe)
-    }, [props.boxWireframe, updateGroupMaterials])
+        useResource.getState().updateGroupMaterials(props.boxWireframe)
+    }, [props.boxWireframe])
 
     if (!resourcesReady) return <></>
 

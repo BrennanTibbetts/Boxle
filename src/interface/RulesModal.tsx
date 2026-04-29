@@ -46,11 +46,11 @@ function RulesContent({ isMobile }: { isMobile: boolean }) {
             <div className="rules-legend">
                 <div className="rules-legend-item">
                     <MarkIcon />
-                    <span>{markVerb} a box to rule it out.</span>
+                    <span>{markVerb} a box to place a mark (rules it out).</span>
                 </div>
                 <div className="rules-legend-item">
                     <BoxleIcon />
-                    <span>{placeVerb} on a box to place a {boxle}.</span>
+                    <span>{placeVerb} a box to place a {boxle}.</span>
                 </div>
                 <div className="rules-legend-item">
                     <LockIcon />

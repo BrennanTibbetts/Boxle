@@ -403,6 +403,189 @@ div.content {
     text-transform: uppercase;
 }
 
+.auth-corner {
+    position: absolute;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    right: calc(16px + env(safe-area-inset-right, 0px));
+    pointer-events: auto;
+    z-index: 250;
+}
+
+.account-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+}
+
+.account-btn-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.account-btn.signed-in {
+    color: #fde047;
+}
+
+.auth-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    padding: calc(64px + env(safe-area-inset-top, 0px)) 16px 0 0;
+    z-index: 240;
+    pointer-events: none;
+    transform: translate(20%, -12%) scale(0.96);
+    transform-origin: top right;
+    opacity: 0;
+    transition: transform 0.32s cubic-bezier(0.22, 0.8, 0.24, 1), opacity 0.22s ease;
+}
+
+.auth-panel.open {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.auth-card {
+    background: rgba(21, 21, 23, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 22px 24px;
+    width: min(320px, 90vw);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    backdrop-filter: blur(12px);
+    font-family: 'Bebas Neue', cursive;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.auth-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.auth-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.4rem;
+    letter-spacing: 0.08em;
+    color: #ffffff;
+    margin: 0;
+}
+
+.auth-close-btn {
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.auth-close-btn:hover {
+    color: #ffffff;
+}
+
+.auth-blurb {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.06em;
+    margin: 0;
+}
+
+.auth-account-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.auth-label {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.auth-email {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.05rem;
+    color: #ffffff;
+    letter-spacing: 0.04em;
+    word-break: break-all;
+}
+
+.auth-action-btn {
+    align-self: stretch;
+}
+
+.oauth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 120ms ease, transform 120ms ease, background 120ms ease;
+}
+
+.oauth-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.oauth-btn:not(:disabled):active {
+    transform: scale(0.98);
+}
+
+.oauth-btn-google {
+    background: #ffffff;
+    color: #1f1f1f;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.oauth-btn-google:not(:disabled):hover {
+    background: #f5f5f5;
+}
+
+.oauth-btn-apple {
+    background: #000000;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.oauth-btn-apple:not(:disabled):hover {
+    background: #1a1a1a;
+}
+
+.oauth-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.auth-error {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 0.85rem;
+    color: #ff8a8a;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
 ::-webkit-scrollbar-track
 {
 	-webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3);

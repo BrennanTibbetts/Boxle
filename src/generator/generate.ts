@@ -282,42 +282,49 @@ function generateRegions(N: number, S: number, stars: Cell[], masterSeed: number
     return null
 }
 
-export function defaultBoxlesPerRegion(_N: number): number {
-    // Forced to 1 across the board: the generator's S>1 codepath has known
-    // indexing bugs (see project_boxle_generator_s2_broken in memory). Every
-    // runtime-generated puzzle is a 1-boxle-per-region puzzle until that's
-    // fixed. Revisit when S>1 is back on the table.
-    return 1
+// S=1 only. The S>1 codepath has known indexing bugs; locked at 1 until
+// fixed (see project_boxle_generator_s2_broken). When re-enabling S>1,
+// promote S back to a parameter and audit placeStars/generateRegions/
+// findAlternativeSolution for region-index assumptions.
+const S = 1
+
+// Wall-clock budget for a single generate call. The synchronous codepath
+// blocks the main thread while it runs, so an open-ended budget produces
+// the kind of multi-minute hang that locked the user out of Arcade after
+// completing a size-16 puzzle. Callers (mode providers) handle a null
+// return by ending the run gracefully.
+//
+// 1500ms is large enough for sizes 4–14 to almost always succeed on the
+// first attempt, and small enough that a worst-case timeout still feels
+// like a stutter rather than a frozen tab.
+const DEFAULT_TIME_BUDGET_MS = 1500
+
+function nowMs(): number {
+    return typeof performance !== 'undefined' ? performance.now() : Date.now()
 }
 
-export function generateBoard(N: number, S: number = defaultBoxlesPerRegion(N), seed?: number): RawBoard | null {
+export function generateBoard(N: number, seed?: number, timeBudgetMs = DEFAULT_TIME_BUDGET_MS): RawBoard | null {
+    const deadline = nowMs() + timeBudgetMs
     const masterSeed = seed ?? Math.floor(Math.random() * 2_000_000_000) + 1
 
-    // The S>1 codepath has known correctness bugs in this port (region indexing
-    // assumes one star per region). Wrap in try/catch so a hard crash inside
-    // the algorithm becomes a graceful null return — callers (mode providers)
-    // already handle null by ending the run cleanly.
-    try {
-        for (let attempt = 0; attempt < 100; attempt++) {
-            const stars = placeStars(N, S, seededRng(masterSeed * 1000 + attempt + 1))
-            if (!stars) continue
+    for (let attempt = 0; attempt < 100; attempt++) {
+        if (nowMs() > deadline) return null
 
-            const board = generateRegions(N, S, stars, masterSeed * 999 + attempt + 1)
-            if (!board) continue
+        const stars = placeStars(N, S, seededRng(masterSeed * 1000 + attempt + 1))
+        if (!stars) continue
 
-            const starKeySet = new Set(stars.map(([r, c]) => r * N + c))
-            const compactBoard: RawBoard = Array.from({ length: N }, (_, r) =>
-                Array.from({ length: N }, (_, c) => {
-                    const regionId = board[r][c]
-                    return starKeySet.has(r * N + c) ? `${regionId}*` : regionId
-                })
-            )
+        const board = generateRegions(N, S, stars, masterSeed * 999 + attempt + 1)
+        if (!board) continue
 
-            return compactBoard
-        }
-    } catch (err) {
-        console.warn(`generateBoard(${N}, ${S}) threw — returning null`, err)
-        return null
+        const starKeySet = new Set(stars.map(([r, c]) => r * N + c))
+        const compactBoard: RawBoard = Array.from({ length: N }, (_, r) =>
+            Array.from({ length: N }, (_, c) => {
+                const regionId = board[r][c]
+                return starKeySet.has(r * N + c) ? `${regionId}*` : regionId
+            })
+        )
+
+        return compactBoard
     }
     return null
 }

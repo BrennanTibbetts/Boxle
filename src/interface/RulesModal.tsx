@@ -3,6 +3,7 @@ import useUI from '../stores/useUI'
 import useGame, { GameMode } from '../stores/useGame'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { BoxleIcon, MarkIcon, LockIcon } from '../components/BoxIcons'
+import { useModalEscape } from './Modal'
 
 const SEEN_KEY = 'boxle-rules-seen'
 
@@ -20,7 +21,9 @@ const boxles = <span style={{ color: BOXLE_COLOR, fontWeight: 600 }}>boxles</spa
 const touch = <span style={{ color: WARN_COLOR, fontWeight: 600 }}>touch</span>
 const diagonally = <span style={{ color: WARN_COLOR, fontWeight: 600 }}>diagonally</span>
 
-function RulesContent() {
+function RulesContent({ isMobile }: { isMobile: boolean }) {
+    const markVerb = isMobile ? 'Tap' : 'Click'
+    const placeVerb = isMobile ? 'Hold' : 'Double-click'
     return (
         <>
             <p className="rules-body">
@@ -43,11 +46,11 @@ function RulesContent() {
             <div className="rules-legend">
                 <div className="rules-legend-item">
                     <MarkIcon />
-                    <span>Click a box to rule it out.</span>
+                    <span>{markVerb} a box to rule it out.</span>
                 </div>
                 <div className="rules-legend-item">
                     <BoxleIcon />
-                    <span>Double-click to place a {boxle}.</span>
+                    <span>{placeVerb} on a box to place a {boxle}.</span>
                 </div>
                 <div className="rules-legend-item">
                     <LockIcon />
@@ -82,6 +85,8 @@ export default function RulesModal() {
         setRulesOpen(false)
     }
 
+    useModalEscape(onClose, open)
+
     const className = `rules-panel${useCentered ? ' rules-panel-centered' : ''}${open ? ' open' : ''}`
 
     return (
@@ -92,7 +97,7 @@ export default function RulesModal() {
         >
             <div className="rules-card" onClick={(e) => e.stopPropagation()}>
                 <h2 className="rules-title">How to play</h2>
-                <RulesContent />
+                <RulesContent isMobile={isMobile} />
                 <button className="hud-btn rules-close-btn" onClick={onClose}>Got it</button>
             </div>
         </aside>

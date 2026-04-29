@@ -25,47 +25,37 @@ interface LibraryRunState {
     addPuzzleStats: (hints: number, livesLost: number) => void
 }
 
-const useLibraryRun = create<LibraryRunState>((set) => ({
-    activeTierSize: null,
+const blankBatchStats = {
     puzzlesCompletedInTier: 0,
     showBatchComplete: false,
     showGameOver: false,
     batchHintsUsed: 0,
     batchLivesLost: 0,
+}
+
+const useLibraryRun = create<LibraryRunState>((set) => ({
+    activeTierSize: null,
+    ...blankBatchStats,
     batchId: 0,
     enterTier: (size) => set((s) => ({
         activeTierSize: size,
-        puzzlesCompletedInTier: 0,
-        showBatchComplete: false,
-        showGameOver: false,
-        batchHintsUsed: 0,
-        batchLivesLost: 0,
+        ...blankBatchStats,
         batchId: s.batchId + 1,
     })),
     leaveTier: () => set({
         activeTierSize: null,
-        puzzlesCompletedInTier: 0,
-        showBatchComplete: false,
-        showGameOver: false,
-        batchHintsUsed: 0,
-        batchLivesLost: 0,
+        ...blankBatchStats,
     }),
     incrementCompleted: () => set((s) => ({ puzzlesCompletedInTier: s.puzzlesCompletedInTier + 1 })),
     resetCompleted: () => set({ puzzlesCompletedInTier: 0 }),
     markBatchComplete: () => set({ showBatchComplete: true }),
     dismissBatchComplete: () => set((s) => ({
-        showBatchComplete: false,
-        puzzlesCompletedInTier: 0,
-        batchHintsUsed: 0,
-        batchLivesLost: 0,
+        ...blankBatchStats,
         batchId: s.batchId + 1,
     })),
     markGameOver: () => set({ showGameOver: true }),
     restartBatch: () => set((s) => ({
-        showGameOver: false,
-        puzzlesCompletedInTier: 0,
-        batchHintsUsed: 0,
-        batchLivesLost: 0,
+        ...blankBatchStats,
         batchId: s.batchId + 1,
     })),
     addPuzzleStats: (hints, livesLost) => set((s) => ({

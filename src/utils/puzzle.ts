@@ -1,10 +1,14 @@
 import type { RawBoard, DecodedBoard } from '../types/puzzle'
 
+// UTC-normalized so all players worldwide get the same daily puzzle on the
+// same calendar day (UTC). Local-time would fork the daily seed across
+// timezones — two players at midnight in different zones would otherwise
+// see different puzzles for the same shared day.
 export function getDateSeed(): number {
     const date = new Date()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const year = date.getFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    const year = date.getUTCFullYear()
     return parseInt(`${month}${day}${year}`, 10)
 }
 

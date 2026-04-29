@@ -6,11 +6,11 @@
 
 ## What Boxle Is
 
-Boxle is a **daily logic puzzle game** with a 3D presentation. Each puzzle is a grid of boxes divided into colored regions; the goal is to place exactly N boxles such that each row, column, and region contains exactly N, and no two boxles are adjacent (including diagonally).
+Boxle is a **daily logic puzzle game** with a 3D presentation, with two endless companion modes (Arcade and Library) that share the same engine. Each puzzle is a grid of boxes divided into colored regions; the goal is to place exactly one boxle in every row, column, and region, with no two boxles touching (not even diagonally).
 
 Each day, all players get the same sequence of 5 puzzles, scaling from 4×4 up to 8×8. The date-based seed ensures the experience is shared and therefore social.
 
-**Core loop:** Place boxles → wrong placement costs a life (3 lives total) → complete the grid to advance → finish all 8 to end the session.
+**Core loop:** Place boxles → wrong placement costs a life (3 lives) → complete the grid to advance → finish all 5 to end the daily session.
 
 ---
 
@@ -21,39 +21,75 @@ Each day, all players get the same sequence of 5 puzzles, scaling from 4×4 up t
 **What works and is production-quality:**
 - Puzzle engine: placement validation, win detection, cascade lock animations
 - 13-rule hint system with visual box highlighting (rule-based deduction, not brute force)
-- 3D grid rendering with animated boxles, glowing locked boxes, and smooth camera pans
-- Daily seed system: 680 pre-generated puzzles across 8 grid sizes, deterministically selected by date
+- 3D grid rendering with animated boxles, glowing locked boxes, and smooth camera pans between stacked levels
+- Daily seed system: pre-generated puzzles for sizes 4×4–8×8, deterministically selected by date
+- Runtime puzzle generator (S=1 only — see "current limitations") with single-slot prefetch cache to mask generation latency
 - 3-lives system with animated feedback
-- Persistence layer (localStorage): daily progress survives page refresh, session stats accumulate all-time
-- Streak tracking: current and longest streak, expiry checked on load
-- Session end screen: levels, time, hints, mistakes, streak display
-- Shareable result card: emoji grid + streak line, `navigator.share()` on mobile / clipboard fallback on desktop
-- Stats modal: win rate, best time, all-time hints and mistakes
+- **All three modes live:** Daily, Arcade (infinite, sizes 4×4 → 18×18 cap), Library (10-puzzle batches per size, 4×4 → 18×18)
+- Mode-aware boot routing via `lastActiveMode`: refresh mid-Arcade lands you back in the run; refresh mid-Daily resumes; otherwise menu (when daily is done) or daily (fresh day)
+- Main menu (2D overlay): tile per mode + How to Play + Stats; daily-completed tile opens a performance modal instead of re-entering the game; arcade tile shows resume/new-run when a save exists
+- Persistence (localStorage): daily progress, arcade run state, per-mode stats, library tier unlocks, last-completed daily snapshot, last-active mode
+- Streak tracking: current and longest, daily-only by design, expiry checked on load
+- Mode-aware end screens (Daily vs Arcade variants) and Library has its own batch-complete + game-over overlays
+- Shareable result card: clipboard-only for now (mobile native share deferred)
+- Stats modal with mode tabs (Daily / Arcade / Library), each tab showing mode-appropriate fields
+- Phase 6 gate hook stubbed (`canPlayAt`) and wired at Arcade next-size and Library tier-entry call sites
+- Mobile responsive: rules opens as a centered modal on small viewports (no board slide), menu tiles stack, library tier grid reflows
 
-**What is missing or prototype-only:**
-- Onboarding is a single static rules slide (`RulesModal`). The interactive tutorial system was removed on 2026-04-23; whether we need more than a rules slide is pinned on real playtester feedback
-- Only one game mode exists (Daily); mode-provider scaffolding is in place for Arcade/Library but those providers aren't built
-- No monetization infrastructure
-- No main menu or pause UI — the app launches straight into the daily
+**Current limitations:**
+- Runtime generator only handles S=1 — `defaultBoxlesPerRegion` is hardcoded to return 1; the S>1 codepath crashes (see [tasks/phase-4-new-modes.md](tasks/phase-4-new-modes.md) "Known generator limitation"). Practical effect: every Arcade and Library puzzle is single-boxle-per-region regardless of grid size.
+- Generator time variance is high at sizes 15+ — typical case is fast, but rare seeds can take many seconds. Prefetch hides the common case; pathological cases would benefit from a Web Worker.
+- Site is not yet mobile-playable (Phase 5)
+- No monetization infrastructure yet (Phase 6)
+- No leaderboards (Phase 7)
+- Onboarding is a single static rules slide; interactive tutorial was removed on 2026-04-23 and reintroduction is pinned on real playtester feedback
+- Library batches don't persist across reload yet (only Arcade does)
 - `version: 0.0.0` in package.json — pre-release
 
 **Key files to know:**
-- [src/stores/useGame.ts](src/stores/useGame.ts) — core state machine (phases, lives, progression, validation); also holds `activeMode` for mode routing
-- [src/stores/usePersistence.ts](src/stores/usePersistence.ts) — localStorage persistence (stats, streaks, daily save)
-- [src/hooks/usePersistenceSync.ts](src/hooks/usePersistenceSync.ts) — wires game state to persistence; restore-then-subscribe ordering is intentional
-- [src/LevelManager.tsx](src/LevelManager.tsx) — pure renderer; reads `levelConfigs` from store, no longer loads puzzles itself
+
+State stores:
+- [src/stores/useGame.ts](src/stores/useGame.ts) — core state machine (phase, lives, progression, validation, levelConfigs/levels arrays, `activeMode`)
+- [src/stores/usePersistence.ts](src/stores/usePersistence.ts) — localStorage schema (per-mode stats, dailySave, arcadeSave, lastActiveMode, libraryProgress, isPremium)
+- [src/stores/useArcadeRun.ts](src/stores/useArcadeRun.ts) — Arcade run state (currentSize, puzzlesCompleted, run-total hints/lives)
+- [src/stores/useLibraryRun.ts](src/stores/useLibraryRun.ts) — Library batch state (activeTierSize, puzzlesCompletedInTier, batch totals, batch-complete / game-over flags)
+- [src/stores/useHint.ts](src/stores/useHint.ts) — active hint + `HintBoxRole` resolution; auto-clears on boxle placement
+- [src/stores/useUI.ts](src/stores/useUI.ts) — `rulesOpen` flag
+
+Mode providers (mounted by `Interface.tsx` based on `activeMode`):
+- [src/modes/DailyModeProvider.tsx](src/modes/DailyModeProvider.tsx) — loads the daily sequence + runs persistence sync
+- [src/modes/ArcadeModeProvider.tsx](src/modes/ArcadeModeProvider.tsx) — fresh-init or resume-from-save; subscribes to phase-ENDED for advance/end logic; debounced auto-save
+- [src/modes/LibraryModeProvider.tsx](src/modes/LibraryModeProvider.tsx) — tier picker / in-batch / batch-complete / game-over routing
+
+Generator:
+- [src/generator/generate.ts](src/generator/generate.ts) — runtime puzzle generator (S=1 only); `defaultBoxlesPerRegion(N)` is hardcoded to 1
+- [src/generator/prefetch.ts](src/generator/prefetch.ts) — single-slot background cache (`arcade` and `library` namespaces)
+- [src/generator/PuzzleBuffer.ts](src/generator/PuzzleBuffer.ts) — multi-slot buffer utility (built but not currently wired; the simpler single-slot prefetch is in use)
+
+Game / rendering:
+- [src/LevelManager.tsx](src/LevelManager.tsx) — pure renderer; reads `levelConfigs` from store
 - [src/components/Box.tsx](src/components/Box.tsx) — box interaction, all input handling, animations
 - [src/utils/hintRules.ts](src/utils/hintRules.ts) — all 13 hint deduction rules
-- [src/stores/useHint.ts](src/stores/useHint.ts) — active hint + `HintBoxRole` resolution; auto-clears on boxle placement
-- [src/hooks/useDailyPuzzles.ts](src/hooks/useDailyPuzzles.ts) — date-seeded puzzle selection and decoding
+- [src/hooks/useDailyPuzzles.ts](src/hooks/useDailyPuzzles.ts) — date-seeded puzzle selection
+- [src/hooks/usePersistenceSync.ts](src/hooks/usePersistenceSync.ts) — wires daily game state to persistence; restore-then-subscribe ordering is intentional
+- [src/hooks/useIsMobile.ts](src/hooks/useIsMobile.ts) — `(max-width: 768px)` matchMedia hook
 - [src/utils/puzzle.ts](src/utils/puzzle.ts) — seed math and board decode logic
-- [src/interface/HUD.tsx](src/interface/HUD.tsx) — 2D overlay (level counter, lives, hint button, `?` rules button); defines `COLOR_LABELS` used across UI
-- [src/interface/Interface.tsx](src/interface/Interface.tsx) — mode-routed UI shell; mounts mode providers + conditional overlays
-- [src/interface/EndScreen.tsx](src/interface/EndScreen.tsx) — session complete / game over overlay with share and stats
-- [src/interface/StatsModal.tsx](src/interface/StatsModal.tsx) — all-time stats overlay
-- [src/interface/RulesModal.tsx](src/interface/RulesModal.tsx) — static rules slide; first-visit auto-open via `boxle-rules-seen` flag, also openable from HUD `?` button
-- [data/puzzles.js](data/puzzles.js) — aggregates all 680 puzzles from 8 JSON files
-- [src/modes/DailyModeProvider.tsx](src/modes/DailyModeProvider.tsx) — loads the daily sequence + runs persistence sync
+- [src/utils/gates.ts](src/utils/gates.ts) — `canPlayAt(size, mode)` gate stub for Phase 6
+
+UI:
+- [src/interface/Interface.tsx](src/interface/Interface.tsx) — mode-routed shell; `useBootMode` (lastActiveMode-based routing) + `useTrackActiveMode`
+- [src/interface/HUD.tsx](src/interface/HUD.tsx) — bottom bar (level, lives, clear marks, hint, `?`); defines `COLOR_LABELS`. The `☰ Menu` button lives separately at top-left in `.hud-corner`
+- [src/interface/MainMenu.tsx](src/interface/MainMenu.tsx) — Daily / Arcade / Library tiles + How to Play + Stats
+- [src/interface/EndScreen.tsx](src/interface/EndScreen.tsx) — mode-aware end screen (DailyEndContent + ArcadeEndContent)
+- [src/interface/DailyPerformanceModal.tsx](src/interface/DailyPerformanceModal.tsx) — opens from menu when daily is complete; shows the day's result without re-entering the game
+- [src/interface/LibraryTierPicker.tsx](src/interface/LibraryTierPicker.tsx) — tier grid, locked beyond `unlockedMaxSize`
+- [src/interface/LibraryBatchComplete.tsx](src/interface/LibraryBatchComplete.tsx) — overlay shown after the 10th puzzle
+- [src/interface/LibraryGameOver.tsx](src/interface/LibraryGameOver.tsx) — overlay shown when lives=0 mid-batch
+- [src/interface/StatsModal.tsx](src/interface/StatsModal.tsx) — Daily / Arcade / Library tabs
+- [src/interface/RulesModal.tsx](src/interface/RulesModal.tsx) — side-panel in-game-on-desktop, centered modal on menu or mobile
+
+Data:
+- [data/puzzles.js](data/puzzles.js) — aggregates the daily pool (sizes 4–8 imported; 9/10/11 JSON files exist but are no longer imported)
 
 ---
 
@@ -160,43 +196,25 @@ Whether a richer onboarding is needed is an **open question pinned on real playt
 
 ## Build Priority Order
 
-Work through these phases in order. Each phase is a prerequisite for the next.
+Phases ship in order; each is a prerequisite for the next.
 
-### Phase 1 — Foundation ✅ Complete
-- [x] Persistence layer (localStorage: progress, stats, streaks, unlock state)
-- [x] Remove Leva debug panel from production builds
-- [x] Game over / session complete screen (ENDED phase currently has no UI)
+| Phase | Status |
+|-------|--------|
+| **1 — Foundation** (persistence, end screen, Leva-in-prod fix) | ✅ Shipped |
+| **2 — Retention** (streaks, per-mode stats, share card) | ✅ Shipped |
+| **3 — Onboarding** (static `RulesModal`; tutorial gutted) | ✅ Closed; pinned on playtester feedback |
+| **4 — New Modes** (Daily / Arcade / Library, runtime generator, mode-aware stats) | ✅ Functionally done; generator S>1 fix queued |
+| **5 — Mobile-friendly web** (touch gestures, portrait camera, responsive HUD, low-end perf validation) | 🔲 **Next up** — site is currently mobile-unplayable; share card lands on broken phones |
+| **6 — Monetization** (`$2.99` one-time unlock; depth gates) | 🔲 Blocked on Phase 5 — gate hook stubbed at Arcade next-size and Library tier-entry call sites |
+| **7 — Leaderboard** (backend, auth, global leaderboards) | 🔲 Blocked on Phase 6 |
 
-### Phase 2 — Retention Hooks ✅ Complete
-- [x] Streak tracking
-- [x] Personal stats (per-session + all-time)
-- [x] Shareable daily result card
-
-### Phase 3 — Onboarding ✅ Closed for now (tutorial gutted; pinned on playtester feedback)
-- [x] Mode-provider scaffolding (`GameMode` enum, `DailyModeProvider`); still the foundation for Phase 4
-- [x] Static `RulesModal` with first-visit auto-open (`boxle-rules-seen`) and HUD `?` button
-- [ ] **Pinned:** observe real first-time players with the rules slide before deciding whether to reintroduce any guided tutorial pieces
-
-### Phase 4 — New Modes
-- [ ] Runtime puzzle generator + pre-generation buffer (Arcade/Library generate on-demand; Daily keeps the curated pool)
-- [ ] Stats schema migration to per-mode nested shape; streak stays daily-only
-- [ ] Main Menu (2D overlay, tiles for Daily / Arcade / Library + How to Play + Stats)
-- [ ] Boot-state routing: resume-first when daily in-flight, menu when daily complete, daily-first on a new day
-- [ ] Arcade mode provider (3 lives per run, random survival, 4×4 → 15×15 cap, no score display yet)
-- [ ] Library mode provider (batches of 10, completing a batch unlocks size+1, replays free)
-- [ ] Phase 5 gate hooks stubbed (always-allow body) at the Arcade next-size and Library tier-unlock call sites
+Side tracks (independent of the main phase order):
+- **Sound** ([tasks/phase-sound.md](tasks/phase-sound.md)) — game-feel audio; waiting on assets
+- **Perf** ([tasks/phase-perf.md](tasks/phase-perf.md)) — Tier 1 shipped; Tier 2/3 gated on low-end-device measurement
 
 **Note on Phase 4 infrastructure:** The mode-provider pattern (`src/modes/*`) is the integration point. Each mode mounts its own provider in `Interface.tsx` and owns its own puzzle-loading + persistence strategy. Do not re-architect — follow the existing pattern.
 
-### Phase 5 — Monetization
-- [ ] Unlock state in persistence layer (free vs. paid per mode)
-- [ ] Depth gates in Arcade and Library
-- [ ] Payment integration ($2.99 one-time)
-
-### Phase 6 — Leaderboard
-- [ ] Backend + auth infrastructure
-- [ ] Global fastest daily solve leaderboard
-- [ ] Arcade high-score leaderboard
+**Note on Phase 5 reordering (2026-04-28):** Mobile-friendly web was promoted ahead of monetization. Reasoning: shared daily-result cards are the viral acquisition loop, shared links are tapped from phones, and today the placement gesture (`onDoubleClick` + shift-modifier) has no touch equivalent — so paid acquisition before mobile-fix would funnel users into a broken site. Web-first still implies *playable* on mobile web even though iOS will eventually get a native Swift rewrite.
 
 ---
 
@@ -224,7 +242,7 @@ Design and polish ideas to revisit after the phase roadmap is further along. Not
 
 ## Puzzle Content Notes
 
-- Daily uses the pre-generated pool for sizes 4×4 through 8×8 (the 9/10/11 JSON files still exist in `data/` but are no longer imported — kept as reference, can be re-enabled if we scale the daily back up)
+- Daily uses the pre-generated pool for sizes 4×4 through 8×8 (recoverable from git history if we ever want to scale daily back up to larger pools — the 9/10/11 JSONs were removed in the 2026-04-28 cleanup)
 - Arcade and Library generate on-demand via the runtime generator in [src/generator/generate.ts](src/generator/generate.ts), ported from [puzzle-generator/generate.js](puzzle-generator/generate.js)
 - At 5 puzzles/day, the 4–8 pool size gives plenty of unique daily sessions before any repetition
 - 1-boxle constraint for sizes 4–9; 2-boxle constraint for 10+ (Arcade territory)

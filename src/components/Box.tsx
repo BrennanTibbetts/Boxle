@@ -10,6 +10,11 @@ import useGame, { BoxState } from '../stores/useGame'
 import type { BoxStateValue } from '../stores/useGame'
 import useBoxSettings from '../stores/useBoxSettings'
 import useHint from '../stores/useHint'
+import { dragTracker } from '../utils/dragTracker'
+import { longPressTracker, LONG_PRESS_MS } from '../utils/longPressTracker'
+
+const CHARGE_PEAK_SCALE = 0.5
+const CHARGE_OUT_DURATION = 0.18
 
 interface BoxProps {
     group: number
@@ -20,28 +25,6 @@ interface BoxProps {
     spacing: number
     interactive?: boolean
 }
-
-// Module-level drag tracking
-let pendingDragMark: (() => void) | null = null
-let hasDragged = false
-let dragMovementX = 0
-let dragMovementY = 0
-
-window.addEventListener('pointerdown', () => { dragMovementX = 0; dragMovementY = 0 })
-window.addEventListener('pointermove', (e) => {
-    dragMovementX += e.movementX
-    dragMovementY += e.movementY
-    // On touch/pen, e.buttons is unreliably 0 during an active drag; use pressure instead
-    const isActive = e.buttons === 1 || (e.pointerType !== 'mouse' && e.pressure > 0)
-    if (isActive && pendingDragMark && !hasDragged) {
-        hasDragged = true
-        pendingDragMark()
-        pendingDragMark = null
-    }
-})
-window.addEventListener('pointerup', () => {
-    pendingDragMark = null
-})
 
 function getFlip(dx: number, dy: number) {
     const ax = Math.abs(dx)
@@ -76,6 +59,8 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     const boxleMeshRef = useRef<Mesh>(null)
     const glowRef       = useRef<Mesh>(null)
     const markRef       = useRef<Mesh>(null)
+    const chargeMeshRef = useRef<Mesh>(null)
+    const chargeTweenRef = useRef<gsap.core.Tween | null>(null)
     const wrongTlRef    = useRef<gsap.core.Timeline | null>(null)
     const spinDirRef    = useRef({ y: 1, x: 0.4 })
     const prevStateRef  = useRef<BoxStateValue>(BoxState.BLANK)
@@ -92,7 +77,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
 
         if (boxState === BoxState.MARK) {
             if (!alreadyFlipped) {
-                const flip = getFlip(dragMovementX, dragMovementY)
+                const flip = getFlip(dragTracker.movementX, dragTracker.movementY)
                 gsap.to(box.current.rotation, { ...flip, duration: markDuration })
             }
             if (markRef.current) gsap.to(markRef.current.scale, { x: markSize, z: markSize, duration: markDuration, ease: 'back.out(2)' })
@@ -192,6 +177,23 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         }
     })
 
+    // Unmount cleanup: kill any in-flight tweens against this box's targets so
+    // they don't continue mutating refs after they're detached. Lock-cascade
+    // tweens with `delay` are the most important to catch — they outlive the
+    // mount when a level is restarted mid-cascade.
+    useEffect(() => {
+        return () => {
+            if (box.current) gsap.killTweensOf(box.current.rotation)
+            if (box.current) gsap.killTweensOf(box.current.position)
+            if (markRef.current) gsap.killTweensOf(markRef.current.scale)
+            if (boxleMeshRef.current) gsap.killTweensOf(boxleMeshRef.current.scale)
+            if (glowRef.current) gsap.killTweensOf(glowRef.current.scale)
+            chargeTweenRef.current?.kill()
+            if (chargeMeshRef.current) gsap.killTweensOf(chargeMeshRef.current.scale)
+            wrongTlRef.current?.kill()
+        }
+    }, [])
+
     const position: [number, number, number] = [
         ((col - gridSize / 2) + 0.5) * spacing,
         0,
@@ -201,8 +203,9 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     const isBlocked = hintActive && !hintRole
 
     const handlePointerEnter = (e: ThreeEvent<PointerEvent>) => {
+        if (!interactive || isBlocked) return
         pointerEnter(e)
-        if (!interactive || isBlocked || e.nativeEvent.buttons !== 1) return
+        if (e.nativeEvent.buttons !== 1) return
         if (e.nativeEvent.shiftKey) {
             if (boxState === BoxState.MARK) toggleMark(levelIndex, row, col)
         } else {
@@ -210,25 +213,70 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         }
     }
 
+    const animateChargeOut = (snap = false) => {
+        chargeTweenRef.current?.kill()
+        if (!chargeMeshRef.current) return
+        if (snap) {
+            chargeMeshRef.current.scale.set(0, 0, 0)
+        } else {
+            chargeTweenRef.current = gsap.to(chargeMeshRef.current.scale, {
+                x: 0, y: 0, z: 0, duration: CHARGE_OUT_DURATION, ease: 'power1.in',
+            })
+        }
+    }
+
+    const animateChargeIn = () => {
+        if (!chargeMeshRef.current) return
+        chargeTweenRef.current?.kill()
+        chargeMeshRef.current.scale.set(0, 0, 0)
+        chargeTweenRef.current = gsap.to(chargeMeshRef.current.scale, {
+            x: CHARGE_PEAK_SCALE, y: CHARGE_PEAK_SCALE, z: CHARGE_PEAK_SCALE,
+            duration: LONG_PRESS_MS / 1000,
+            ease: 'sine.in',
+        })
+    }
+
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
         if (!interactive || isBlocked) return
         e.stopPropagation()
+        const isTouch = e.nativeEvent.pointerType !== 'mouse'
+
         if (e.nativeEvent.shiftKey) {
-            hasDragged = true
-            pendingDragMark = null
+            dragTracker.setHasDragged(true)
+            dragTracker.setPendingDragMark(null)
             if (boxState === BoxState.MARK) toggleMark(levelIndex, row, col)
-        } else {
-            hasDragged = false
-            pendingDragMark = boxState === BoxState.BLANK
+            return
+        }
+
+        dragTracker.setHasDragged(false)
+        dragTracker.setPendingDragMark(
+            boxState === BoxState.BLANK
                 ? () => toggleMark(levelIndex, row, col)
                 : null
+        )
+
+        // Touch/pen: long-press places. Tap (release before timer) falls
+        // through to handleClick which toggles the mark.
+        if (isTouch && (boxState === BoxState.BLANK || boxState === BoxState.MARK)) {
+            animateChargeIn()
+            longPressTracker.start(e.nativeEvent, {
+                onCommit: () => {
+                    dragTracker.setHasDragged(true)
+                    dragTracker.setPendingDragMark(null)
+                    placeBoxle(levelIndex, row, col)
+                    // The BOXLE-state effect handles the visible boxle; snap
+                    // the charge mesh away so it doesn't overlap the new boxle.
+                    animateChargeOut(true)
+                },
+                onCancel: () => animateChargeOut(),
+            })
         }
     }
 
     const handleClick = (e: ThreeEvent<MouseEvent>) => {
         if (!interactive || isBlocked) return
         e.stopPropagation()
-        if (hasDragged || e.nativeEvent.shiftKey) return
+        if (dragTracker.hasDragged || e.nativeEvent.shiftKey) return
         if (boxState === BoxState.BLANK || boxState === BoxState.MARK) toggleMark(levelIndex, row, col)
     }
 
@@ -276,6 +324,12 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
                 geometry={geometry}
                 material={markMaterial}
                 scale={[0, 0.1, 0]}
+            />
+            <mesh
+                ref={chargeMeshRef}
+                geometry={geometry}
+                material={boxleMaterial}
+                scale={0}
             />
             {showDim && <mesh geometry={geometry} material={dimMaterial} scale={dimScale} />}
             {isWrongPlacement && <mesh geometry={geometry} material={wrongMaterial} scale={1.0} />}

@@ -1,17 +1,10 @@
 import { useEffect } from 'react'
-import useGame, { Phase, BoxState, GameMode } from '../stores/useGame'
-import type { BoxStateValue, LevelGrid } from '../stores/useGame'
+import useGame, { Phase, GameMode, initGameState, advanceGameState } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import type { ArcadeSave } from '../stores/usePersistence'
 import useArcadeRun, { ARCADE_START_SIZE, ARCADE_MAX_SIZE } from '../stores/useArcadeRun'
 import { canPlayAt } from '../utils/gates'
 import { prefetchPuzzle, takeOrGenerate, resetPrefetch } from '../generator/prefetch'
-
-function makeBlankGrid(size: number): LevelGrid {
-    return Array.from({ length: size }, () =>
-        new Array<BoxStateValue>(size).fill(BoxState.BLANK)
-    )
-}
 
 function snapshot(): ArcadeSave {
     const game = useGame.getState()
@@ -77,20 +70,7 @@ export function ArcadeModeProvider() {
                 return
             }
 
-            useGame.setState({
-                levelConfigs: [first],
-                levels: [makeBlankGrid(ARCADE_START_SIZE)],
-                levelMistakes: [0],
-                currentLevel: 1,
-                phase: Phase.PLAYING,
-                startTime: Date.now(),
-                endTime: null,
-                wrongPlacement: null,
-                lastBoxlePosition: null,
-                lives: 3,
-                sessionHints: 0,
-                sessionLivesLost: 0,
-            })
+            useGame.setState(initGameState([first]))
             arcade.setCurrentSize(ARCADE_START_SIZE)
             prefetchPuzzle('arcade', Math.min(ARCADE_START_SIZE + 1, ARCADE_MAX_SIZE))
             // Persist the freshly initialised state immediately so a reload
@@ -153,22 +133,8 @@ export function ArcadeModeProvider() {
                 if (nextSize !== run.currentSize) run.setCurrentSize(nextSize)
                 prefetchPuzzle('arcade', Math.min(nextSize + 1, ARCADE_MAX_SIZE))
 
-                const newLevelNumber = game.levelConfigs.length + 1
-
-                useGame.setState({
-                    levelConfigs: [...game.levelConfigs, next],
-                    levels: [...game.levels, makeBlankGrid(nextSize)],
-                    levelMistakes: [...game.levelMistakes, 0],
-                    currentLevel: newLevelNumber,
-                    phase: Phase.PLAYING,
-                    startTime: Date.now(),
-                    endTime: null,
-                    wrongPlacement: null,
-                    lastBoxlePosition: null,
-                    sessionHints: 0,
-                    sessionLivesLost: 0,
-                    // lives preserved across puzzles for the run
-                })
+                // lives preserved across puzzles for the run
+                useGame.setState(advanceGameState(game, next))
                 // Save right after advance so the new level is in the snapshot.
                 usePersistence.getState().saveArcade(snapshot())
             }

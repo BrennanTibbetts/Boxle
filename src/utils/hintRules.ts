@@ -37,10 +37,20 @@ export interface HintResult {
     eliminateBoxes: BoxRef[]
 }
 
+// Built once per hint search and passed to every rule. Saves N rebuilds of
+// groupMap (one per rule that needs it) and centralises the grid dimension.
+export interface HintContext {
+    levelIndex: number
+    levelMatrix: number[][]
+    grid: LevelGrid
+    n: number
+    groupMap: Map<number, BoxRef[]>
+}
+
 export interface HintRule {
     id: string
     priority: number
-    find(levelIndex: number, levelMatrix: number[][], grid: LevelGrid): HintResult | null
+    find(ctx: HintContext): HintResult | null
 }
 
 // ---------------------------------------------------------------------------
@@ -97,9 +107,13 @@ function colBoxes(n: number, c: number): BoxRef[] {
     return Array.from({ length: n }, (_, r) => ({ row: r, col: c }))
 }
 
+function lineBoxes(n: number, byRows: boolean, idx: number): BoxRef[] {
+    return byRows ? rowBoxes(n, idx) : colBoxes(n, idx)
+}
+
 function combinations<T>(arr: T[], k: number): T[][] {
-    if (k === 0) return [[]]
-    if (arr.length < k) return []
+    if (k <= 0) return [[]]
+    if (k > arr.length) return []
     const [first, ...rest] = arr
     return [
         ...combinations(rest, k - 1).map(c => [first, ...c]),
@@ -122,6 +136,81 @@ function listTokens(groupIds: number[]): DescToken[] {
 }
 
 // ---------------------------------------------------------------------------
+// Naked-tuple shared logic
+// ---------------------------------------------------------------------------
+
+// "k regions only fit into k rows/cols" → other boxes in those rows/cols ruled out.
+// Same logic for rows and cols, parameterized by `byRows`.
+function findNakedTupleRegions(ctx: HintContext, byRows: boolean): HintResult | null {
+    const { levelIndex, grid, n, groupMap } = ctx
+    const groups = [...groupMap.entries()].filter(([, boxes]) => avail(boxes, grid).length > 0)
+    const dimension = byRows ? 'row' : 'col'
+
+    for (let k = 2; k < n; k++) {
+        for (const subset of combinations(groups, k)) {
+            const allAvail = subset.flatMap(([, boxes]) => avail(boxes, grid))
+            const unionLines = new Set(allAvail.map(b => byRows ? b.row : b.col))
+            if (unionLines.size !== k) continue
+            const source = allAvail
+            const elimBoxes = avail(
+                exclude([...unionLines].flatMap(idx => lineBoxes(n, byRows, idx)), source),
+                grid,
+            )
+            if (elimBoxes.length === 0) continue
+            const gIds = subset.map(([g]) => g)
+            const cnt = countWord(k)
+            return {
+                ruleId: `naked-tuple-regions-${dimension}s`, levelIndex,
+                description: [
+                    t('The '), ...listTokens(gIds),
+                    t(` regions can only be placed in these ${cnt} ${byRows ? 'rows' : 'columns'}, so the other boxes in these ${byRows ? 'rows' : 'columns'} can be ruled out.`),
+                ],
+                answerBoxes: [], sourceBoxes: source, eliminateBoxes: elimBoxes,
+            }
+        }
+    }
+    return null
+}
+
+// "k rows/cols only touch k regions" → those regions' boxes outside the lines ruled out.
+function findNakedTupleLines(ctx: HintContext, byRows: boolean): HintResult | null {
+    const { levelIndex, levelMatrix, grid, n, groupMap } = ctx
+    const dimension = byRows ? 'row' : 'col'
+
+    // Lines that already contain a boxle don't need another — exclude them so
+    // the pigeonhole (k regions fill k lines) doesn't count already-solved lines.
+    const lineIndices = Array.from({ length: n }, (_, i) => i)
+        .filter(idx => !lineBoxes(n, byRows, idx).some(({ row, col }) => grid[row][col] === BoxState.BOXLE))
+
+    for (let k = 2; k < n; k++) {
+        for (const subset of combinations(lineIndices, k)) {
+            const allAvail = subset.flatMap(idx => avail(lineBoxes(n, byRows, idx), grid))
+            if (allAvail.length === 0) continue
+            const unionGroups = new Set(allAvail.map(b => levelMatrix[b.row][b.col]))
+            if (unionGroups.size !== k) continue
+            const source = allAvail
+            const elimBoxes = avail(
+                exclude([...unionGroups].flatMap(g => groupMap.get(g)!), source),
+                grid,
+            )
+            if (elimBoxes.length === 0) continue
+            const gIds = [...unionGroups]
+            const cnt = countWord(k)
+            return {
+                ruleId: `naked-tuple-${dimension}s-regions`, levelIndex,
+                description: [
+                    t(`These ${cnt} ${byRows ? 'rows' : 'columns'} only touch the `), ...listTokens(gIds),
+                    t(` regions — their boxles must sit in these ${byRows ? 'rows' : 'columns'}, so `), ...listTokens(gIds),
+                    t(` boxes outside these ${byRows ? 'rows' : 'columns'} can be ruled out.`),
+                ],
+                answerBoxes: [], sourceBoxes: source, eliminateBoxes: elimBoxes,
+            }
+        }
+    }
+    return null
+}
+
+// ---------------------------------------------------------------------------
 // Rules
 // ---------------------------------------------------------------------------
 
@@ -132,8 +221,8 @@ export const HINT_RULES: HintRule[] = [
     {
         id: 'single-in-group',
         priority: 1,
-        find(levelIndex, levelMatrix, grid) {
-            for (const [g, boxes] of buildGroupMap(levelMatrix)) {
+        find({ levelIndex, grid, groupMap }) {
+            for (const [g, boxes] of groupMap) {
                 const a = avail(boxes, grid)
                 if (a.length === 1)
                     return {
@@ -149,8 +238,7 @@ export const HINT_RULES: HintRule[] = [
     {
         id: 'single-in-row',
         priority: 2,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
+        find({ levelIndex, grid, n }) {
             for (let r = 0; r < n; r++) {
                 const boxes = rowBoxes(n, r)
                 const a = avail(boxes, grid)
@@ -168,8 +256,7 @@ export const HINT_RULES: HintRule[] = [
     {
         id: 'single-in-col',
         priority: 3,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
+        find({ levelIndex, grid, n }) {
             for (let c = 0; c < n; c++) {
                 const boxes = colBoxes(n, c)
                 const a = avail(boxes, grid)
@@ -189,9 +276,8 @@ export const HINT_RULES: HintRule[] = [
     {
         id: 'region-locked-row',
         priority: 4,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            for (const [g, boxes] of buildGroupMap(levelMatrix)) {
+        find({ levelIndex, grid, n, groupMap }) {
+            for (const [g, boxes] of groupMap) {
                 const a = avail(boxes, grid)
                 if (a.length < 2) continue
                 const r = sameRow(a)
@@ -211,9 +297,8 @@ export const HINT_RULES: HintRule[] = [
     {
         id: 'region-locked-col',
         priority: 5,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            for (const [g, boxes] of buildGroupMap(levelMatrix)) {
+        find({ levelIndex, grid, n, groupMap }) {
+            for (const [g, boxes] of groupMap) {
                 const a = avail(boxes, grid)
                 if (a.length < 2) continue
                 const c = sameCol(a)
@@ -233,9 +318,7 @@ export const HINT_RULES: HintRule[] = [
     {
         id: 'row-locked-region',
         priority: 6,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            const groupMap = buildGroupMap(levelMatrix)
+        find({ levelIndex, levelMatrix, grid, n, groupMap }) {
             for (let r = 0; r < n; r++) {
                 const a = avail(rowBoxes(n, r), grid)
                 if (a.length < 2) continue
@@ -256,9 +339,7 @@ export const HINT_RULES: HintRule[] = [
     {
         id: 'col-locked-region',
         priority: 7,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            const groupMap = buildGroupMap(levelMatrix)
+        find({ levelIndex, levelMatrix, grid, n, groupMap }) {
             for (let c = 0; c < n; c++) {
                 const a = avail(colBoxes(n, c), grid)
                 if (a.length < 2) continue
@@ -278,135 +359,17 @@ export const HINT_RULES: HintRule[] = [
 
     // ── Level 3: Naked tuples (k ≥ 2 regions ↔ rows/cols) ─────────────────
 
-    {
-        id: 'naked-tuple-regions-rows',
-        priority: 8,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            const groups = [...buildGroupMap(levelMatrix).entries()]
-                .filter(([, boxes]) => avail(boxes, grid).length > 0)
-            for (let k = 2; k < n; k++) {
-                for (const subset of combinations(groups, k)) {
-                    const allAvail = subset.flatMap(([, boxes]) => avail(boxes, grid))
-                    const unionRows = new Set(allAvail.map(b => b.row))
-                    if (unionRows.size !== k) continue
-                    const source = allAvail
-                    const elimBoxes = avail(exclude([...unionRows].flatMap(r => rowBoxes(n, r)), source), grid)
-                    if (elimBoxes.length === 0) continue
-                    const gIds = subset.map(([g]) => g)
-                    const cnt = countWord(k)
-                    return {
-                        ruleId: 'naked-tuple-regions-rows', levelIndex,
-                        description: [t('The '), ...listTokens(gIds), t(` regions can only be placed in these ${cnt} rows, so the other boxes in these rows can be ruled out.`)],
-                        answerBoxes: [], sourceBoxes: source, eliminateBoxes: elimBoxes,
-                    }
-                }
-            }
-            return null
-        },
-    },
-
-    {
-        id: 'naked-tuple-regions-cols',
-        priority: 9,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            const groups = [...buildGroupMap(levelMatrix).entries()]
-                .filter(([, boxes]) => avail(boxes, grid).length > 0)
-            for (let k = 2; k < n; k++) {
-                for (const subset of combinations(groups, k)) {
-                    const allAvail = subset.flatMap(([, boxes]) => avail(boxes, grid))
-                    const unionCols = new Set(allAvail.map(b => b.col))
-                    if (unionCols.size !== k) continue
-                    const source = allAvail
-                    const elimBoxes = avail(exclude([...unionCols].flatMap(c => colBoxes(n, c)), source), grid)
-                    if (elimBoxes.length === 0) continue
-                    const gIds = subset.map(([g]) => g)
-                    const cnt = countWord(k)
-                    return {
-                        ruleId: 'naked-tuple-regions-cols', levelIndex,
-                        description: [t('The '), ...listTokens(gIds), t(` regions can only be placed in these ${cnt} columns, so the other boxes in these columns can be ruled out.`)],
-                        answerBoxes: [], sourceBoxes: source, eliminateBoxes: elimBoxes,
-                    }
-                }
-            }
-            return null
-        },
-    },
-
-    {
-        id: 'naked-tuple-rows-regions',
-        priority: 10,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            const groupMap = buildGroupMap(levelMatrix)
-            // Rows that already contain a boxle don't need another — exclude them so
-            // the pigeonhole (k regions fill k rows) doesn't count already-solved rows
-            const rowIndices = Array.from({ length: n }, (_, i) => i)
-                .filter(r => !rowBoxes(n, r).some(({ row, col }) => grid[row][col] === BoxState.BOXLE))
-            for (let k = 2; k < n; k++) {
-                for (const subset of combinations(rowIndices, k)) {
-                    const allAvail = subset.flatMap(r => avail(rowBoxes(n, r), grid))
-                    if (allAvail.length === 0) continue
-                    const unionGroups = new Set(allAvail.map(b => levelMatrix[b.row][b.col]))
-                    if (unionGroups.size !== k) continue
-                    const source = allAvail
-                    const elimBoxes = avail(exclude([...unionGroups].flatMap(g => groupMap.get(g)!), source), grid)
-                    if (elimBoxes.length === 0) continue
-                    const gIds = [...unionGroups]
-                    const cnt = countWord(k)
-                    return {
-                        ruleId: 'naked-tuple-rows-regions', levelIndex,
-                        description: [t(`These ${cnt} rows only touch the `), ...listTokens(gIds), t(` regions — their boxles must sit in these rows, so `), ...listTokens(gIds), t(` boxes outside these rows can be ruled out.`)],
-                        answerBoxes: [], sourceBoxes: source, eliminateBoxes: elimBoxes,
-                    }
-                }
-            }
-            return null
-        },
-    },
-
-    {
-        id: 'naked-tuple-cols-regions',
-        priority: 11,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            const groupMap = buildGroupMap(levelMatrix)
-            // Columns that already contain a boxle don't need another — exclude them so
-            // the pigeonhole (k regions fill k cols) doesn't count already-solved cols
-            const colIndices = Array.from({ length: n }, (_, i) => i)
-                .filter(c => !colBoxes(n, c).some(({ row, col }) => grid[row][col] === BoxState.BOXLE))
-            for (let k = 2; k < n; k++) {
-                for (const subset of combinations(colIndices, k)) {
-                    const allAvail = subset.flatMap(c => avail(colBoxes(n, c), grid))
-                    if (allAvail.length === 0) continue
-                    const unionGroups = new Set(allAvail.map(b => levelMatrix[b.row][b.col]))
-                    if (unionGroups.size !== k) continue
-                    const source = allAvail
-                    const elimBoxes = avail(exclude([...unionGroups].flatMap(g => groupMap.get(g)!), source), grid)
-                    if (elimBoxes.length === 0) continue
-                    const gIds = [...unionGroups]
-                    const cnt = countWord(k)
-                    return {
-                        ruleId: 'naked-tuple-cols-regions', levelIndex,
-                        description: [t(`These ${cnt} columns only touch the `), ...listTokens(gIds), t(` regions — their boxles must sit in these columns, so `), ...listTokens(gIds), t(` boxes outside these columns can be ruled out.`)],
-                        answerBoxes: [], sourceBoxes: source, eliminateBoxes: elimBoxes,
-                    }
-                }
-            }
-            return null
-        },
-    },
+    { id: 'naked-tuple-regions-rows', priority: 8,  find: (ctx) => findNakedTupleRegions(ctx, true)  },
+    { id: 'naked-tuple-regions-cols', priority: 9,  find: (ctx) => findNakedTupleRegions(ctx, false) },
+    { id: 'naked-tuple-rows-regions', priority: 10, find: (ctx) => findNakedTupleLines(ctx, true)    },
+    { id: 'naked-tuple-cols-regions', priority: 11, find: (ctx) => findNakedTupleLines(ctx, false)   },
 
     // ── Level 4: Adjacency-based elimination ───────────────────────────────
 
     {
         id: 'adjacency-elimination',
         priority: 12,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            const groupMap = buildGroupMap(levelMatrix)
-
+        find({ levelIndex, levelMatrix, grid, n, groupMap }) {
             // Groups that already have a placed boxle don't need a box
             const solvedGroups = new Set<number>()
             for (const [g, boxes] of groupMap)
@@ -455,15 +418,13 @@ export const HINT_RULES: HintRule[] = [
             return null
         },
     },
+
     // ── Last resort: impossible board state ────────────────────────────────
 
     {
         id: 'impossible-state',
         priority: 13,
-        find(levelIndex, levelMatrix, grid) {
-            const n = levelMatrix.length
-            const groupMap = buildGroupMap(levelMatrix)
-
+        find({ levelIndex, grid, n, groupMap }) {
             for (const [g, boxes] of groupMap) {
                 const hasBoxle = boxes.some(b => grid[b.row][b.col] === BoxState.BOXLE)
                 if (hasBoxle) continue
@@ -507,10 +468,17 @@ export const HINT_RULES: HintRule[] = [
 export function findBestHint(
     levelIndex: number,
     levelMatrix: number[][],
-    grid: LevelGrid
+    grid: LevelGrid,
 ): HintResult | null {
+    const ctx: HintContext = {
+        levelIndex,
+        levelMatrix,
+        grid,
+        n: levelMatrix.length,
+        groupMap: buildGroupMap(levelMatrix),
+    }
     for (const rule of HINT_RULES) {
-        const result = rule.find(levelIndex, levelMatrix, grid)
+        const result = rule.find(ctx)
         if (result) return result
     }
     return null

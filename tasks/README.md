@@ -1,34 +1,26 @@
-> ## ⚠ READ FIRST — Execution Status (as of 2026-04-23)
->
-> **Current position: Phases 1–3 closed out. Ready to start Phase 4.**
->
-> | Phase | Status | Notes |
-> |-------|--------|-------|
-> | Phase 1 — Foundation | ✅ **Complete** | All persistence / end-screen / prod-build work done. |
-> | Phase 2 — Retention | ✅ **Complete** | Streaks, per-session + all-time stats, clipboard-based share card all shipped. Real social/share-link work deferred (see follow-up in phase-2 file). |
-> | Phase 3 — Onboarding | ✅ **Closed for now** | Interactive tutorial was **gutted** on 2026-04-23 — replaced with a static `RulesModal` (first-visit + `?` HUD button). Pinned: find real playtesters to decide whether a richer tutorial is needed. **Not a blocker for Phase 4.** |
-> | Phase 4 — New Modes | 🔲 **Next up** | Mode-provider scaffolding exists (`src/modes/DailyModeProvider.tsx`, `GameMode` enum with `DAILY`/`ARCADE`/`LIBRARY`). Build Arcade + Library providers and a main-menu entry point. |
-> | Phase 5 — Monetization | 🔲 Not started | Blocked until Phase 4. |
-> | Phase 6 — Leaderboard | 🔲 Not started | Blocked until Phase 5. |
->
-> **Design conventions still in force** (apply to hint text, rules copy, and any future user-facing explanation):
-> - Regions referenced by color, using exact `COLOR_LABELS` values from `src/interface/HUD.tsx`
-> - Rows/columns described spatially ("leftmost column", "bottom row") — never 0-indexed
-> - Styling matches in-game HUD (Bebas Neue, translucent-glass bubble) — not dark modal cards
-
 # Boxle — Task Breakdown
 
-Phases must be completed in order. Each is a prerequisite for the next.
+> **Current position (2026-04-28):** Phases 1–4 shipped; codebase post-cleanup pass. Phase 5 (mobile-friendly web) is next — monetization moved to Phase 6 because the share card is the viral surface and shared links land on phones, where the site is currently unplayable.
 
 | File | Phase | Status |
 |------|-------|--------|
-| [phase-1-foundation.md](phase-1-foundation.md) | Persistence, debug cleanup, end screen | ✅ Done |
-| [phase-2-retention.md](phase-2-retention.md) | Streaks, stats, shareable result card | ✅ Done |
 | [phase-3-onboarding.md](phase-3-onboarding.md) | Rules modal (tutorial gutted) | ✅ Closed for now; pinned on real playtester feedback |
-| [phase-4-new-modes.md](phase-4-new-modes.md) | Main menu, Arcade mode, Library mode | Not started |
-| [phase-5-monetization.md](phase-5-monetization.md) | Unlock state, depth gates, payment | Not started |
-| [phase-6-leaderboard.md](phase-6-leaderboard.md) | Backend, auth, global leaderboards | Not started |
-| [phase-sound.md](phase-sound.md) | Game feel audio (tactile SFX) | Waiting on assets — can implement any time |
-| [phase-perf.md](phase-perf.md) | Draw-call reduction (fold overlays, InstancedMesh) | Tier 1 done; Tier 2/3 queued, not urgent |
+| [phase-4-new-modes.md](phase-4-new-modes.md) | Main menu, Arcade mode, Library mode | ✅ Functionally done; design notes + generator S>1 fix queued |
+| [phase-5-mobile.md](phase-5-mobile.md) | Touch gestures, portrait camera, HUD responsive pass, mobile perf | 🔲 **Next up** — site is currently mobile-unplayable |
+| [phase-6-monetization.md](phase-6-monetization.md) | Unlock state, depth gates, payment | 🔲 Blocked on Phase 5 — gate hook stubbed |
+| [phase-7-leaderboard.md](phase-7-leaderboard.md) | Backend, auth, global leaderboards | 🔲 Not started; blocked on Phase 6 |
+| [phase-sound.md](phase-sound.md) | Game feel audio (tactile SFX) | 🔲 Waiting on assets — can implement any time |
+| [phase-perf.md](phase-perf.md) | Draw-call reduction (fold overlays, InstancedMesh) | Tier 1 shipped; Tier 2/3 gated on Phase 5 mobile measurement |
+| [bugs&ideas.md](bugs&ideas.md) | Misc | Notes |
+
+Phases 1 (Foundation), 2 (Retention), and the post-Phase-4 cleanup audit completed; their docs were removed once shipped (history is in git).
+
+**Design conventions still in force** (apply to hint text, rules copy, and any future user-facing explanation):
+- Regions referenced by color, using exact `COLOR_LABELS` values from [src/interface/HUD.tsx](../src/interface/HUD.tsx)
+- Rows/columns described spatially ("leftmost column", "bottom row") — never 0-indexed
+- Styling matches in-game HUD (Bebas Neue, translucent-glass bubble) — not dark modal cards
+- Mobile-friendly: rules opens as a centered modal (no board-slide) on `(max-width: 768px)` or on the main menu
+
+**Known generator limitation:** the runtime generator ([src/generator/generate.ts](../src/generator/generate.ts)) crashes for S>1. `S` is hardcoded to `1`, so Arcade and Library both run their full 4×4–18×18 range at S=1. Fix is queued in [phase-4-new-modes.md](phase-4-new-modes.md) but not blocking.
 
 See [PRODUCT_DIRECTION.md](../PRODUCT_DIRECTION.md) for the full strategic context behind these phases.

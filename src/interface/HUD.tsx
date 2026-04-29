@@ -14,11 +14,12 @@ function HeartIcon({ filled }: { filled: boolean }) {
 }
 
 export default function HUD() {
+    // Narrow selectors only — `levels` and `levelConfigs` mutate on every
+    // placement; reading them via getState() inside the click handler keeps
+    // HUD off the wrong-placement re-render path.
     const lives = useGame((state) => state.lives)
     const currentLevel = useGame((state) => state.currentLevel)
     const clearMarks = useGame((state) => state.clearMarks)
-    const levels = useGame((state) => state.levels)
-    const levelConfigs = useGame((state) => state.levelConfigs)
     const activeHint = useHint((state) => state.activeHint)
     const setHint = useHint((state) => state.setHint)
     const clearHint = useHint((state) => state.clearHint)
@@ -33,13 +34,13 @@ export default function HUD() {
             clearHint()
             return
         }
-        const levelIndex = currentLevel - 1
-        const config = levelConfigs[levelIndex]
-        const grid = levels[levelIndex]
+        const game = useGame.getState()
+        const levelIndex = game.currentLevel - 1
+        const config = game.levelConfigs[levelIndex]
+        const grid = game.levels[levelIndex]
         if (!config || !grid) return
         const result = findBestHint(levelIndex, config.levelMatrix, grid)
         setHint(result)
-        const game = useGame.getState()
         game.incrementSessionHint()
         if (game.activeMode !== GameMode.MENU) {
             usePersistence.getState().recordHint(game.activeMode)

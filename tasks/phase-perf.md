@@ -2,6 +2,8 @@
 
 Independent of Phases 2–6. Pure optimization work. All wins here are for low-end mobile / older hardware — desktop and current iPhones are already comfortably fast (M1 MBP runs 121 FPS at ~2ms CPU / 0ms GPU).
 
+**Gating:** don't pull this work forward without measurement on a real low-end device (Pixel 5a / older iPhone SE). If the floor device already hits 60 FPS, defer.
+
 ---
 
 ## Baseline (2026-04-23)
@@ -13,9 +15,9 @@ Measured on M1 MBP, 5×5 grid, 2 levels visible (current + next preview):
 - **GPU:** ~0.0 ms/frame
 - **Triangles:** ~26k
 
-Per-box mesh count (after Tier 1): 3 base meshes (box + child glow + mark) + 0–2 overlays depending on hint/wrong-placement state. Main box casts shadow, so adds one shadow-pass draw per box.
+Per-box mesh count (after Tier 1, already shipped): 3 base meshes (box + child glow + mark) + 0–2 overlays depending on hint/wrong-placement state. Main box casts shadow, so adds one shadow-pass draw per box.
 
-Tier 1 already shipped: shared dim/wrong materials, conditional overlay mounts, dim scale matches boxle extent when a boxle is placed. See commit history / `src/components/Box.tsx`, `src/stores/useResource.ts`, `src/stores/useHint.ts`.
+**Tier 1 (shipped):** shared dim/wrong materials, conditional overlay mounts, dim scale matches boxle extent when a boxle is placed. See [src/components/Box.tsx](../src/components/Box.tsx), [src/stores/useResource.ts](../src/stores/useResource.ts), [src/stores/useHint.ts](../src/stores/useHint.ts).
 
 ---
 

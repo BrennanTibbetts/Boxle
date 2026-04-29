@@ -64,6 +64,8 @@ Source these yourself. See format notes below before you go hunting.
 
 All wiring happens at the call sites, not inside the store.
 
+> **Prep step (deferred from the 2026-04-28 cleanup audit):** before wiring sounds into `Box.tsx`, extract the tangled animation/overlay logic into sub-hooks: `useBoxStateAnimation`, `useWrongPlacementFlash`, `useDimOverlay`. The sound call sites below land in exactly those spots, so the extraction + wiring is best done as one PR rather than two. Drag-tracker module + GSAP unmount-cleanup + `pointerEnter` guard reorder are already shipped.
+
 - [ ] **`src/components/Box.tsx`** — cascade tick  
   In the `BoxState.LOCK` branch of the `boxState` useEffect, after the GSAP tween is set up, call `useSound.getState().play('cascade-tick', { volume: ... })` with the same `delay` already computed there. Volume = `clamp(0.3 + distance * 0.12, 0.3, 1.0)` (or tune to taste).
 

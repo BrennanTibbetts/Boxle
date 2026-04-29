@@ -3,26 +3,7 @@ import useGame, { Phase, GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useArcadeRun from '../stores/useArcadeRun'
 import StatsModal from './StatsModal'
-
-function formatTime(ms: number): string {
-    const totalSeconds = Math.floor(ms / 1000)
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
-
-function buildShareGrid(
-    levelMistakes: number[],
-    levelsCompleted: number,
-    levelCount: number,
-    isComplete: boolean,
-): string {
-    return Array.from({ length: levelCount }, (_, i) => {
-        if (i < levelsCompleted) return levelMistakes[i] === 0 ? '🎯' : '🟡'
-        if (i === levelsCompleted && !isComplete) return '💀'
-        return '⬜'
-    }).join('')
-}
+import { buildShareGrid, formatTime, shareOrCopy } from '../utils/share'
 
 function DailyEndContent() {
     const lives = useGame((state) => state.lives)
@@ -53,9 +34,11 @@ function DailyEndContent() {
     ].filter(Boolean).join('\n')
 
     const handleShare = async () => {
-        await navigator.clipboard.writeText(shareText)
-        setShareLabel('Copied!')
-        setTimeout(() => setShareLabel('Share'), 2000)
+        const result = await shareOrCopy(shareText)
+        if (result === 'copied') {
+            setShareLabel('Copied!')
+            setTimeout(() => setShareLabel('Share'), 2000)
+        }
     }
 
     return (

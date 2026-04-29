@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
     root: 'src/',
     publicDir: '../public/',
     plugins: [react()],
@@ -12,7 +12,7 @@ export default defineConfig({
     build: {
         outDir: '../dist',
         emptyOutDir: true,
-        sourcemap: true,
+        sourcemap: mode === 'development' ? true : 'hidden',
         assetsDir: 'boxle/assets',
         rollupOptions: {
             output: {
@@ -22,4 +22,4 @@ export default defineConfig({
             }
         }
     },
-})
+}))

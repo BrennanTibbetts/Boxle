@@ -1,18 +1,11 @@
 import { useEffect } from 'react'
-import useGame, { Phase, BoxState } from '../stores/useGame'
-import type { BoxStateValue, LevelGrid } from '../stores/useGame'
+import useGame, { Phase, initGameState, advanceGameState } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useLibraryRun, { LIBRARY_BATCH_SIZE } from '../stores/useLibraryRun'
 import { prefetchPuzzle, takeOrGenerate, resetPrefetch } from '../generator/prefetch'
 import LibraryTierPicker from '../interface/LibraryTierPicker'
 import LibraryBatchComplete from '../interface/LibraryBatchComplete'
 import LibraryGameOver from '../interface/LibraryGameOver'
-
-function makeBlankGrid(size: number): LevelGrid {
-    return Array.from({ length: size }, () =>
-        new Array<BoxStateValue>(size).fill(BoxState.BLANK)
-    )
-}
 
 export function LibraryModeProvider() {
     const activeTierSize = useLibraryRun((s) => s.activeTierSize)
@@ -28,20 +21,7 @@ export function LibraryModeProvider() {
         resetPrefetch('library')
         const first = takeOrGenerate('library', activeTierSize)
         if (!first) return
-        useGame.setState({
-            levelConfigs: [first],
-            levels: [makeBlankGrid(activeTierSize)],
-            levelMistakes: [0],
-            currentLevel: 1,
-            phase: Phase.PLAYING,
-            startTime: Date.now(),
-            endTime: null,
-            wrongPlacement: null,
-            lastBoxlePosition: null,
-            lives: 3,
-            sessionHints: 0,
-            sessionLivesLost: 0,
-        })
+        useGame.setState(initGameState([first]))
         // Prefetch the next puzzle in the batch (same size).
         prefetchPuzzle('library', activeTierSize)
     }, [activeTierSize, batchId])
@@ -88,21 +68,8 @@ export function LibraryModeProvider() {
                     return
                 }
 
-                const newLevelNumber = game.levelConfigs.length + 1
-                useGame.setState({
-                    levelConfigs: [...game.levelConfigs, next],
-                    levels: [...game.levels, makeBlankGrid(activeTierSize)],
-                    levelMistakes: [...game.levelMistakes, 0],
-                    currentLevel: newLevelNumber,
-                    phase: Phase.PLAYING,
-                    startTime: Date.now(),
-                    endTime: null,
-                    wrongPlacement: null,
-                    lastBoxlePosition: null,
-                    sessionHints: 0,
-                    sessionLivesLost: 0,
-                    // lives preserved across the batch
-                })
+                // lives preserved across the batch
+                useGame.setState(advanceGameState(game, next))
                 // Prefetch one more for the next advance.
                 prefetchPuzzle('library', activeTierSize)
             }

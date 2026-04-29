@@ -1,14 +1,9 @@
 import { useState } from 'react'
 import usePersistence from '../stores/usePersistence'
+import Modal from './Modal'
+import { formatTime } from '../utils/share'
 
 type StatsTab = 'daily' | 'arcade' | 'library'
-
-function formatTime(ms: number): string {
-    const totalSeconds = Math.floor(ms / 1000)
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
 
 function StatItem({ value, label }: { value: string | number; label: string }) {
     return (
@@ -121,31 +116,29 @@ export default function StatsModal({ onClose }: { onClose: () => void }) {
     const [tab, setTab] = useState<StatsTab>('daily')
 
     return (
-        <div className="stats-overlay" onClick={onClose}>
-            <div className="stats-card" onClick={(e) => e.stopPropagation()}>
-                <h2 className="stats-title">Stats</h2>
+        <Modal onClose={onClose} overlayClassName="stats-overlay" cardClassName="stats-card">
+            <h2 className="stats-title">Stats</h2>
 
-                <div className="stats-tabs">
-                    <button
-                        className={`stats-tab${tab === 'daily' ? ' active' : ''}`}
-                        onClick={() => setTab('daily')}
-                    >Daily</button>
-                    <button
-                        className={`stats-tab${tab === 'arcade' ? ' active' : ''}`}
-                        onClick={() => setTab('arcade')}
-                    >Arcade</button>
-                    <button
-                        className={`stats-tab${tab === 'library' ? ' active' : ''}`}
-                        onClick={() => setTab('library')}
-                    >Library</button>
-                </div>
-
-                {tab === 'daily' && <DailyStats />}
-                {tab === 'arcade' && <ArcadeStats />}
-                {tab === 'library' && <LibraryStats />}
-
-                <button className="hud-btn end-btn" onClick={onClose}>Close</button>
+            <div className="stats-tabs">
+                <button
+                    className={`stats-tab${tab === 'daily' ? ' active' : ''}`}
+                    onClick={() => setTab('daily')}
+                >Daily</button>
+                <button
+                    className={`stats-tab${tab === 'arcade' ? ' active' : ''}`}
+                    onClick={() => setTab('arcade')}
+                >Arcade</button>
+                <button
+                    className={`stats-tab${tab === 'library' ? ' active' : ''}`}
+                    onClick={() => setTab('library')}
+                >Library</button>
             </div>
-        </div>
+
+            {tab === 'daily' && <DailyStats />}
+            {tab === 'arcade' && <ArcadeStats />}
+            {tab === 'library' && <LibraryStats />}
+
+            <button className="hud-btn end-btn" onClick={onClose}>Close</button>
+        </Modal>
     )
 }

@@ -7,10 +7,59 @@ import type { DecodedBoard } from '../types/puzzle'
 export { Phase, BoxState, GameMode }
 export type { PhaseValue, BoxStateValue, LevelGrid, GameModeValue }
 
-function makeBlankGrid(size: number): LevelGrid {
+export function makeBlankGrid(size: number): LevelGrid {
     return Array.from({ length: size }, (): BoxStateValue[] =>
         new Array<BoxStateValue>(size).fill(BoxState.BLANK)
     )
+}
+
+// Mode-provider helpers: produce the partial GameState patch for starting
+// a fresh session and for stacking the next puzzle onto an in-progress run.
+// Kept here (not in modes/) so the shape stays in sync with GameState itself.
+
+type InitPatch = Pick<GameState,
+    'levelConfigs' | 'levels' | 'levelMistakes' | 'currentLevel' | 'phase' |
+    'startTime' | 'endTime' | 'wrongPlacement' | 'lastBoxlePosition' |
+    'lives' | 'sessionHints' | 'sessionLivesLost'
+>
+
+type AdvancePatch = Omit<InitPatch, 'lives'>
+
+export function initGameState(puzzles: DecodedBoard[]): InitPatch {
+    return {
+        levelConfigs: puzzles,
+        levels: puzzles.map(({ levelMatrix }) => makeBlankGrid(levelMatrix.length)),
+        levelMistakes: puzzles.map(() => 0),
+        currentLevel: 1,
+        phase: Phase.PLAYING,
+        startTime: Date.now(),
+        endTime: null,
+        wrongPlacement: null,
+        lastBoxlePosition: null,
+        lives: 3,
+        sessionHints: 0,
+        sessionLivesLost: 0,
+    }
+}
+
+export function advanceGameState(
+    current: Pick<GameState, 'levelConfigs' | 'levels' | 'levelMistakes'>,
+    nextPuzzle: DecodedBoard,
+): AdvancePatch {
+    const size = nextPuzzle.levelMatrix.length
+    return {
+        levelConfigs: [...current.levelConfigs, nextPuzzle],
+        levels: [...current.levels, makeBlankGrid(size)],
+        levelMistakes: [...current.levelMistakes, 0],
+        currentLevel: current.levelConfigs.length + 1,
+        phase: Phase.PLAYING,
+        startTime: Date.now(),
+        endTime: null,
+        wrongPlacement: null,
+        lastBoxlePosition: null,
+        sessionHints: 0,
+        sessionLivesLost: 0,
+    }
 }
 
 interface GameState {

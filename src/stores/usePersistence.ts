@@ -9,10 +9,13 @@ function getToday(): string {
     return new Date().toISOString().slice(0, 10)
 }
 
-function getYesterday(): string {
-    const d = new Date()
-    d.setDate(d.getDate() - 1)
-    return d.toISOString().slice(0, 10)
+// Streaks live and die by this check. Computes yesterday from `today` so the
+// function is a pure date comparison — testable without freezing the clock.
+function isConsecutiveDay(prevCompletedDate: string | null, today: string): boolean {
+    if (!prevCompletedDate) return false
+    const todayDate = new Date(`${today}T00:00:00Z`)
+    todayDate.setUTCDate(todayDate.getUTCDate() - 1)
+    return prevCompletedDate === todayDate.toISOString().slice(0, 10)
 }
 
 export interface DailySave {
@@ -93,6 +96,10 @@ interface PersistenceData {
     lastActiveMode: TrackedMode | null
     stats: ModeStats
     libraryProgress: LibraryProgress
+    // Mirrors the future API payload shape but is never authoritative on the
+    // web no-account path — always false here. Real unlocks come from the
+    // auth layer (JWT claim / verified-purchase API response). A locally
+    // flipped flag must NEVER unlock content; assume DevTools exists.
     isPremium: boolean
 }
 
@@ -198,7 +205,7 @@ const usePersistence = create<PersistenceState>()(
                     const { lastCompletedDate, currentStreak, longestStreak, bestTimeMs } = daily
 
                     let newStreak = currentStreak
-                    if (lastCompletedDate === getYesterday()) {
+                    if (isConsecutiveDay(lastCompletedDate, today)) {
                         newStreak = currentStreak + 1
                     } else if (lastCompletedDate !== today) {
                         newStreak = 1
@@ -233,8 +240,7 @@ const usePersistence = create<PersistenceState>()(
                 const daily = get().stats.daily
                 if (daily.currentStreak === 0 || !daily.lastCompletedDate) return
                 const today = getToday()
-                const yesterday = getYesterday()
-                if (daily.lastCompletedDate !== today && daily.lastCompletedDate !== yesterday) {
+                if (daily.lastCompletedDate !== today && !isConsecutiveDay(daily.lastCompletedDate, today)) {
                     set((state) => ({
                         stats: {
                             ...state.stats,

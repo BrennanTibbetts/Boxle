@@ -31,63 +31,74 @@ const useHint = create<HintState>()(subscribeWithSelector((set, get) => ({
     },
 })))
 
-useHint.subscribe(
-    (state) => state.activeHint !== null,
-    (isActive) => {
-        const dim = useResource.getState().getDimMaterial()
-        const { hintDimOpacity } = useBoxSettings.getState()
-        gsap.to(dim, {
-            opacity: isActive ? hintDimOpacity : 0,
-            duration: 0.3,
-            ease: 'power2.out',
-        })
-    }
-)
-
-useGame.subscribe(
-    (state) => state.levels,
-    (levels, prevLevels) => {
-        const hint = useHint.getState().activeHint
-        if (!hint) return
-        const levelGrid = levels[hint.levelIndex]
-        const prevGrid  = prevLevels[hint.levelIndex]
-        if (!levelGrid || !prevGrid) return
-
-        if (hint.answerBoxes.length > 0) {
-            // Answer hint: clear when the answer box receives a boxle
-            for (const { row, col } of hint.answerBoxes) {
-                if (levelGrid[row]?.[col] === BoxState.BOXLE) {
-                    useHint.getState().clearHint()
-                    return
-                }
-            }
-        } else if (hint.eliminateBoxes.length > 0) {
-            // Elimination hint: clear once every eliminate box is resolved (marked or auto-locked by a boxle placement)
-            const allMarked = hint.eliminateBoxes.every(({ row, col }) => {
-                const s = levelGrid[row]?.[col]
-                return s === BoxState.MARK || s === BoxState.LOCK
+// Module-scope subscriptions — their lifecycle is the module lifetime, which
+// is the app lifetime in production. HMR `dispose` cleans them up so dev hot-
+// reloads don't stack listeners across module re-evaluations.
+const unsubs = [
+    useHint.subscribe(
+        (state) => state.activeHint !== null,
+        (isActive) => {
+            const dim = useResource.getState().getDimMaterial()
+            const { hintDimOpacity } = useBoxSettings.getState()
+            gsap.to(dim, {
+                opacity: isActive ? hintDimOpacity : 0,
+                duration: 0.3,
+                ease: 'power2.out',
             })
-            if (allMarked) {
-                useHint.getState().clearHint()
-                return
-            }
-        } else {
-            // No specific boxes to act on — clear on any new boxle
-            for (let r = 0; r < levelGrid.length; r++) {
-                for (let c = 0; c < levelGrid[r].length; c++) {
-                    if (levelGrid[r][c] === BoxState.BOXLE && prevGrid[r]?.[c] !== BoxState.BOXLE) {
+        },
+    ),
+
+    useGame.subscribe(
+        (state) => state.levels,
+        (levels, prevLevels) => {
+            const hint = useHint.getState().activeHint
+            if (!hint) return
+            const levelGrid = levels[hint.levelIndex]
+            const prevGrid  = prevLevels[hint.levelIndex]
+            if (!levelGrid || !prevGrid) return
+
+            if (hint.answerBoxes.length > 0) {
+                // Answer hint: clear when the answer box receives a boxle
+                for (const { row, col } of hint.answerBoxes) {
+                    if (levelGrid[row]?.[col] === BoxState.BOXLE) {
                         useHint.getState().clearHint()
                         return
                     }
                 }
+            } else if (hint.eliminateBoxes.length > 0) {
+                // Elimination hint: clear once every eliminate box is resolved (marked or auto-locked by a boxle placement)
+                const allMarked = hint.eliminateBoxes.every(({ row, col }) => {
+                    const s = levelGrid[row]?.[col]
+                    return s === BoxState.MARK || s === BoxState.LOCK
+                })
+                if (allMarked) {
+                    useHint.getState().clearHint()
+                    return
+                }
+            } else {
+                // No specific boxes to act on — clear on any new boxle
+                for (let r = 0; r < levelGrid.length; r++) {
+                    for (let c = 0; c < levelGrid[r].length; c++) {
+                        if (levelGrid[r][c] === BoxState.BOXLE && prevGrid[r]?.[c] !== BoxState.BOXLE) {
+                            useHint.getState().clearHint()
+                            return
+                        }
+                    }
+                }
             }
-        }
-    }
-)
+        },
+    ),
 
-useGame.subscribe(
-    (state) => state.currentLevel,
-    () => useHint.getState().clearHint()
-)
+    useGame.subscribe(
+        (state) => state.currentLevel,
+        () => useHint.getState().clearHint(),
+    ),
+]
+
+if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+        for (const unsub of unsubs) unsub()
+    })
+}
 
 export default useHint

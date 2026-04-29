@@ -2,15 +2,9 @@
 
 **Status: closed for now.** Pinned on real playtester feedback before we revisit.
 
-On 2026-04-23 the interactive tutorial system was **gutted**. The guided three-level walkthrough had become too complex for the value it delivered. The current onboarding is a static rules slide; whether we need more than that is a question for first-time-player observation, not for us guessing.
+On 2026-04-23 the interactive tutorial system was **gutted**. The guided three-level walkthrough had become too complex for the value it delivered. The current onboarding is a static rules slide ([src/interface/RulesModal.tsx](../src/interface/RulesModal.tsx)); whether we need more than that is a question for first-time-player observation, not for us guessing.
 
 ---
-
-## What shipped
-
-- [x] `src/interface/RulesModal.tsx` — static rules slide. Explains regions, rows/columns, adjacency, mark/boxle interaction in HUD-matched styling
-- [x] First-visit auto-open via `boxle-rules-seen` localStorage key (`useFirstVisitRules()` inside `RulesModal.tsx`)
-- [x] `?` button in HUD re-opens anytime, independent of the flag
 
 ## What was removed (do not reintroduce without a conversation)
 
@@ -18,9 +12,9 @@ On 2026-04-23 the interactive tutorial system was **gutted**. The guided three-l
 - `src/modes/TutorialModeProvider.tsx`
 - `src/stores/useTutorial.ts`, `src/types/tutorial.ts`, `src/components/TutorialButton.tsx`
 - `.tutorial-*` CSS classes
-- `GameMode.TUTORIAL` (enum now `DAILY` / `ARCADE` / `LIBRARY`)
+- `GameMode.TUTORIAL` (enum now `DAILY` / `ARCADE` / `LIBRARY` / `MENU`)
 
-`activeMode` / `setMode` remain in `useGame` as Phase 4 scaffolding even though Daily is the only active mode today.
+`activeMode` / `setMode` remain in `useGame` because Phase 4 modes use them.
 
 ## Pinned — needs real playtesters
 

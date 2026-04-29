@@ -11,6 +11,7 @@ const BOX_SPACING = 1
 
 export default function Display() {
     const groupRef = useRef<Group>(null)
+    const prevBoardPxRef = useRef<number>(0)
     const rulesOpen = useUI((state) => state.rulesOpen)
     const currentLevel = useGame((state) => state.currentLevel)
     const configs = useGame((state) => state.levelConfigs)
@@ -35,7 +36,12 @@ export default function Display() {
 
         const visibleAtBoard = 2 * cam.position.y * tanHalfFov * aspect
         const boardPx = (gridSize * BOX_SPACING * size.width) / visibleAtBoard
-        document.documentElement.style.setProperty('--board-width-px', `${boardPx}px`)
+        // Only touch the CSSOM when the value actually changes (avoids a
+        // style recompute every frame for a value that's stable mid-level).
+        if (Math.abs(boardPx - prevBoardPxRef.current) > 0.01) {
+            document.documentElement.style.setProperty('--board-width-px', `${boardPx}px`)
+            prevBoardPxRef.current = boardPx
+        }
 
         if (!groupRef.current) return
         let target = 0

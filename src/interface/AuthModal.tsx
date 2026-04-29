@@ -1,17 +1,38 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import useUI from '../stores/useUI'
-import useAuth, { type OAuthProvider } from '../stores/useAuth'
+import useAuth from '../stores/useAuth'
+import useProfile, { USERNAME_PATTERN } from '../stores/useProfile'
 import { useModalEscape } from './Modal'
 
-function GoogleIcon() {
-    return (
-        <svg className="oauth-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z" />
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.99.66-2.25 1.05-3.72 1.05-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
-            <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.07H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.93l3.66-2.83z" />
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.07.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.07l3.66 2.83C6.71 7.31 9.14 5.38 12 5.38z" />
-        </svg>
-    )
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+
+function waitForGsi(timeoutMs = 6000): Promise<void> {
+    return new Promise((resolve, reject) => {
+        if (window.google?.accounts?.id) return resolve()
+        const start = Date.now()
+        const interval = setInterval(() => {
+            if (window.google?.accounts?.id) {
+                clearInterval(interval)
+                resolve()
+            } else if (Date.now() - start > timeoutMs) {
+                clearInterval(interval)
+                reject(new Error('Google Identity Services failed to load'))
+            }
+        }, 50)
+    })
+}
+
+// Supabase verifies the ID token's nonce by SHA-256-hashing the raw nonce we
+// send on signInWithIdToken and comparing to the hashed nonce we asked Google
+// to embed. So: send hashed-hex to Google, raw to Supabase.
+async function makeNoncePair(): Promise<{ raw: string; hashedHex: string }> {
+    const raw = crypto.randomUUID() + '-' + crypto.randomUUID()
+    const bytes = new TextEncoder().encode(raw)
+    const digest = await crypto.subtle.digest('SHA-256', bytes)
+    const hashedHex = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('')
+    return { raw, hashedHex }
 }
 
 function AppleIcon() {
@@ -22,28 +43,139 @@ function AppleIcon() {
     )
 }
 
+function UsernameForm() {
+    const username = useProfile((s) => s.username)
+    const setUsername = useProfile((s) => s.setUsername)
+    const [draft, setDraft] = useState(username ?? '')
+    const [busy, setBusy] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [savedFlash, setSavedFlash] = useState(false)
+
+    useEffect(() => {
+        setDraft(username ?? '')
+    }, [username])
+
+    const dirty = draft !== (username ?? '')
+    const valid = USERNAME_PATTERN.test(draft)
+
+    return (
+        <form
+            className="auth-username-form"
+            onSubmit={async (e) => {
+                e.preventDefault()
+                if (busy || !dirty || !valid) return
+                setBusy(true)
+                setError(null)
+                try {
+                    await setUsername(draft)
+                    setSavedFlash(true)
+                    setTimeout(() => setSavedFlash(false), 1200)
+                } catch (err) {
+                    setError(err instanceof Error ? err.message : 'Save failed')
+                } finally {
+                    setBusy(false)
+                }
+            }}
+        >
+            <span className="auth-label">{username ? 'Username' : 'Choose a username'}</span>
+            <div className="auth-username-row">
+                <input
+                    className="auth-username-input"
+                    value={draft}
+                    onChange={(e) => {
+                        setError(null)
+                        setDraft(e.target.value.toLowerCase())
+                    }}
+                    placeholder="boxlemaster"
+                    maxLength={20}
+                    autoComplete="off"
+                    spellCheck={false}
+                />
+                <button
+                    type="submit"
+                    className="hud-btn auth-username-save"
+                    disabled={busy || !dirty || !valid}
+                >
+                    {busy ? '…' : savedFlash ? '✓' : 'Save'}
+                </button>
+            </div>
+            {error && <div className="auth-error">{error}</div>}
+            {!username && !error && (
+                <div className="auth-hint">3–20 chars · a–z · 0–9 · underscore</div>
+            )}
+        </form>
+    )
+}
+
 export default function AuthModal() {
     const open = useUI((s) => s.authOpen)
     const setAuthOpen = useUI((s) => s.setAuthOpen)
     const status = useAuth((s) => s.status)
     const user = useAuth((s) => s.user)
-    const signInWithProvider = useAuth((s) => s.signInWithProvider)
+    const signInWithGoogleIdToken = useAuth((s) => s.signInWithGoogleIdToken)
+    const signInWithApple = useAuth((s) => s.signInWithApple)
     const signOut = useAuth((s) => s.signOut)
     const [error, setError] = useState<string | null>(null)
-    const [busy, setBusy] = useState<OAuthProvider | null>(null)
+    const [appleBusy, setAppleBusy] = useState(false)
+    const googleBtnRef = useRef<HTMLDivElement | null>(null)
 
     const onClose = () => setAuthOpen(false)
     useModalEscape(onClose, open)
 
-    const handleProvider = async (provider: OAuthProvider) => {
-        if (busy) return
-        setBusy(provider)
+    useEffect(() => {
+        if (!open) return
+        if (status !== 'unauthenticated') return
+        if (!googleBtnRef.current) return
+
+        let cancelled = false
+        const target = googleBtnRef.current
+
+        ;(async () => {
+            try {
+                await waitForGsi()
+                if (cancelled) return
+                const { raw, hashedHex } = await makeNoncePair()
+                if (cancelled) return
+
+                window.google!.accounts.id.initialize({
+                    client_id: GOOGLE_CLIENT_ID,
+                    nonce: hashedHex,
+                    callback: async (response) => {
+                        try {
+                            await signInWithGoogleIdToken(response.credential, raw)
+                        } catch (err) {
+                            setError(err instanceof Error ? err.message : 'Sign-in failed')
+                        }
+                    },
+                })
+
+                target.replaceChildren()
+                window.google!.accounts.id.renderButton(target, {
+                    theme: 'filled_black',
+                    size: 'large',
+                    text: 'continue_with',
+                    shape: 'rectangular',
+                    width: 272,
+                })
+            } catch (err) {
+                if (!cancelled) setError(err instanceof Error ? err.message : 'Google sign-in unavailable')
+            }
+        })()
+
+        return () => {
+            cancelled = true
+        }
+    }, [open, status, signInWithGoogleIdToken])
+
+    const handleApple = async () => {
+        if (appleBusy) return
+        setAppleBusy(true)
         setError(null)
         try {
-            await signInWithProvider(provider)
+            await signInWithApple()
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Sign-in failed')
-            setBusy(null)
+            setAppleBusy(false)
         }
     }
 
@@ -57,6 +189,7 @@ export default function AuthModal() {
 
                 {status === 'authenticated' && user ? (
                     <>
+                        <UsernameForm />
                         <div className="auth-account-row">
                             <span className="auth-label">Signed in as</span>
                             <span className="auth-email">{user.email}</span>
@@ -66,23 +199,15 @@ export default function AuthModal() {
                 ) : (
                     <>
                         <p className="auth-blurb">Sign in to save your stats across devices.</p>
-                        <button
-                            type="button"
-                            className="oauth-btn oauth-btn-google"
-                            onClick={() => handleProvider('google')}
-                            disabled={busy !== null}
-                        >
-                            <GoogleIcon />
-                            <span>{busy === 'google' ? 'Connecting…' : 'Continue with Google'}</span>
-                        </button>
+                        <div ref={googleBtnRef} className="gsi-btn-host" />
                         <button
                             type="button"
                             className="oauth-btn oauth-btn-apple"
-                            onClick={() => handleProvider('apple')}
-                            disabled={busy !== null}
+                            onClick={handleApple}
+                            disabled={appleBusy}
                         >
                             <AppleIcon />
-                            <span>{busy === 'apple' ? 'Connecting…' : 'Continue with Apple'}</span>
+                            <span>{appleBusy ? 'Connecting…' : 'Continue with Apple'}</span>
                         </button>
                         {error && <div className="auth-error">{error}</div>}
                     </>

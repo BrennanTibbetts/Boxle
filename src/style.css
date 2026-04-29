@@ -412,22 +412,40 @@ div.content {
 }
 
 .account-btn {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
     height: 40px;
-    padding: 0;
-    border-radius: 50%;
+    padding: 0 18px 0 16px;
+    border-radius: 999px;
 }
 
-.account-btn-icon {
-    width: 20px;
-    height: 20px;
+.account-btn-label {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 0.95rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    max-width: 14ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .account-btn.signed-in {
-    color: #fde047;
+    padding-right: 26px;
+}
+
+.account-btn-status {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 0 2px rgba(21, 21, 23, 0.96);
 }
 
 .auth-panel {
@@ -527,6 +545,52 @@ div.content {
     align-self: stretch;
 }
 
+.auth-username-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.auth-username-row {
+    display: flex;
+    gap: 8px;
+}
+
+.auth-username-input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #ffffff;
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1rem;
+    letter-spacing: 0.06em;
+    outline: none;
+}
+
+.auth-username-input:focus {
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.auth-username-save {
+    min-width: 64px;
+}
+
+.auth-username-save:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.auth-hint {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.08em;
+}
+
 .oauth-btn {
     display: flex;
     align-items: center;
@@ -552,14 +616,11 @@ div.content {
     transform: scale(0.98);
 }
 
-.oauth-btn-google {
-    background: #ffffff;
-    color: #1f1f1f;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.oauth-btn-google:not(:disabled):hover {
-    background: #f5f5f5;
+.gsi-btn-host {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    min-height: 40px;
 }
 
 .oauth-btn-apple {

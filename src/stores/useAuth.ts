@@ -3,21 +3,33 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from '../utils/supabase'
 
 type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated'
-export type OAuthProvider = 'google' | 'apple'
 
 interface AuthState {
     user: User | null
     status: AuthStatus
-    signInWithProvider: (provider: OAuthProvider) => Promise<void>
+    signInWithGoogleIdToken: (idToken: string, rawNonce: string) => Promise<void>
+    signInWithApple: () => Promise<void>
     signOut: () => Promise<void>
 }
 
 const useAuth = create<AuthState>(() => ({
     user: null,
     status: 'loading',
-    signInWithProvider: async (provider) => {
+    signInWithGoogleIdToken: async (idToken, rawNonce) => {
+        const { error } = await supabase.auth.signInWithIdToken({
+            provider: 'google',
+            token: idToken,
+            nonce: rawNonce,
+        })
+        if (error) throw error
+    },
+    signInWithApple: async () => {
+        // Apple's web flow stays redirect-based — Apple's Services ID setup
+        // already gates on a domain you own, so the consent screen shows
+        // boxle.click natively (no equivalent of GIS needed). Wired but
+        // inert until the Supabase Apple provider is enabled.
         const { error } = await supabase.auth.signInWithOAuth({
-            provider,
+            provider: 'apple',
             options: { redirectTo: window.location.origin },
         })
         if (error) throw error
@@ -28,8 +40,6 @@ const useAuth = create<AuthState>(() => ({
     },
 }))
 
-// Hydrate from existing session at module load, then keep state in sync with
-// every auth event (sign-in, sign-out, token refresh, OAuth callback).
 function applySession(session: { user: User } | null): void {
     useAuth.setState({
         user: session?.user ?? null,

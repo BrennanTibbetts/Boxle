@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useControls } from 'leva'
 import { Color, Vector3, Mesh } from 'three'
@@ -25,6 +25,50 @@ function getLifeScale(lives: number, barScale: [number, number, number]): Vector
     return base.multiply(new Vector3(0, 1, 1))
 }
 
+interface LerpFrameProps {
+    materialRef: React.RefObject<MeshStandardMaterial | null>
+    meshRef: React.RefObject<Mesh | null>
+    currentColorRef: React.MutableRefObject<Color>
+    targetColorRef: React.MutableRefObject<Color>
+    currentScaleRef: React.MutableRefObject<Vector3>
+    targetScaleRef: React.MutableRefObject<Vector3>
+    animationDuration: number
+    onSettle: () => void
+}
+
+function LerpFrame({
+    materialRef, meshRef,
+    currentColorRef, targetColorRef,
+    currentScaleRef, targetScaleRef,
+    animationDuration, onSettle,
+}: LerpFrameProps) {
+    useFrame((_state, delta) => {
+        if (!materialRef.current || !meshRef.current) return
+
+        const lerpFactor = delta / animationDuration
+        const colorDistance =
+            Math.abs(currentColorRef.current.r - targetColorRef.current.r) +
+            Math.abs(currentColorRef.current.g - targetColorRef.current.g) +
+            Math.abs(currentColorRef.current.b - targetColorRef.current.b)
+        const scaleDistance = currentScaleRef.current.distanceTo(targetScaleRef.current)
+
+        if (colorDistance < 0.01 && scaleDistance < 0.01) {
+            currentColorRef.current.copy(targetColorRef.current)
+            currentScaleRef.current.copy(targetScaleRef.current)
+            materialRef.current.color = currentColorRef.current
+            meshRef.current.scale.copy(currentScaleRef.current)
+            onSettle()
+            return
+        }
+
+        currentColorRef.current.lerp(targetColorRef.current, lerpFactor)
+        materialRef.current.color.copy(currentColorRef.current)
+        currentScaleRef.current.lerp(targetScaleRef.current, lerpFactor)
+        meshRef.current.scale.copy(currentScaleRef.current)
+    })
+    return null
+}
+
 export default function LivesDisplay({ levelSize = 4 }: LivesDisplayProps) {
     const props = useControls('Lives Display', {
         position: [0, 0, -3] as [number, number, number],
@@ -42,7 +86,7 @@ export default function LivesDisplay({ levelSize = 4 }: LivesDisplayProps) {
     const targetColorRef = useRef(new Color(0x22c55e))
     const currentScaleRef = useRef(new Vector3(...props.barScale))
     const targetScaleRef = useRef(new Vector3(...props.barScale))
-    const isAnimatingRef = useRef(false)
+    const [isAnimating, setIsAnimating] = useState(false)
 
     const baseGeometry = useMemo(() => useResource.getState().geometries.get('lifeBar')!, [])
     const baseMaterial = useMemo(() => useResource.getState().materials.get('lifeBar')!, [])
@@ -55,38 +99,13 @@ export default function LivesDisplay({ levelSize = 4 }: LivesDisplayProps) {
         return geometry
     }, [])
 
-    useFrame((_state, delta) => {
-        if (!materialRef.current || !isAnimatingRef.current || !meshRef.current) return
-
-        const lerpFactor = delta / props.animationDuration
-        const colorDistance =
-            Math.abs(currentColorRef.current.r - targetColorRef.current.r) +
-            Math.abs(currentColorRef.current.g - targetColorRef.current.g) +
-            Math.abs(currentColorRef.current.b - targetColorRef.current.b)
-        const scaleDistance = currentScaleRef.current.distanceTo(targetScaleRef.current)
-
-        if (colorDistance < 0.01 && scaleDistance < 0.01) {
-            currentColorRef.current.copy(targetColorRef.current)
-            currentScaleRef.current.copy(targetScaleRef.current)
-            materialRef.current.color = currentColorRef.current
-            meshRef.current.scale.copy(currentScaleRef.current)
-            isAnimatingRef.current = false
-            return
-        }
-
-        currentColorRef.current.lerp(targetColorRef.current, lerpFactor)
-        materialRef.current.color.copy(currentColorRef.current)
-        currentScaleRef.current.lerp(targetScaleRef.current, lerpFactor)
-        meshRef.current.scale.copy(currentScaleRef.current)
-    })
-
     useEffect(() => {
         const unsubscribe = useGame.subscribe(
             (state) => state.lives,
             (value) => {
                 targetColorRef.current.setHex(getLifeColor(value))
                 targetScaleRef.current.copy(getLifeScale(value, props.barScale))
-                isAnimatingRef.current = true
+                setIsAnimating(true)
             }
         )
         return () => unsubscribe()
@@ -118,6 +137,18 @@ export default function LivesDisplay({ levelSize = 4 }: LivesDisplayProps) {
                     color={new Color(getLifeColor(3))}
                 />
             </mesh>
+            {isAnimating && (
+                <LerpFrame
+                    materialRef={materialRef}
+                    meshRef={meshRef}
+                    currentColorRef={currentColorRef}
+                    targetColorRef={targetColorRef}
+                    currentScaleRef={currentScaleRef}
+                    targetScaleRef={targetScaleRef}
+                    animationDuration={props.animationDuration}
+                    onSettle={() => setIsAnimating(false)}
+                />
+            )}
         </group>
     )
 }

@@ -103,6 +103,10 @@ interface PersistenceData {
     // auth layer (JWT claim / verified-purchase API response). A locally
     // flipped flag must NEVER unlock content; assume DevTools exists.
     isPremium: boolean
+    // Tracks which auth user this localStorage was last synced for. Lets sync
+    // detect cross-user reuse (shared computer): if the new sign-in's user id
+    // differs, local is replaced with server instead of merged.
+    lastSyncedUserId: string | null
 }
 
 interface PersistenceState extends PersistenceData {
@@ -176,6 +180,7 @@ const usePersistence = create<PersistenceState>()(
             },
             libraryProgress: initialLibraryProgress,
             isPremium: false,
+            lastSyncedUserId: null,
 
             saveDaily: (data) => {
                 set({ dailySave: { date: getToday(), ...data } })
@@ -344,6 +349,7 @@ const usePersistence = create<PersistenceState>()(
                 stats: state.stats,
                 libraryProgress: state.libraryProgress,
                 isPremium: state.isPremium,
+                lastSyncedUserId: state.lastSyncedUserId,
             }),
         }
     )

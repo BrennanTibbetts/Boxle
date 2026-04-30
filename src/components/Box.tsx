@@ -334,7 +334,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
                 onContextMenu={handleDoubleClick}
                 onPointerEnter={handlePointerEnter}
                 onPointerLeave={handlePointerLeave}
-                castShadow
+                castShadow={interactive}
                 receiveShadow
                 geometry={geometry}
                 material={isBoxle ? boxleMaterial : material}

@@ -98,6 +98,7 @@ const unsubs = [
 if (import.meta.hot) {
     import.meta.hot.dispose(() => {
         for (const unsub of unsubs) unsub()
+        gsap.killTweensOf(useResource.getState().getDimMaterial())
     })
 }
 

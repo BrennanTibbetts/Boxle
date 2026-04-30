@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../utils/supabase'
+import { flushPendingPush, runSync } from '../utils/sync'
 
 type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated'
 
@@ -35,16 +36,28 @@ const useAuth = create<AuthState>(() => ({
         if (error) throw error
     },
     signOut: async () => {
+        // Flush any debounced sync push first — once supabase clears the JWT,
+        // RLS will reject writes to the (now ex-)user's profile row.
+        await flushPendingPush()
         const { error } = await supabase.auth.signOut()
         if (error) throw error
     },
 }))
+
+// Tracks the user id we last kicked sync for, so we only run sync on actual
+// sign-in transitions — not on every TOKEN_REFRESHED event from supabase.
+let lastSyncedUserId: string | null = null
 
 function applySession(session: { user: User } | null): void {
     useAuth.setState({
         user: session?.user ?? null,
         status: session ? 'authenticated' : 'unauthenticated',
     })
+    const id = session?.user.id ?? null
+    if (id !== lastSyncedUserId) {
+        lastSyncedUserId = id
+        if (id) void runSync(id)
+    }
 }
 
 void supabase.auth.getSession().then(({ data }) => applySession(data.session))

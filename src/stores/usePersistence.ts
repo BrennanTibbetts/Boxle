@@ -24,6 +24,7 @@ export interface DailySave {
     lives: number
     levels: BoxStateValue[][][]
     phase: PhaseValue
+    elapsedMs: number
 }
 
 export interface ArcadeSave {
@@ -40,6 +41,7 @@ export interface ArcadeSave {
     lives: number
     sessionHints: number
     sessionLivesLost: number
+    elapsedMs: number
 }
 
 export interface DailyResult {

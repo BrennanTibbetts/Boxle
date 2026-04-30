@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect } from 'react'
+import { XStack, YStack } from 'tamagui'
 import TimerDisplay from '../components/TimerDisplay'
 import ControlsManager from './ControlsManager'
 import HUD from './HUD'
@@ -7,6 +8,7 @@ import EndScreen from './EndScreen'
 import MainMenu from './MainMenu'
 import AccountButton from './AccountButton'
 import AuthModal from './AuthModal'
+import RulesModal, { useFirstVisitRules } from './RulesModal'
 import { DailyModeProvider } from '../modes/DailyModeProvider'
 import { ArcadeModeProvider } from '../modes/ArcadeModeProvider'
 import { LibraryModeProvider } from '../modes/LibraryModeProvider'
@@ -14,6 +16,8 @@ import useGame, { GameMode, Phase } from '../stores/useGame'
 import useArcadeRun from '../stores/useArcadeRun'
 import useLibraryRun from '../stores/useLibraryRun'
 import usePersistence from '../stores/usePersistence'
+import useUI from '../stores/useUI'
+import { HudButton } from './ui'
 
 function todayString(): string {
     return new Date().toISOString().slice(0, 10)
@@ -61,6 +65,43 @@ function useTrackActiveMode(): void {
     }, [])
 }
 
+function PersistentHeader() {
+    const activeMode = useGame((s) => s.activeMode)
+    const toggleMenu = useGame((s) => s.toggleMenu)
+    const rulesOpen = useUI((s) => s.rulesOpen)
+    const setRulesOpen = useUI((s) => s.setRulesOpen)
+
+    useFirstVisitRules()
+
+    const onMenu = activeMode === GameMode.MENU
+
+    return (
+        <XStack
+            position="absolute"
+            top={16}
+            left={16}
+            gap="$2"
+            zIndex="$7"
+            pointerEvents="auto"
+        >
+            <HudButton
+                tone="account"
+                onPress={toggleMenu}
+                aria-label={onMenu ? 'Back to game' : 'Open home'}
+            >
+                <HudButton.Text>Home</HudButton.Text>
+            </HudButton>
+            <HudButton
+                tone="account"
+                onPress={() => setRulesOpen(!rulesOpen)}
+                aria-label={rulesOpen ? 'Close how to play' : 'How to play'}
+            >
+                <HudButton.Text>How to Play</HudButton.Text>
+            </HudButton>
+        </XStack>
+    )
+}
+
 export default function Interface() {
     useBootMode()
     useTrackActiveMode()
@@ -76,7 +117,14 @@ export default function Interface() {
     const showGameUI = activeMode !== GameMode.MENU && !inLibraryOverlay
 
     return (
-        <div className='interface'>
+        <YStack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            pointerEvents="box-none"
+        >
             {activeMode === GameMode.DAILY && <DailyModeProvider />}
             {activeMode === GameMode.ARCADE && <ArcadeModeProvider key={arcadeRunId} />}
             {activeMode === GameMode.LIBRARY && <LibraryModeProvider />}
@@ -93,8 +141,10 @@ export default function Interface() {
 
             {activeMode === GameMode.MENU && <MainMenu />}
 
+            <PersistentHeader />
             <AccountButton />
             <AuthModal />
-        </div>
+            <RulesModal />
+        </YStack>
     )
 }

@@ -109,7 +109,9 @@ interface GameState {
 
     // Mode
     activeMode: GameModeValue
+    previousMode: GameModeValue
     setMode: (mode: GameModeValue) => void
+    toggleMenu: () => void
 }
 
 export default create<GameState>()(subscribeWithSelector((set, get) => ({
@@ -271,5 +273,18 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
 
     // Mode
     activeMode: GameMode.DAILY,
-    setMode: (mode) => set({ activeMode: mode }),
+    previousMode: GameMode.DAILY,
+    setMode: (mode) => set((state) => {
+        // Snapshot the mode we're leaving so the Home toggle can return to it.
+        if (mode === GameMode.MENU && state.activeMode !== GameMode.MENU) {
+            return { activeMode: mode, previousMode: state.activeMode }
+        }
+        return { activeMode: mode }
+    }),
+    toggleMenu: () => set((state) => {
+        if (state.activeMode === GameMode.MENU) {
+            return { activeMode: state.previousMode }
+        }
+        return { activeMode: GameMode.MENU, previousMode: state.activeMode }
+    }),
 })))

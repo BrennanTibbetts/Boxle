@@ -1,5 +1,14 @@
+import { XStack, YStack } from 'tamagui'
 import useGame, { GameMode } from '../stores/useGame'
 import useLibraryRun from '../stores/useLibraryRun'
+import {
+    GlassCard,
+    HudButton,
+    ModalOverlay,
+    ModalTitle,
+    StatValue,
+    SubLabel,
+} from './ui'
 
 export default function LibraryBatchComplete() {
     const setMode = useGame((state) => state.setMode)
@@ -10,29 +19,29 @@ export default function LibraryBatchComplete() {
     if (activeTierSize === null) return null
 
     return (
-        <div className="end-screen">
-            <div className="end-card">
-                <h1 className="end-title">Batch Complete</h1>
-                <div className="end-stats">
-                    <div className="end-stat">
-                        <span className="end-stat-label">Size</span>
-                        <span className="end-stat-value">{activeTierSize}×{activeTierSize}</span>
-                    </div>
-                </div>
-                <p className="end-sub">10 puzzles cleared</p>
+        <ModalOverlay intensity="light" layer="game">
+            <GlassCard size="lg" minWidth={280}>
+                <ModalTitle>Batch Complete</ModalTitle>
+                <XStack gap="$9" justifyContent="center">
+                    <YStack alignItems="center" gap="$1">
+                        <SubLabel>Size</SubLabel>
+                        <StatValue>{activeTierSize}×{activeTierSize}</StatValue>
+                    </YStack>
+                </XStack>
+                <SubLabel>10 puzzles cleared</SubLabel>
 
-                <div className="end-actions">
-                    <button className="hud-btn end-btn" onClick={() => dismissBatchComplete()}>
-                        Another Batch
-                    </button>
-                    <button className="hud-btn end-btn" onClick={() => leaveTier()}>
-                        Tier Picker
-                    </button>
-                    <button className="hud-btn end-btn" onClick={() => setMode(GameMode.MENU)}>
-                        Menu
-                    </button>
-                </div>
-            </div>
-        </div>
+                <XStack gap="$5" flexWrap="wrap" justifyContent="center">
+                    <HudButton onPress={() => dismissBatchComplete()} size="lg">
+                        <HudButton.Text>Another Batch</HudButton.Text>
+                    </HudButton>
+                    <HudButton onPress={() => leaveTier()} size="lg">
+                        <HudButton.Text>Tier Picker</HudButton.Text>
+                    </HudButton>
+                    <HudButton onPress={() => setMode(GameMode.MENU)} size="lg">
+                        <HudButton.Text>Menu</HudButton.Text>
+                    </HudButton>
+                </XStack>
+            </GlassCard>
+        </ModalOverlay>
     )
 }

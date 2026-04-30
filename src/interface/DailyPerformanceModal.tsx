@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { XStack, YStack, Text } from 'tamagui'
 import usePersistence from '../stores/usePersistence'
 import { buildShareGrid, formatTime, shareOrCopy } from '../utils/share'
 import Modal from './Modal'
+import { HudButton, ModalTitle, StatValue, SubLabel, BodyText } from './ui'
 
 export default function DailyPerformanceModal({ onClose }: { onClose: () => void }) {
     const result = usePersistence((s) => s.stats.daily.lastResult)
@@ -31,51 +33,55 @@ export default function DailyPerformanceModal({ onClose }: { onClose: () => void
     }
 
     return (
-        <Modal onClose={onClose} overlayClassName="end-screen" cardClassName="end-card">
-            <h1 className="end-title">
-                {result.isComplete ? "Today's Result" : 'Game Over'}
-            </h1>
+        <Modal
+            onClose={onClose}
+            overlayProps={{ intensity: 'light', layer: 'game' }}
+            cardProps={{ size: 'lg', minWidth: 280 }}
+        >
+            <ModalTitle>{result.isComplete ? "Today's Result" : 'Game Over'}</ModalTitle>
 
-            <div className="end-share-grid">{shareGrid}</div>
+            <Text fontFamily="$body" fontSize="$6" letterSpacing={1}>
+                {shareGrid}
+            </Text>
 
-            <div className="end-stats">
-                <div className="end-stat">
-                    <span className="end-stat-label">Levels</span>
-                    <span className="end-stat-value">{result.levelsCompleted} / {result.levelCount}</span>
-                </div>
+            <XStack gap="$9" flexWrap="wrap" justifyContent="center">
+                <YStack alignItems="center" gap="$1">
+                    <SubLabel>Levels</SubLabel>
+                    <StatValue>{result.levelsCompleted} / {result.levelCount}</StatValue>
+                </YStack>
                 {result.isComplete && result.elapsedMs !== null && (
-                    <div className="end-stat">
-                        <span className="end-stat-label">Time</span>
-                        <span className="end-stat-value">{formatTime(result.elapsedMs)}</span>
-                    </div>
+                    <YStack alignItems="center" gap="$1">
+                        <SubLabel>Time</SubLabel>
+                        <StatValue>{formatTime(result.elapsedMs)}</StatValue>
+                    </YStack>
                 )}
                 {result.hintsUsed > 0 && (
-                    <div className="end-stat">
-                        <span className="end-stat-label">Hints</span>
-                        <span className="end-stat-value">{result.hintsUsed}</span>
-                    </div>
+                    <YStack alignItems="center" gap="$1">
+                        <SubLabel>Hints</SubLabel>
+                        <StatValue>{result.hintsUsed}</StatValue>
+                    </YStack>
                 )}
                 {result.livesLost > 0 && (
-                    <div className="end-stat">
-                        <span className="end-stat-label">Mistakes</span>
-                        <span className="end-stat-value">{result.livesLost}</span>
-                    </div>
+                    <YStack alignItems="center" gap="$1">
+                        <SubLabel>Mistakes</SubLabel>
+                        <StatValue>{result.livesLost}</StatValue>
+                    </YStack>
                 )}
-            </div>
+            </XStack>
 
             {currentStreak > 0 && (
-                <p className="end-streak">🔥 {currentStreak} day streak</p>
+                <BodyText tone="muted">🔥 {currentStreak} day streak</BodyText>
             )}
 
-            <div className="end-actions">
-                <button className="hud-btn end-btn" onClick={handleShare}>
-                    {shareLabel}
-                </button>
-                <button className="hud-btn end-btn" onClick={onClose}>
-                    Close
-                </button>
-            </div>
-            <p className="end-sub">See you tomorrow!</p>
+            <XStack gap="$5" flexWrap="wrap" justifyContent="center">
+                <HudButton onPress={handleShare} size="lg">
+                    <HudButton.Text>{shareLabel}</HudButton.Text>
+                </HudButton>
+                <HudButton onPress={onClose} size="lg">
+                    <HudButton.Text>Close</HudButton.Text>
+                </HudButton>
+            </XStack>
+            <SubLabel>See you tomorrow!</SubLabel>
         </Modal>
     )
 }

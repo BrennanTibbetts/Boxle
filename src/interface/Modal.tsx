@@ -1,4 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
+import { ModalOverlay, GlassCard } from './ui'
+import type { ComponentProps } from 'react'
 
 export function useModalEscape(onClose: () => void, enabled: boolean = true): void {
     useEffect(() => {
@@ -14,19 +16,17 @@ export function useModalEscape(onClose: () => void, enabled: boolean = true): vo
 interface ModalProps {
     onClose: () => void
     children: ReactNode
-    // Existing overlay/card class names used by individual modals so the migration
-    // doesn't disturb visual styling — pass the same classes the modal had before.
-    overlayClassName: string
-    cardClassName: string
+    overlayProps?: ComponentProps<typeof ModalOverlay>
+    cardProps?: ComponentProps<typeof GlassCard>
 }
 
-export default function Modal({ onClose, children, overlayClassName, cardClassName }: ModalProps) {
+export default function Modal({ onClose, children, overlayProps, cardProps }: ModalProps) {
     useModalEscape(onClose)
     return (
-        <div className={overlayClassName} onClick={onClose}>
-            <div className={cardClassName} onClick={(e) => e.stopPropagation()}>
+        <ModalOverlay onPress={onClose} {...overlayProps}>
+            <GlassCard onPress={(e) => e.stopPropagation()} {...cardProps}>
                 {children}
-            </div>
-        </div>
+            </GlassCard>
+        </ModalOverlay>
     )
 }

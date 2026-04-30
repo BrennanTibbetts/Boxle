@@ -2,10 +2,12 @@ import ReactDOM from 'react-dom/client'
 import { Canvas } from '@react-three/fiber'
 import { KeyboardControls } from '@react-three/drei'
 import { Leva } from 'leva'
+import { TamaguiProvider } from 'tamagui'
 
 import Experience from './Experience'
 import Interface from './interface/Interface'
 import ResourceLoader from './utils/ResourceLoader'
+import config from './tamagui.config'
 
 import './style.css'
 
@@ -23,6 +25,8 @@ root.render(
             </ResourceLoader>
         </Canvas>
         <Leva hidden={!import.meta.env.DEV} collapsed theme={{ sizes: { rootWidth: '380px' } }} />
-        <Interface />
+        <TamaguiProvider config={config} defaultTheme='dark'>
+            <Interface />
+        </TamaguiProvider>
     </KeyboardControls>
 )

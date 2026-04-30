@@ -1,7 +1,16 @@
 import { useRef } from 'react'
-import { useControls } from 'leva'
+import { useControls, button } from 'leva'
 import { useResource } from '../stores/useResource'
 import useBoxSettings from '../stores/useBoxSettings'
+import {
+    captureHintReport,
+    saveReport,
+    loadReports,
+    clearReports,
+    downloadJSON,
+    postReportToRepo,
+    fileSafeTimestamp,
+} from '../utils/hintReport'
 
 export default function BoxControls() {
     const glowOpacityRef = useRef(0.78)
@@ -24,6 +33,43 @@ export default function BoxControls() {
 
     useControls('Hint', {
         hintDimOpacity: { value: 0.72, min: 0.0, max: 1.0, step: 0.01, label: 'Dim Opacity', onChange: (v) => set({ hintDimOpacity: v }) },
+        'Report Missing Hint': button(async () => {
+            const report = captureHintReport()
+            if (!report) {
+                console.warn('[hint-report] No active level — nothing to report')
+                return
+            }
+            const all = saveReport(report)
+            const filename = `boxle-hint-report-${report.mode}-L${report.level}-${fileSafeTimestamp(report.timestamp)}.json`
+            const savedPath = await postReportToRepo(filename, report)
+            if (savedPath) {
+                console.log(
+                    `[hint-report] Wrote ${savedPath} (${all.length} in localStorage). foundHint=${report.foundHint?.ruleId ?? 'null'}`,
+                    report,
+                )
+            } else {
+                downloadJSON(filename, report)
+                console.warn(
+                    `[hint-report] Dev endpoint unavailable — downloaded instead. foundHint=${report.foundHint?.ruleId ?? 'null'}`,
+                    report,
+                )
+            }
+        }),
+        'Export All Reports': button(() => {
+            const all = loadReports()
+            if (all.length === 0) {
+                console.warn('[hint-report] No reports to export')
+                return
+            }
+            downloadJSON(
+                `boxle-hint-reports-${fileSafeTimestamp(new Date().toISOString())}.json`,
+                all,
+            )
+        }),
+        'Clear Reports': button(() => {
+            clearReports()
+            console.log('[hint-report] Cleared all reports')
+        }),
     })
 
     useControls('Boxle', {

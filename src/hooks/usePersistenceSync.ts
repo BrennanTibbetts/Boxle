@@ -23,6 +23,7 @@ export function usePersistenceSync() {
                 lives: saved.lives,
                 levels: saved.levels,
                 phase: saved.phase,
+                startTime: Date.now() - (saved.elapsedMs ?? 0),
             })
         } else {
             usePersistence.getState().startDailySession()
@@ -34,9 +35,24 @@ export function usePersistenceSync() {
                 lives: state.lives,
                 levels: state.levels,
                 phase: state.phase,
+                elapsedMs: state.startTime ? Date.now() - state.startTime : 0,
             })
         })
-        return () => unsub()
+        return () => {
+            unsub()
+            // Capture elapsedMs at unmount — state-driven saves miss any
+            // idle time between the last action and the user leaving.
+            const state = useGame.getState()
+            if (state.phase === Phase.PLAYING) {
+                usePersistence.getState().saveDaily({
+                    currentLevel: state.currentLevel,
+                    lives: state.lives,
+                    levels: state.levels,
+                    phase: state.phase,
+                    elapsedMs: state.startTime ? Date.now() - state.startTime : 0,
+                })
+            }
+        }
     }, [configsLength])
 
     // On session end, record mistakes, (on win) update streak and best time,

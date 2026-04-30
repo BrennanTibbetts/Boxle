@@ -1,11 +1,16 @@
 import { useState } from 'react'
+import { XStack, YStack } from 'tamagui'
 import useGame, { GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useArcadeRun from '../stores/useArcadeRun'
-import useUI from '../stores/useUI'
 import StatsModal from './StatsModal'
-import RulesModal from './RulesModal'
 import DailyPerformanceModal from './DailyPerformanceModal'
+import {
+    HudButton,
+    MenuTile,
+    ModalOverlay,
+    PageTitle,
+} from './ui'
 
 function todayString(): string {
     return new Date().toISOString().slice(0, 10)
@@ -20,8 +25,6 @@ export default function MainMenu() {
     const library = usePersistence((state) => state.stats.library)
     const libraryProgress = usePersistence((state) => state.libraryProgress)
     const startNewArcadeRun = useArcadeRun((state) => state.startNewRun)
-    const rulesOpen = useUI((state) => state.rulesOpen)
-    const setRulesOpen = useUI((state) => state.setRulesOpen)
 
     const [showStats, setShowStats] = useState(false)
     const [showPerformance, setShowPerformance] = useState(false)
@@ -46,85 +49,106 @@ export default function MainMenu() {
         <>
             {showStats && <StatsModal onClose={() => setShowStats(false)} />}
             {showPerformance && <DailyPerformanceModal onClose={() => setShowPerformance(false)} />}
-            <RulesModal />
-            <div className="menu-overlay">
-                <div className="menu-content">
-                    <h1 className="menu-title">Boxle</h1>
+            <ModalOverlay
+                intensity="medium"
+                layer="menu"
+                scrollable
+                $sm={{ alignItems: 'flex-start' }}
+            >
+                <YStack
+                    alignItems="center"
+                    gap="$10"
+                    padding="$11"
+                    width="100%"
+                    maxWidth={560}
+                    $sm={{ gap: '$6', padding: '$5' }}
+                >
+                    <PageTitle size="lg" $sm={{ fontSize: 40, letterSpacing: 1.6 }}>
+                        Boxle
+                    </PageTitle>
 
-                    <div className="menu-tiles">
-                        <button
-                            className={`menu-tile${dailyCompleteToday ? ' menu-tile-done' : ''}`}
-                            onClick={handleDailyClick}
+                    <XStack
+                        gap="$6"
+                        flexWrap="wrap"
+                        justifyContent="center"
+                        $sm={{ gap: '$4', width: '100%' }}
+                    >
+                        <MenuTile
+                            state={dailyCompleteToday ? 'done' : 'default'}
+                            onPress={handleDailyClick}
+                            $sm={{ width: '100%' }}
                         >
-                            <span className="menu-tile-title">Daily</span>
+                            <MenuTile.Title>Daily</MenuTile.Title>
                             {dailyCompleteToday ? (
                                 <>
-                                    <span className="menu-tile-done-badge">✓ Done for today</span>
-                                    <span className="menu-tile-meta">Tap to see result</span>
+                                    <MenuTile.DoneBadge>✓ Done for today</MenuTile.DoneBadge>
+                                    <MenuTile.Meta>Tap to see result</MenuTile.Meta>
                                 </>
                             ) : (
                                 <>
-                                    <span className="menu-tile-sub">
-                                        {dailyInFlight ? 'Resume' : 'Start'}
-                                    </span>
+                                    <MenuTile.Sub>{dailyInFlight ? 'Resume' : 'Start'}</MenuTile.Sub>
                                     {daily.currentStreak > 0 && (
-                                        <span className="menu-tile-meta">🔥 {daily.currentStreak} day streak</span>
+                                        <MenuTile.Meta>🔥 {daily.currentStreak} day streak</MenuTile.Meta>
                                     )}
                                 </>
                             )}
-                        </button>
+                        </MenuTile>
 
-                        <button
-                            className={`menu-tile${arcadeSave ? ' menu-tile-resume' : ''}`}
-                            onClick={() => setMode(GameMode.ARCADE)}
+                        <MenuTile
+                            state={arcadeSave ? 'resume' : 'default'}
+                            onPress={() => setMode(GameMode.ARCADE)}
+                            $sm={{ width: '100%' }}
                         >
-                            <span className="menu-tile-title">Arcade</span>
+                            <MenuTile.Title>Arcade</MenuTile.Title>
                             {arcadeSave ? (
                                 <>
-                                    <span className="menu-tile-sub">Resume</span>
-                                    <span className="menu-tile-meta">
+                                    <MenuTile.Sub>Resume</MenuTile.Sub>
+                                    <MenuTile.Meta>
                                         {arcadeSave.currentSize}×{arcadeSave.currentSize} · {arcadeSave.puzzlesCompleted} cleared
-                                    </span>
-                                    <button
-                                        className="menu-tile-secondary"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
+                                    </MenuTile.Meta>
+                                    <HudButton
+                                        tone="secondaryChip"
+                                        size="md"
+                                        alignSelf="stretch"
+                                        marginTop="auto"
+                                        onPress={(e: any) => {
+                                            e?.stopPropagation?.()
                                             startNewArcadeRun()
                                             setMode(GameMode.ARCADE)
                                         }}
                                     >
-                                        New Run
-                                    </button>
+                                        <HudButton.Text size="md">New Run</HudButton.Text>
+                                    </HudButton>
                                 </>
                             ) : (
                                 <>
-                                    <span className="menu-tile-sub">Survival</span>
+                                    <MenuTile.Sub>Survival</MenuTile.Sub>
                                     {arcade.deepestSizeEver > 0 && (
-                                        <span className="menu-tile-meta">Deepest: {arcade.deepestSizeEver}×{arcade.deepestSizeEver}</span>
+                                        <MenuTile.Meta>
+                                            Deepest: {arcade.deepestSizeEver}×{arcade.deepestSizeEver}
+                                        </MenuTile.Meta>
                                     )}
                                 </>
                             )}
-                        </button>
+                        </MenuTile>
 
-                        <button className="menu-tile" onClick={() => setMode(GameMode.LIBRARY)}>
-                            <span className="menu-tile-title">Library</span>
-                            <span className="menu-tile-sub">{currentTierSize}×{currentTierSize}</span>
-                            <span className="menu-tile-meta">
+                        <MenuTile
+                            onPress={() => setMode(GameMode.LIBRARY)}
+                            $sm={{ width: '100%' }}
+                        >
+                            <MenuTile.Title>Library</MenuTile.Title>
+                            <MenuTile.Sub>{currentTierSize}×{currentTierSize}</MenuTile.Sub>
+                            <MenuTile.Meta>
                                 {libraryCompletionsThisTier} completed · {currentTierProgress}/10 in batch
-                            </span>
-                        </button>
-                    </div>
+                            </MenuTile.Meta>
+                        </MenuTile>
+                    </XStack>
 
-                    <div className="menu-actions">
-                        <button className="hud-btn end-btn" onClick={() => setRulesOpen(!rulesOpen)}>
-                            How to Play
-                        </button>
-                        <button className="hud-btn end-btn" onClick={() => setShowStats(true)}>
-                            Stats
-                        </button>
-                    </div>
-                </div>
-            </div>
+                    <HudButton onPress={() => setShowStats(true)} size="lg">
+                        <HudButton.Text>Stats</HudButton.Text>
+                    </HudButton>
+                </YStack>
+            </ModalOverlay>
         </>
     )
 }

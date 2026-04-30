@@ -1,9 +1,28 @@
 import { useState } from 'react'
+import { XStack, YStack, Text } from 'tamagui'
 import useGame, { Phase, GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useArcadeRun from '../stores/useArcadeRun'
 import StatsModal from './StatsModal'
 import { buildShareGrid, formatTime, shareOrCopy } from '../utils/share'
+import {
+    BodyText,
+    GlassCard,
+    HudButton,
+    ModalOverlay,
+    ModalTitle,
+    StatValue,
+    SubLabel,
+} from './ui'
+
+function StatBlock({ label, value }: { label: string; value: string | number }) {
+    return (
+        <YStack alignItems="center" gap="$1">
+            <SubLabel>{label}</SubLabel>
+            <StatValue>{value}</StatValue>
+        </YStack>
+    )
+}
 
 function DailyEndContent() {
     const lives = useGame((state) => state.lives)
@@ -44,58 +63,49 @@ function DailyEndContent() {
     return (
         <>
             {showStats && <StatsModal onClose={() => setShowStats(false)} />}
-            <div className="end-card">
-                <h1 className="end-title">
-                    {isComplete ? 'Puzzle Complete' : 'Game Over'}
-                </h1>
+            <GlassCard size="lg" minWidth={280} $sm={{ maxWidth: '90%' }}>
+                <ModalTitle>{isComplete ? 'Puzzle Complete' : 'Game Over'}</ModalTitle>
 
-                <div className="end-share-grid">{shareGrid}</div>
+                <Text fontFamily="$body" fontSize="$6" letterSpacing={1}>
+                    {shareGrid}
+                </Text>
 
-                <div className="end-stats">
-                    <div className="end-stat">
-                        <span className="end-stat-label">Levels</span>
-                        <span className="end-stat-value">{levelsCompleted} / {levelCount}</span>
-                    </div>
+                <XStack gap="$9" flexWrap="wrap" justifyContent="center">
+                    <StatBlock label="Levels" value={`${levelsCompleted} / ${levelCount}`} />
                     {isComplete && elapsed !== null && (
-                        <div className="end-stat">
-                            <span className="end-stat-label">Time</span>
-                            <span className="end-stat-value">{formatTime(elapsed)}</span>
-                        </div>
+                        <StatBlock label="Time" value={formatTime(elapsed)} />
                     )}
                     {sessionHints > 0 && (
-                        <div className="end-stat">
-                            <span className="end-stat-label">Hints</span>
-                            <span className="end-stat-value">{sessionHints}</span>
-                        </div>
+                        <StatBlock label="Hints" value={sessionHints} />
                     )}
                     {sessionLivesLost > 0 && (
-                        <div className="end-stat">
-                            <span className="end-stat-label">Mistakes</span>
-                            <span className="end-stat-value">{sessionLivesLost}</span>
-                        </div>
+                        <StatBlock label="Mistakes" value={sessionLivesLost} />
                     )}
-                </div>
+                </XStack>
 
                 {currentStreak > 0 && (
-                    <p className="end-streak">🔥 {currentStreak} day streak</p>
+                    <BodyText tone="muted">🔥 {currentStreak} day streak</BodyText>
                 )}
 
-                <div className="end-actions">
-                    <button className="hud-btn end-btn" onClick={handleShare}>
-                        {shareLabel}
-                    </button>
-                    <button className="hud-btn end-btn" onClick={() => setShowStats(true)}>
-                        Stats
-                    </button>
-                    <button className="hud-btn end-btn" onClick={() => setMode(GameMode.MENU)}>
-                        Menu
-                    </button>
-                    {isComplete
-                        ? <p className="end-sub">See you tomorrow!</p>
-                        : <button className="hud-btn end-btn" onClick={restart}>Try Again</button>
-                    }
-                </div>
-            </div>
+                <XStack gap="$5" flexWrap="wrap" justifyContent="center" alignItems="center">
+                    <HudButton onPress={handleShare} size="lg">
+                        <HudButton.Text>{shareLabel}</HudButton.Text>
+                    </HudButton>
+                    <HudButton onPress={() => setShowStats(true)} size="lg">
+                        <HudButton.Text>Stats</HudButton.Text>
+                    </HudButton>
+                    <HudButton onPress={() => setMode(GameMode.MENU)} size="lg">
+                        <HudButton.Text>Menu</HudButton.Text>
+                    </HudButton>
+                    {isComplete ? (
+                        <SubLabel>See you tomorrow!</SubLabel>
+                    ) : (
+                        <HudButton onPress={restart} size="lg">
+                            <HudButton.Text>Try Again</HudButton.Text>
+                        </HudButton>
+                    )}
+                </XStack>
+            </GlassCard>
         </>
     )
 }
@@ -109,41 +119,25 @@ function ArcadeEndContent() {
     const runLivesLost = useArcadeRun((s) => s.runLivesLost)
 
     return (
-        <div className="end-card">
-            <h1 className="end-title">Run Ended</h1>
+        <GlassCard size="lg" minWidth={280} $sm={{ maxWidth: '90%' }}>
+            <ModalTitle>Run Ended</ModalTitle>
 
-            <div className="end-stats">
-                <div className="end-stat">
-                    <span className="end-stat-label">Deepest</span>
-                    <span className="end-stat-value">{currentSize}×{currentSize}</span>
-                </div>
-                <div className="end-stat">
-                    <span className="end-stat-label">Puzzles</span>
-                    <span className="end-stat-value">{puzzlesCompleted}</span>
-                </div>
-                {runHintsUsed > 0 && (
-                    <div className="end-stat">
-                        <span className="end-stat-label">Hints</span>
-                        <span className="end-stat-value">{runHintsUsed}</span>
-                    </div>
-                )}
-                {runLivesLost > 0 && (
-                    <div className="end-stat">
-                        <span className="end-stat-label">Mistakes</span>
-                        <span className="end-stat-value">{runLivesLost}</span>
-                    </div>
-                )}
-            </div>
+            <XStack gap="$9" flexWrap="wrap" justifyContent="center">
+                <StatBlock label="Deepest" value={`${currentSize}×${currentSize}`} />
+                <StatBlock label="Puzzles" value={puzzlesCompleted} />
+                {runHintsUsed > 0 && <StatBlock label="Hints" value={runHintsUsed} />}
+                {runLivesLost > 0 && <StatBlock label="Mistakes" value={runLivesLost} />}
+            </XStack>
 
-            <div className="end-actions">
-                <button className="hud-btn end-btn" onClick={() => startNewRun()}>
-                    New Run
-                </button>
-                <button className="hud-btn end-btn" onClick={() => setMode(GameMode.MENU)}>
-                    Menu
-                </button>
-            </div>
-        </div>
+            <XStack gap="$5" flexWrap="wrap" justifyContent="center">
+                <HudButton onPress={() => startNewRun()} size="lg">
+                    <HudButton.Text>New Run</HudButton.Text>
+                </HudButton>
+                <HudButton onPress={() => setMode(GameMode.MENU)} size="lg">
+                    <HudButton.Text>Menu</HudButton.Text>
+                </HudButton>
+            </XStack>
+        </GlassCard>
     )
 }
 
@@ -154,8 +148,8 @@ export default function EndScreen() {
     if (phase !== Phase.ENDED) return null
 
     return (
-        <div className="end-screen">
+        <ModalOverlay layer="game" intensity="light">
             {activeMode === GameMode.ARCADE ? <ArcadeEndContent /> : <DailyEndContent />}
-        </div>
+        </ModalOverlay>
     )
 }

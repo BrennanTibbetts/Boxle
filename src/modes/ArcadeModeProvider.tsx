@@ -21,6 +21,7 @@ function snapshot(): ArcadeSave {
         lives: game.lives,
         sessionHints: game.sessionHints,
         sessionLivesLost: game.sessionLivesLost,
+        elapsedMs: game.startTime ? Date.now() - game.startTime : 0,
     }
 }
 
@@ -42,7 +43,7 @@ export function ArcadeModeProvider() {
                 levelMistakes: existing.levelMistakes,
                 currentLevel: existing.currentLevel,
                 phase: Phase.PLAYING,
-                startTime: Date.now(),
+                startTime: Date.now() - (existing.elapsedMs ?? 0),
                 endTime: null,
                 wrongPlacement: null,
                 lastBoxlePosition: null,
@@ -145,12 +146,12 @@ export function ArcadeModeProvider() {
             unsubLevels()
             unsubLives()
             unsubLevelConfigs()
-            // Flush any pending debounced save before unmount.
-            if (saveTimeout !== null) {
-                clearTimeout(saveTimeout)
-                if (useGame.getState().phase === Phase.PLAYING) {
-                    usePersistence.getState().saveArcade(snapshot())
-                }
+            if (saveTimeout !== null) clearTimeout(saveTimeout)
+            // Always snapshot on unmount so elapsedMs reflects time spent
+            // since the last state-driven save (e.g. idle time before the
+            // user navigated away).
+            if (useGame.getState().phase === Phase.PLAYING) {
+                usePersistence.getState().saveArcade(snapshot())
             }
         }
     }, [runId])

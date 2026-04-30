@@ -55,7 +55,7 @@ export default function Display() {
 
     return (
         <group ref={groupRef}>
-            <Title />
+            {activeMode !== GameMode.MENU && <Title />}
         </group>
     )
 }

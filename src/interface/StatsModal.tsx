@@ -1,16 +1,46 @@
 import { useState } from 'react'
+import { XStack, YStack } from 'tamagui'
 import usePersistence from '../stores/usePersistence'
 import Modal from './Modal'
 import { formatTime } from '../utils/share'
+import {
+    HudButton,
+    HudLabel,
+    ModalTitle,
+    StatValue,
+    SubLabel,
+} from './ui'
 
 type StatsTab = 'daily' | 'arcade' | 'library'
 
 function StatItem({ value, label }: { value: string | number; label: string }) {
     return (
-        <div className="stats-item">
-            <span className="stats-value">{value}</span>
-            <span className="stats-label">{label}</span>
-        </div>
+        <YStack alignItems="center" gap="$1">
+            <StatValue>{value}</StatValue>
+            <SubLabel>{label}</SubLabel>
+        </YStack>
+    )
+}
+
+function Section({ children }: { children: React.ReactNode }) {
+    return (
+        <YStack
+            width="100%"
+            borderTopWidth={1}
+            borderTopColor="$borderSubtle"
+            paddingVertical="$6"
+            alignItems="center"
+        >
+            {children}
+        </YStack>
+    )
+}
+
+function StatsRow({ children }: { children: React.ReactNode }) {
+    return (
+        <XStack justifyContent="center" gap="$9" flexWrap="wrap">
+            {children}
+        </XStack>
     )
 }
 
@@ -22,31 +52,31 @@ function DailyStats() {
 
     return (
         <>
-            <div className="stats-section">
-                <div className="stats-row">
+            <Section>
+                <StatsRow>
                     <StatItem
                         value={daily.currentStreak > 0 ? `🔥 ${daily.currentStreak}` : daily.currentStreak}
                         label="Streak"
                     />
                     <StatItem value={daily.longestStreak} label="Best Streak" />
-                </div>
-            </div>
-            <div className="stats-section">
-                <div className="stats-row">
+                </StatsRow>
+            </Section>
+            <Section>
+                <StatsRow>
                     <StatItem value={daily.sessionsPlayed} label="Played" />
                     <StatItem value={daily.sessionsCompleted} label="Completed" />
                     <StatItem value={`${winRate}%`} label="Win Rate" />
-                </div>
-            </div>
-            <div className="stats-section">
-                <div className="stats-row">
+                </StatsRow>
+            </Section>
+            <Section>
+                <StatsRow>
                     {daily.bestTimeMs !== null && (
                         <StatItem value={formatTime(daily.bestTimeMs)} label="Best Time" />
                     )}
                     <StatItem value={daily.hintsUsed} label="Hints" />
                     <StatItem value={daily.livesLost} label="Mistakes" />
-                </div>
-            </div>
+                </StatsRow>
+            </Section>
         </>
     )
 }
@@ -55,25 +85,25 @@ function ArcadeStats() {
     const arcade = usePersistence((s) => s.stats.arcade)
     return (
         <>
-            <div className="stats-section">
-                <div className="stats-row">
+            <Section>
+                <StatsRow>
                     <StatItem
                         value={arcade.deepestSizeEver > 0 ? `${arcade.deepestSizeEver}×${arcade.deepestSizeEver}` : '—'}
                         label="Deepest"
                     />
-                </div>
-            </div>
-            <div className="stats-section">
-                <div className="stats-row">
+                </StatsRow>
+            </Section>
+            <Section>
+                <StatsRow>
                     <StatItem value={arcade.runsPlayed} label="Runs" />
-                </div>
-            </div>
-            <div className="stats-section">
-                <div className="stats-row">
+                </StatsRow>
+            </Section>
+            <Section>
+                <StatsRow>
                     <StatItem value={arcade.hintsUsed} label="Hints" />
                     <StatItem value={arcade.livesLost} label="Mistakes" />
-                </div>
-            </div>
+                </StatsRow>
+            </Section>
         </>
     )
 }
@@ -85,29 +115,34 @@ function LibraryStats() {
 
     return (
         <>
-            <div className="stats-section">
-                <div className="stats-row">
+            <Section>
+                <StatsRow>
                     <StatItem value={totalCompleted} label="Total Completed" />
-                </div>
-            </div>
+                </StatsRow>
+            </Section>
             {sizes.length > 0 && (
-                <div className="stats-section">
-                    <div className="stats-tier-list">
+                <Section>
+                    <XStack
+                        gap="$3"
+                        flexWrap="wrap"
+                        justifyContent="center"
+                        width="100%"
+                    >
                         {sizes.map((size) => (
-                            <div key={size} className="stats-tier-row">
-                                <span className="stats-tier-size">{size}×{size}</span>
-                                <span className="stats-tier-count">{library.tierCompletions[size]}</span>
-                            </div>
+                            <YStack key={size} alignItems="center" gap="$1" minWidth={70}>
+                                <HudLabel>{size}×{size}</HudLabel>
+                                <StatValue>{library.tierCompletions[size]}</StatValue>
+                            </YStack>
                         ))}
-                    </div>
-                </div>
+                    </XStack>
+                </Section>
             )}
-            <div className="stats-section">
-                <div className="stats-row">
+            <Section>
+                <StatsRow>
                     <StatItem value={library.hintsUsed} label="Hints" />
                     <StatItem value={library.livesLost} label="Mistakes" />
-                </div>
-            </div>
+                </StatsRow>
+            </Section>
         </>
     )
 }
@@ -116,29 +151,55 @@ export default function StatsModal({ onClose }: { onClose: () => void }) {
     const [tab, setTab] = useState<StatsTab>('daily')
 
     return (
-        <Modal onClose={onClose} overlayClassName="stats-overlay" cardClassName="stats-card">
-            <h2 className="stats-title">Stats</h2>
+        <Modal
+            onClose={onClose}
+            overlayProps={{ intensity: 'heavy', layer: 'stats' }}
+            cardProps={{
+                tone: 'strongest',
+                minWidth: 300,
+                maxWidth: 480,
+                $sm: { maxWidth: '92%', maxHeight: '90%', overflow: 'scroll' },
+            }}
+        >
+            <ModalTitle>Stats</ModalTitle>
 
-            <div className="stats-tabs">
-                <button
-                    className={`stats-tab${tab === 'daily' ? ' active' : ''}`}
-                    onClick={() => setTab('daily')}
-                >Daily</button>
-                <button
-                    className={`stats-tab${tab === 'arcade' ? ' active' : ''}`}
-                    onClick={() => setTab('arcade')}
-                >Arcade</button>
-                <button
-                    className={`stats-tab${tab === 'library' ? ' active' : ''}`}
-                    onClick={() => setTab('library')}
-                >Library</button>
-            </div>
+            <XStack gap="$1" marginBottom="$1">
+                <HudButton
+                    onPress={() => setTab('daily')}
+                    tone={tab === 'daily' ? 'statTabActive' : 'statTab'}
+                    size="sm"
+                >
+                    <HudButton.Text tone={tab === 'daily' ? 'bright' : 'muted'} size="sm">
+                        Daily
+                    </HudButton.Text>
+                </HudButton>
+                <HudButton
+                    onPress={() => setTab('arcade')}
+                    tone={tab === 'arcade' ? 'statTabActive' : 'statTab'}
+                    size="sm"
+                >
+                    <HudButton.Text tone={tab === 'arcade' ? 'bright' : 'muted'} size="sm">
+                        Arcade
+                    </HudButton.Text>
+                </HudButton>
+                <HudButton
+                    onPress={() => setTab('library')}
+                    tone={tab === 'library' ? 'statTabActive' : 'statTab'}
+                    size="sm"
+                >
+                    <HudButton.Text tone={tab === 'library' ? 'bright' : 'muted'} size="sm">
+                        Library
+                    </HudButton.Text>
+                </HudButton>
+            </XStack>
 
             {tab === 'daily' && <DailyStats />}
             {tab === 'arcade' && <ArcadeStats />}
             {tab === 'library' && <LibraryStats />}
 
-            <button className="hud-btn end-btn" onClick={onClose}>Close</button>
+            <HudButton onPress={onClose} size="lg">
+                <HudButton.Text>Close</HudButton.Text>
+            </HudButton>
         </Modal>
     )
 }

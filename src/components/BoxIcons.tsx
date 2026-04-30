@@ -20,7 +20,7 @@ function pickFrom(pool: string[]): string {
 export function MarkIcon({ size = 29 }: IconProps) {
     const outer = useMemo(() => pickFrom(COLORS), [])
     return (
-        <svg className="box-icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ display: 'inline-block', flexShrink: 0, verticalAlign: '-0.25em' }}>
             <rect x="2" y="2" width="20" height="20" rx="5" fill={outer} />
             <rect x="9" y="9" width="6" height="6" rx="1.4" fill={DARK_INNER} />
         </svg>
@@ -30,7 +30,7 @@ export function MarkIcon({ size = 29 }: IconProps) {
 export function LockIcon({ size = 29 }: IconProps) {
     const outer = useMemo(() => pickFrom(COLORS), [])
     return (
-        <svg className="box-icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ display: 'inline-block', flexShrink: 0, verticalAlign: '-0.25em' }}>
             <rect x="2" y="2" width="20" height="20" rx="5" fill={outer} />
             <rect x="5.5" y="5.5" width="13" height="13" rx="2.6" fill={DARK_INNER} />
         </svg>
@@ -40,7 +40,7 @@ export function LockIcon({ size = 29 }: IconProps) {
 export function BoxleIcon({ size = 29 }: IconProps) {
     const outer = useMemo(() => pickFrom(BOXLE_POOL), [])
     return (
-        <svg className="box-icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ display: 'inline-block', flexShrink: 0, verticalAlign: '-0.25em' }}>
             <rect x="2" y="2" width="20" height="20" rx="5" fill={outer} />
             <rect x="6.5" y="6.5" width="11" height="11" rx="2.2" fill={BRIGHT_INNER} />
         </svg>

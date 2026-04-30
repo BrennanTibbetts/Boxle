@@ -32788,21 +32788,21 @@
           "isVar": true,
           "key": "$overlayDim",
           "name": "c-overlayDim",
-          "val": "rgba(0,0,0,0.45)",
+          "val": "rgba(0,0,0,0.65)",
           "variable": "var(--c-overlayDim)"
         },
         "overlayMid": {
           "isVar": true,
           "key": "$overlayMid",
           "name": "c-overlayMid",
-          "val": "rgba(0,0,0,0.55)",
+          "val": "rgba(0,0,0,0.78)",
           "variable": "var(--c-overlayMid)"
         },
         "overlayDeep": {
           "isVar": true,
           "key": "$overlayDeep",
           "name": "c-overlayDeep",
-          "val": "rgba(0,0,0,0.6)",
+          "val": "rgba(0,0,0,0.88)",
           "variable": "var(--c-overlayDeep)"
         },
         "cardShadow": {
@@ -33276,9 +33276,9 @@
         "accentBoxle": "#fde047",
         "accentWarn": "#f87171",
         "statusOnline": "#4ade80",
-        "overlayDim": "rgba(0,0,0,0.45)",
-        "overlayMid": "rgba(0,0,0,0.55)",
-        "overlayDeep": "rgba(0,0,0,0.6)",
+        "overlayDim": "rgba(0,0,0,0.65)",
+        "overlayMid": "rgba(0,0,0,0.78)",
+        "overlayDeep": "rgba(0,0,0,0.88)",
         "cardShadow": "rgba(0,0,0,0.35)",
         "cardShadowDeep": "rgba(0,0,0,0.45)",
         "transparent": "rgba(0,0,0,0)",
@@ -33681,21 +33681,21 @@
         "isVar": true,
         "key": "$overlayDeep",
         "name": "c-overlayDeep",
-        "val": "rgba(0,0,0,0.6)",
+        "val": "rgba(0,0,0,0.88)",
         "variable": "var(--c-overlayDeep)"
       },
       "$color.overlayDim": {
         "isVar": true,
         "key": "$overlayDim",
         "name": "c-overlayDim",
-        "val": "rgba(0,0,0,0.45)",
+        "val": "rgba(0,0,0,0.65)",
         "variable": "var(--c-overlayDim)"
       },
       "$color.overlayMid": {
         "isVar": true,
         "key": "$overlayMid",
         "name": "c-overlayMid",
-        "val": "rgba(0,0,0,0.55)",
+        "val": "rgba(0,0,0,0.78)",
         "variable": "var(--c-overlayMid)"
       },
       "$color.statusOnline": {

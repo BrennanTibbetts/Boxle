@@ -2,7 +2,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import react from '@vitejs/plugin-react'
 import { tamaguiPlugin } from '@tamagui/vite-plugin'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 
 // Dev-only endpoint: POST { filename, data } → writes hint-reports/<filename>.
 // Used by the Leva "Report Missing Hint" button to persist debug snapshots
@@ -48,6 +48,17 @@ function hintReportPlugin(): Plugin {
 
 export default defineConfig(({ mode }) => {
     const isProd = mode === 'production'
+    const envDirAbs = path.resolve(import.meta.dirname)
+    // tamaguiPlugin replaces import.meta.env with {} in its transform, so
+    // VITE_* lookups resolve to undefined unless we re-inject them via define.
+    // Merge .env files with process.env so Vercel dashboard vars also flow through.
+    const fileEnv = loadEnv(mode, envDirAbs, '')
+    const viteEnv = { ...fileEnv, ...process.env }
+    const viteDefines = Object.fromEntries(
+        Object.keys(viteEnv)
+            .filter((k) => k.startsWith('VITE_'))
+            .map((k) => [`import.meta.env.${k}`, JSON.stringify(viteEnv[k])])
+    )
 
     return {
         root: 'src/',
@@ -58,6 +69,7 @@ export default defineConfig(({ mode }) => {
         define: {
             'process.env.NODE_ENV': JSON.stringify(mode),
             'process.env.TAMAGUI_TARGET': JSON.stringify('web'),
+            ...viteDefines,
         },
         resolve: {
             alias: {

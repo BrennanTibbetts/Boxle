@@ -211,9 +211,9 @@ var palette = {
   accentWarn: "#f87171",
   statusOnline: "#4ade80",
   // Overlay
-  overlayDim: "rgba(0,0,0,0.45)",
-  overlayMid: "rgba(0,0,0,0.55)",
-  overlayDeep: "rgba(0,0,0,0.6)",
+  overlayDim: "rgba(0,0,0,0.65)",
+  overlayMid: "rgba(0,0,0,0.78)",
+  overlayDeep: "rgba(0,0,0,0.88)",
   cardShadow: "rgba(0,0,0,0.35)",
   cardShadowDeep: "rgba(0,0,0,0.45)",
   // Transparent

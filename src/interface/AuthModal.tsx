@@ -43,6 +43,105 @@ async function makeNoncePair(): Promise<{ raw: string; hashedHex: string }> {
     return { raw, hashedHex }
 }
 
+function EmailIcon() {
+    return (
+        <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
+            <path
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 6.5h18v11H3zM3 6.5l9 6.5 9-6.5"
+            />
+        </svg>
+    )
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function EmailSignInForm({ onCancel }: { onCancel: () => void }) {
+    const signInWithEmail = useAuth((s) => s.signInWithEmail)
+    const [email, setEmail] = useState('')
+    const [busy, setBusy] = useState(false)
+    const [sent, setSent] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    const valid = EMAIL_PATTERN.test(email.trim())
+
+    const submit = async () => {
+        if (busy || !valid) return
+        setBusy(true)
+        setError(null)
+        try {
+            await signInWithEmail(email.trim())
+            setSent(true)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Send failed')
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    if (sent) {
+        return (
+            <YStack gap="$3" width="100%" alignItems="center">
+                <BodyText tone="muted" textAlign="center">
+                    Check <Text fontWeight="700" color="$textPrimary">{email.trim()}</Text> for a sign-in link.
+                </BodyText>
+                <HudButton tone="ghost" onPress={onCancel}>
+                    <HudButton.Text tone="muted">Use a different method</HudButton.Text>
+                </HudButton>
+            </YStack>
+        )
+    }
+
+    return (
+        <YStack gap="$3" width="100%">
+            <Input
+                paddingHorizontal="$4"
+                paddingVertical="$3"
+                minHeight={44}
+                backgroundColor="$bgInputGlass"
+                borderColor="$borderMuted"
+                borderWidth={1}
+                borderRadius="$3"
+                color="$textPrimary"
+                fontFamily="$body"
+                fontSize="$5"
+                letterSpacing={0.6}
+                value={email}
+                onChangeText={(text: string) => {
+                    setError(null)
+                    setEmail(text)
+                }}
+                onSubmitEditing={submit}
+                placeholder="you@example.com"
+                placeholderTextColor="$textInactive"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                spellCheck={false}
+                focusStyle={{
+                    borderColor: '$borderActive',
+                    backgroundColor: '$bgGlassStrong',
+                }}
+            />
+            <HudButton onPress={submit} disabled={busy || !valid} alignSelf="stretch">
+                <HudButton.Text>{busy ? 'Sending…' : 'Send link'}</HudButton.Text>
+            </HudButton>
+            <HudButton tone="ghost" onPress={onCancel} alignSelf="center">
+                <HudButton.Text tone="muted">Cancel</HudButton.Text>
+            </HudButton>
+            {error && (
+                <BodyText tone="danger" textAlign="center" fontSize="$3">
+                    {error}
+                </BodyText>
+            )}
+        </YStack>
+    )
+}
+
 function AppleIcon() {
     return (
         <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
@@ -99,8 +198,9 @@ function UsernameForm() {
                 <Input
                     flex={1}
                     minWidth={0}
-                    paddingHorizontal="$3"
-                    paddingVertical="$2"
+                    paddingHorizontal="$4"
+                    paddingVertical="$3"
+                    minHeight={44}
                     backgroundColor="$bgInputGlass"
                     borderColor="$borderMuted"
                     borderWidth={1}
@@ -162,6 +262,7 @@ export default function AuthModal() {
     const signOut = useAuth((s) => s.signOut)
     const [error, setError] = useState<string | null>(null)
     const [appleBusy, setAppleBusy] = useState(false)
+    const [emailFormOpen, setEmailFormOpen] = useState(false)
     const googleBtnRef = useRef<HTMLDivElement | null>(null)
     const cardRef = useRef<HTMLDivElement | null>(null)
 
@@ -299,36 +400,51 @@ export default function AuthModal() {
                         <BodyText tone="muted">
                             Sign in to save your stats across devices.
                         </BodyText>
-                        <HudButton
-                            onPress={() => {
-                                const inner = googleBtnRef.current?.querySelector('div[role="button"]') as HTMLElement | null
-                                inner?.click()
-                            }}
-                            backgroundColor="#fff"
-                            borderColor="rgba(0,0,0,0.12)"
-                            hoverStyle={{
-                                backgroundColor: '#f1f1f1',
-                                borderColor: 'rgba(0,0,0,0.18)',
-                            }}
-                        >
-                            <GoogleIcon />
-                            <HudButton.Text tone="primary">Continue with Google</HudButton.Text>
-                        </HudButton>
-                        <HudButton
-                            onPress={handleApple}
-                            disabled={appleBusy}
-                            backgroundColor="#000"
-                            borderColor="rgba(255,255,255,0.18)"
-                            hoverStyle={{
-                                backgroundColor: '#1a1a1a',
-                                borderColor: 'rgba(255,255,255,0.18)',
-                            }}
-                        >
-                            <AppleIcon />
-                            <HudButton.Text tone="bright">
-                                {appleBusy ? 'Connecting…' : 'Continue with Apple'}
-                            </HudButton.Text>
-                        </HudButton>
+                        {emailFormOpen ? (
+                            <EmailSignInForm onCancel={() => setEmailFormOpen(false)} />
+                        ) : (
+                            <>
+                                <HudButton
+                                    onPress={() => {
+                                        const inner = googleBtnRef.current?.querySelector('div[role="button"]') as HTMLElement | null
+                                        inner?.click()
+                                    }}
+                                    backgroundColor="#fff"
+                                    borderColor="rgba(0,0,0,0.12)"
+                                    hoverStyle={{
+                                        backgroundColor: '#f1f1f1',
+                                        borderColor: 'rgba(0,0,0,0.18)',
+                                    }}
+                                >
+                                    <GoogleIcon />
+                                    <HudButton.Text tone="primary">Continue with Google</HudButton.Text>
+                                </HudButton>
+                                <HudButton
+                                    onPress={handleApple}
+                                    disabled={appleBusy}
+                                    backgroundColor="#000"
+                                    borderColor="rgba(255,255,255,0.18)"
+                                    hoverStyle={{
+                                        backgroundColor: '#1a1a1a',
+                                        borderColor: 'rgba(255,255,255,0.18)',
+                                    }}
+                                >
+                                    <AppleIcon />
+                                    <HudButton.Text tone="bright">
+                                        {appleBusy ? 'Connecting…' : 'Continue with Apple'}
+                                    </HudButton.Text>
+                                </HudButton>
+                                <HudButton
+                                    onPress={() => {
+                                        setError(null)
+                                        setEmailFormOpen(true)
+                                    }}
+                                >
+                                    <EmailIcon />
+                                    <HudButton.Text>Continue with Email</HudButton.Text>
+                                </HudButton>
+                            </>
+                        )}
                         {/* Hidden GSI-rendered button. We click it programmatically
                             from the visible button above so the visible UI can match
                             the Apple button's styling without forking the auth flow.

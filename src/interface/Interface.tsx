@@ -9,6 +9,7 @@ import MainMenu from './MainMenu'
 import AccountButton from './AccountButton'
 import AuthModal from './AuthModal'
 import RulesModal, { useFirstVisitRules } from './RulesModal'
+import UpsellModal from './UpsellModal'
 import { DailyModeProvider } from '../modes/DailyModeProvider'
 import { ArcadeModeProvider } from '../modes/ArcadeModeProvider'
 import { LibraryModeProvider } from '../modes/LibraryModeProvider'
@@ -145,6 +146,7 @@ export default function Interface() {
             <AccountButton />
             <AuthModal />
             <RulesModal />
+            <UpsellModal />
         </YStack>
     )
 }

@@ -32,6 +32,13 @@ body.rules-open .r3f {
     transform: translateX(calc(var(--board-width-px, 400px) * -0.5));
 }
 
+/* Phase 7 upsell modal: blur and desaturate the canvas behind the modal so
+   the gated content reads as a preview tease instead of a flat overlay. */
+body.upsell-open .r3f {
+    filter: blur(8px) saturate(0.55) brightness(0.85);
+    transition: filter 0.25s ease-out;
+}
+
 ::-webkit-scrollbar-track
 {
     -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3);

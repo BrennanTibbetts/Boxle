@@ -10,6 +10,7 @@ interface AuthState {
     status: AuthStatus
     signInWithGoogleIdToken: (idToken: string, rawNonce: string) => Promise<void>
     signInWithApple: () => Promise<void>
+    signInWithEmail: (email: string) => Promise<void>
     signOut: () => Promise<void>
 }
 
@@ -32,6 +33,17 @@ const useAuth = create<AuthState>(() => ({
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'apple',
             options: { redirectTo: window.location.origin },
+        })
+        if (error) throw error
+    },
+    signInWithEmail: async (email) => {
+        // Magic-link flow: Supabase emails a one-click link. Clicking it
+        // returns the user to `emailRedirectTo` already authenticated, at
+        // which point onAuthStateChange fires SIGNED_IN and the rest of the
+        // sign-in plumbing (sync, profile fetch) kicks in normally.
+        const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: { emailRedirectTo: window.location.origin },
         })
         if (error) throw error
     },

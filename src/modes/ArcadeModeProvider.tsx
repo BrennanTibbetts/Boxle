@@ -3,6 +3,7 @@ import useGame, { Phase, GameMode, initGameState, advanceGameState } from '../st
 import usePersistence from '../stores/usePersistence'
 import type { ArcadeSave } from '../stores/usePersistence'
 import useArcadeRun, { ARCADE_START_SIZE, ARCADE_MAX_SIZE } from '../stores/useArcadeRun'
+import useUpsell from '../stores/useUpsell'
 import { canPlayAt } from '../utils/gates'
 import { prefetchPuzzle, takeOrGenerate, resetPrefetch } from '../generator/prefetch'
 
@@ -121,25 +122,42 @@ export function ArcadeModeProvider() {
                 const nextSize = Math.min(run.currentSize + 1, ARCADE_MAX_SIZE)
 
                 if (!canPlayAt(nextSize, GameMode.ARCADE)) {
-                    persistence.endArcadeRun({ deepestSize: run.currentSize })
+                    // Free-tier depth wall: leave the run in ENDED phase but
+                    // hold off on calling endArcadeRun. The upsell modal is
+                    // the next surface — dismiss ends the run (revealing the
+                    // standard EndScreen underneath); a successful purchase
+                    // resumes the advance at nextSize.
+                    useUpsell.getState().openUpsell({
+                        reason: 'arcade-depth',
+                        onDismiss: () => {
+                            usePersistence.getState().endArcadeRun({
+                                deepestSize: useArcadeRun.getState().currentSize,
+                            })
+                        },
+                        onPurchaseSuccess: () => advanceArcadeTo(nextSize),
+                    })
                     return
                 }
 
-                const next = takeOrGenerate('arcade', nextSize)
-                if (!next) {
-                    persistence.endArcadeRun({ deepestSize: run.currentSize })
-                    return
-                }
-
-                if (nextSize !== run.currentSize) run.setCurrentSize(nextSize)
-                prefetchPuzzle('arcade', Math.min(nextSize + 1, ARCADE_MAX_SIZE))
-
-                // lives preserved across puzzles for the run
-                useGame.setState(advanceGameState(game, next))
-                // Save right after advance so the new level is in the snapshot.
-                usePersistence.getState().saveArcade(snapshot())
+                advanceArcadeTo(nextSize)
             }
         )
+
+        // Pulled out so the upsell-success callback can resume the advance
+        // after a purchase clears the gate. Reads fresh state from the
+        // stores rather than closing over the subscriber's snapshot.
+        function advanceArcadeTo(nextSize: number) {
+            const next = takeOrGenerate('arcade', nextSize)
+            const run = useArcadeRun.getState()
+            if (!next) {
+                usePersistence.getState().endArcadeRun({ deepestSize: run.currentSize })
+                return
+            }
+            if (nextSize !== run.currentSize) run.setCurrentSize(nextSize)
+            prefetchPuzzle('arcade', Math.min(nextSize + 1, ARCADE_MAX_SIZE))
+            useGame.setState(advanceGameState(useGame.getState(), next))
+            usePersistence.getState().saveArcade(snapshot())
+        }
 
         return () => {
             unsubPhase()

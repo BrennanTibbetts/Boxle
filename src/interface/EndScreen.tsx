@@ -3,6 +3,7 @@ import { XStack, YStack, Text } from 'tamagui'
 import useGame, { Phase, GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useArcadeRun from '../stores/useArcadeRun'
+import useUpsell from '../stores/useUpsell'
 import StatsModal from './StatsModal'
 import { buildShareGrid, formatTime, shareOrCopy } from '../utils/share'
 import {
@@ -144,8 +145,13 @@ function ArcadeEndContent() {
 export default function EndScreen() {
     const phase = useGame((state) => state.phase)
     const activeMode = useGame((state) => state.activeMode)
+    const upsellOpen = useUpsell((s) => s.open)
 
     if (phase !== Phase.ENDED) return null
+    // Suppress while the upsell modal is up — Arcade gate-fail leaves the
+    // game in ENDED but defers run-end until the player dismisses. EndScreen
+    // appears after dismiss without an extra phase transition.
+    if (upsellOpen) return null
 
     return (
         <ModalOverlay layer="game" intensity="light">

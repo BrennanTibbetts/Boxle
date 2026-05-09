@@ -81,6 +81,18 @@ const HudButtonFrame = styled(View, {
                     borderColor: 'rgba(239,68,68,0.6)',
                 },
             },
+            success: {
+                backgroundColor: 'rgba(34,197,94,0.95)',
+                borderColor: 'rgba(34,197,94,1)',
+                hoverStyle: {
+                    backgroundColor: 'rgba(22,163,74,1)',
+                    borderColor: 'rgba(22,163,74,1)',
+                },
+                pressStyle: {
+                    backgroundColor: 'rgba(21,128,61,1)',
+                    borderColor: 'rgba(21,128,61,1)',
+                },
+            },
             statTab: {
                 backgroundColor: 'transparent',
                 borderColor: '$borderStrong',

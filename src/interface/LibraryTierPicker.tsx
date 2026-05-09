@@ -2,6 +2,7 @@ import { XStack, YStack } from 'tamagui'
 import useGame, { GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useLibraryRun, { LIBRARY_MIN_SIZE, LIBRARY_MAX_SIZE, LIBRARY_BATCH_SIZE } from '../stores/useLibraryRun'
+import useUpsell from '../stores/useUpsell'
 import { canPlayAt } from '../utils/gates'
 import {
     HudButton,
@@ -40,7 +41,21 @@ export default function LibraryTierPicker() {
                     {sizes.map((size) => {
                         const unlocked = size <= libraryProgress.unlockedMaxSize
                         const allowed = canPlayAt(size, GameMode.LIBRARY)
-                        const playable = unlocked && allowed
+                        // Progression-locked tiles stay inert. Gate-blocked
+                        // (unlocked-but-paid) tiles are tappable and route
+                        // to the upsell — preview-tease behavior per phase 7.
+                        const tileDisabled = !unlocked
+                        const onPress = () => {
+                            if (!unlocked) return
+                            if (allowed) {
+                                enterTier(size)
+                                return
+                            }
+                            useUpsell.getState().openUpsell({
+                                reason: 'library-tier',
+                                onPurchaseSuccess: () => enterTier(size),
+                            })
+                        }
                         const completionsHere = tierCompletions[size] ?? 0
                         const batchesHere = Math.floor(completionsHere / LIBRARY_BATCH_SIZE)
                         const inProgress = completionsHere - batchesHere * LIBRARY_BATCH_SIZE
@@ -49,18 +64,22 @@ export default function LibraryTierPicker() {
                             <MenuTile
                                 key={size}
                                 compact
-                                disabled={!playable}
-                                onPress={() => playable && enterTier(size)}
+                                disabled={tileDisabled}
+                                onPress={onPress}
                                 width={120}
                                 $sm={{ width: '30%', minWidth: 92 }}
                                 $xs={{ width: '45%' }}
                             >
                                 <MenuTile.Title>{size}×{size}</MenuTile.Title>
                                 {unlocked ? (
-                                    <>
-                                        <MenuTile.Meta>{batchesHere} batches</MenuTile.Meta>
-                                        <MenuTile.Sub>{inProgress}/{LIBRARY_BATCH_SIZE}</MenuTile.Sub>
-                                    </>
+                                    !allowed ? (
+                                        <MenuTile.Sub>Premium</MenuTile.Sub>
+                                    ) : (
+                                        <>
+                                            <MenuTile.Meta>{batchesHere} batches</MenuTile.Meta>
+                                            <MenuTile.Sub>{inProgress}/{LIBRARY_BATCH_SIZE}</MenuTile.Sub>
+                                        </>
+                                    )
                                 ) : (
                                     <MenuTile.Sub>Locked</MenuTile.Sub>
                                 )}

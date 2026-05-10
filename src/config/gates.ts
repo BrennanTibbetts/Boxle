@@ -6,8 +6,8 @@
 // src/utils/gates.ts and surfaced in the upsell modal copy.
 //
 // Paid ceilings (the absolute cap on each mode) live in
-// src/config/puzzleSize.ts (MAX_PUZZLE_SIZE) and are read by ARCADE_MAX_SIZE
+// src/config/puzzleSize.ts (MAX_PUZZLE_SIZE) and are read by INFINITE_MAX_SIZE
 // and LIBRARY_MAX_SIZE in the run stores.
 
-export const FREE_ARCADE_MAX_SIZE = 8
+export const FREE_INFINITE_MAX_SIZE = 8
 export const FREE_LIBRARY_MAX_SIZE = 8

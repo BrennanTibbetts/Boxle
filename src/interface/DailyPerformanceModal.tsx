@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { XStack, YStack, Text } from 'tamagui'
+import { XStack, YStack } from 'tamagui'
 import usePersistence from '../stores/usePersistence'
 import { buildShareGrid, formatTime, shareOrCopy } from '../utils/share'
 import Modal from './Modal'
+import { LevelGrid } from './EndScreen'
 import { HudButton, ModalTitle, StatValue, SubLabel, BodyText } from './ui'
 
 export default function DailyPerformanceModal({ onClose }: { onClose: () => void }) {
@@ -40,9 +41,11 @@ export default function DailyPerformanceModal({ onClose }: { onClose: () => void
         >
             <ModalTitle>{result.isComplete ? "Today's Result" : 'Game Over'}</ModalTitle>
 
-            <Text fontFamily="$body" fontSize="$6" letterSpacing={1}>
-                {shareGrid}
-            </Text>
+            <LevelGrid
+                levelsCompleted={result.levelsCompleted}
+                levelCount={result.levelCount}
+                isComplete={result.isComplete}
+            />
 
             <XStack gap="$9" flexWrap="wrap" justifyContent="center">
                 <YStack alignItems="center" gap="$1">

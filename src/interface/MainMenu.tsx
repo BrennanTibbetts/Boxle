@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { XStack, YStack } from 'tamagui'
 import useGame, { GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
-import useArcadeRun from '../stores/useArcadeRun'
+import useInfiniteRun from '../stores/useInfiniteRun'
 import StatsModal from './StatsModal'
 import DailyPerformanceModal from './DailyPerformanceModal'
 import {
@@ -19,12 +19,12 @@ function todayString(): string {
 export default function MainMenu() {
     const setMode = useGame((state) => state.setMode)
     const dailySave = usePersistence((state) => state.dailySave)
-    const arcadeSave = usePersistence((state) => state.arcadeSave)
+    const infiniteSave = usePersistence((state) => state.infiniteSave)
     const daily = usePersistence((state) => state.stats.daily)
-    const arcade = usePersistence((state) => state.stats.arcade)
+    const infinite = usePersistence((state) => state.stats.infinite)
     const library = usePersistence((state) => state.stats.library)
     const libraryProgress = usePersistence((state) => state.libraryProgress)
-    const startNewArcadeRun = useArcadeRun((state) => state.startNewRun)
+    const startNewInfiniteRun = useInfiniteRun((state) => state.startNewRun)
 
     const [showStats, setShowStats] = useState(false)
     const [showPerformance, setShowPerformance] = useState(false)
@@ -95,16 +95,16 @@ export default function MainMenu() {
                         </MenuTile>
 
                         <MenuTile
-                            state={arcadeSave ? 'resume' : 'default'}
-                            onPress={() => setMode(GameMode.ARCADE)}
+                            state={infiniteSave ? 'resume' : 'default'}
+                            onPress={() => setMode(GameMode.INFINITE)}
                             $sm={{ width: '100%' }}
                         >
-                            <MenuTile.Title>Arcade</MenuTile.Title>
-                            {arcadeSave ? (
+                            <MenuTile.Title>Infinite</MenuTile.Title>
+                            {infiniteSave ? (
                                 <>
                                     <MenuTile.Sub>Resume</MenuTile.Sub>
                                     <MenuTile.Meta>
-                                        {arcadeSave.currentSize}×{arcadeSave.currentSize} · {arcadeSave.puzzlesCompleted} cleared
+                                        {infiniteSave.currentSize}×{infiniteSave.currentSize} · {infiniteSave.puzzlesCompleted} cleared
                                     </MenuTile.Meta>
                                     <HudButton
                                         tone="secondaryChip"
@@ -113,8 +113,8 @@ export default function MainMenu() {
                                         marginTop="auto"
                                         onPress={(e: any) => {
                                             e?.stopPropagation?.()
-                                            startNewArcadeRun()
-                                            setMode(GameMode.ARCADE)
+                                            startNewInfiniteRun()
+                                            setMode(GameMode.INFINITE)
                                         }}
                                     >
                                         <HudButton.Text size="md">New Run</HudButton.Text>
@@ -123,9 +123,9 @@ export default function MainMenu() {
                             ) : (
                                 <>
                                     <MenuTile.Sub>Survival</MenuTile.Sub>
-                                    {arcade.deepestSizeEver > 0 && (
+                                    {infinite.deepestSizeEver > 0 && (
                                         <MenuTile.Meta>
-                                            Deepest: {arcade.deepestSizeEver}×{arcade.deepestSizeEver}
+                                            Deepest: {infinite.deepestSizeEver}×{infinite.deepestSizeEver}
                                         </MenuTile.Meta>
                                     )}
                                 </>

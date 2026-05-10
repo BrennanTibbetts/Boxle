@@ -1,6 +1,7 @@
 import { XStack, YStack } from 'tamagui'
 import useGame, { GameMode } from '../stores/useGame'
 import useLibraryRun, { LIBRARY_BATCH_SIZE } from '../stores/useLibraryRun'
+import { formatTime } from '../utils/share'
 import {
     GlassCard,
     HudButton,
@@ -21,6 +22,8 @@ function StatBlock({ label, value }: { label: string; value: string | number }) 
 
 export default function LibraryGameOver() {
     const setMode = useGame((state) => state.setMode)
+    const startTime = useGame((s) => s.startTime)
+    const endTime = useGame((s) => s.endTime)
     const restartBatch = useLibraryRun((s) => s.restartBatch)
     const leaveTier = useLibraryRun((s) => s.leaveTier)
     const activeTierSize = useLibraryRun((s) => s.activeTierSize)
@@ -29,6 +32,8 @@ export default function LibraryGameOver() {
     const batchLivesLost = useLibraryRun((s) => s.batchLivesLost)
 
     if (activeTierSize === null) return null
+
+    const elapsed = startTime && endTime ? endTime - startTime : null
 
     return (
         <ModalOverlay intensity="light" layer="game">
@@ -41,6 +46,7 @@ export default function LibraryGameOver() {
                         label="Cleared"
                         value={`${puzzlesCompletedInTier} / ${LIBRARY_BATCH_SIZE}`}
                     />
+                    {elapsed !== null && <StatBlock label="Time" value={formatTime(elapsed)} />}
                     {batchHintsUsed > 0 && <StatBlock label="Hints" value={batchHintsUsed} />}
                     {batchLivesLost > 0 && <StatBlock label="Mistakes" value={batchLivesLost} />}
                 </XStack>

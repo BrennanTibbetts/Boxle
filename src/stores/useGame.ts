@@ -23,7 +23,10 @@ type InitPatch = Pick<GameState,
     'lives' | 'sessionHints' | 'sessionLivesLost'
 >
 
-type AdvancePatch = Omit<InitPatch, 'lives'>
+// advance keeps `startTime` from the prior puzzle so the round's clock keeps
+// running across level transitions (Library batches, Infinite runs). A fresh
+// startTime is only minted by initGameState when a new round begins.
+type AdvancePatch = Omit<InitPatch, 'lives' | 'startTime'>
 
 export function initGameState(puzzles: DecodedBoard[]): InitPatch {
     return {
@@ -53,7 +56,6 @@ export function advanceGameState(
         levelMistakes: [...current.levelMistakes, 0],
         currentLevel: current.levelConfigs.length + 1,
         phase: Phase.PLAYING,
-        startTime: Date.now(),
         endTime: null,
         wrongPlacement: null,
         lastBoxlePosition: null,

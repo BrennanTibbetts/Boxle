@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { XStack, YStack, Text } from 'tamagui'
+import { XStack, YStack } from 'tamagui'
 import useGame, { Phase, GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
-import useArcadeRun from '../stores/useArcadeRun'
+import useInfiniteRun from '../stores/useInfiniteRun'
 import useUpsell from '../stores/useUpsell'
 import StatsModal from './StatsModal'
+import { BoxleIcon, MarkIcon, EmptyBoxIcon } from '../components/BoxIcons'
 import { buildShareGrid, formatTime, shareOrCopy } from '../utils/share'
 import {
     BodyText,
@@ -22,6 +23,26 @@ function StatBlock({ label, value }: { label: string; value: string | number }) 
             <SubLabel>{label}</SubLabel>
             <StatValue>{value}</StatValue>
         </YStack>
+    )
+}
+
+export function LevelGrid({
+    levelsCompleted,
+    levelCount,
+    isComplete,
+}: {
+    levelsCompleted: number
+    levelCount: number
+    isComplete: boolean
+}) {
+    return (
+        <XStack gap="$2" flexWrap="wrap" justifyContent="center">
+            {Array.from({ length: levelCount }, (_, i) => {
+                if (i < levelsCompleted) return <BoxleIcon key={i} size={26} />
+                if (i === levelsCompleted && !isComplete) return <MarkIcon key={i} size={26} />
+                return <EmptyBoxIcon key={i} size={26} />
+            })}
+        </XStack>
     )
 }
 
@@ -67,9 +88,11 @@ function DailyEndContent() {
             <GlassCard size="lg" minWidth={280} $sm={{ maxWidth: '90%' }}>
                 <ModalTitle>{isComplete ? 'Puzzle Complete' : 'Game Over'}</ModalTitle>
 
-                <Text fontFamily="$body" fontSize="$6" letterSpacing={1}>
-                    {shareGrid}
-                </Text>
+                <LevelGrid
+                    levelsCompleted={levelsCompleted}
+                    levelCount={levelCount}
+                    isComplete={isComplete}
+                />
 
                 <XStack gap="$9" flexWrap="wrap" justifyContent="center">
                     <StatBlock label="Levels" value={`${levelsCompleted} / ${levelCount}`} />
@@ -111,13 +134,17 @@ function DailyEndContent() {
     )
 }
 
-function ArcadeEndContent() {
+function InfiniteEndContent() {
     const setMode = useGame((state) => state.setMode)
-    const startNewRun = useArcadeRun((s) => s.startNewRun)
-    const currentSize = useArcadeRun((s) => s.currentSize)
-    const puzzlesCompleted = useArcadeRun((s) => s.puzzlesCompleted)
-    const runHintsUsed = useArcadeRun((s) => s.runHintsUsed)
-    const runLivesLost = useArcadeRun((s) => s.runLivesLost)
+    const startTime = useGame((state) => state.startTime)
+    const endTime = useGame((state) => state.endTime)
+    const startNewRun = useInfiniteRun((s) => s.startNewRun)
+    const currentSize = useInfiniteRun((s) => s.currentSize)
+    const puzzlesCompleted = useInfiniteRun((s) => s.puzzlesCompleted)
+    const runHintsUsed = useInfiniteRun((s) => s.runHintsUsed)
+    const runLivesLost = useInfiniteRun((s) => s.runLivesLost)
+
+    const elapsed = startTime && endTime ? endTime - startTime : null
 
     return (
         <GlassCard size="lg" minWidth={280} $sm={{ maxWidth: '90%' }}>
@@ -126,6 +153,7 @@ function ArcadeEndContent() {
             <XStack gap="$9" flexWrap="wrap" justifyContent="center">
                 <StatBlock label="Deepest" value={`${currentSize}×${currentSize}`} />
                 <StatBlock label="Puzzles" value={puzzlesCompleted} />
+                {elapsed !== null && <StatBlock label="Time" value={formatTime(elapsed)} />}
                 {runHintsUsed > 0 && <StatBlock label="Hints" value={runHintsUsed} />}
                 {runLivesLost > 0 && <StatBlock label="Mistakes" value={runLivesLost} />}
             </XStack>
@@ -148,14 +176,14 @@ export default function EndScreen() {
     const upsellOpen = useUpsell((s) => s.open)
 
     if (phase !== Phase.ENDED) return null
-    // Suppress while the upsell modal is up — Arcade gate-fail leaves the
+    // Suppress while the upsell modal is up — Infinite gate-fail leaves the
     // game in ENDED but defers run-end until the player dismisses. EndScreen
     // appears after dismiss without an extra phase transition.
     if (upsellOpen) return null
 
     return (
         <ModalOverlay layer="game" intensity="light">
-            {activeMode === GameMode.ARCADE ? <ArcadeEndContent /> : <DailyEndContent />}
+            {activeMode === GameMode.INFINITE ? <InfiniteEndContent /> : <DailyEndContent />}
         </ModalOverlay>
     )
 }

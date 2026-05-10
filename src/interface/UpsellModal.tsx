@@ -26,7 +26,7 @@ interface CopyShape {
 }
 
 function useReasonCopy(reason: UpsellReason | null): CopyShape | null {
-    if (reason === 'arcade-depth' || reason === 'library-tier') {
+    if (reason === 'infinite-depth' || reason === 'library-tier') {
         return { headline: 'Unlock to play further' }
     }
     return null
@@ -57,7 +57,7 @@ function PriceBlock() {
                 </Text>
             </XStack>
             <BodyText tone="muted" textAlign="center" fontSize="$3">
-                Unlocks all sizes in Arcade and Library, forever.
+                Unlocks all sizes in Infinite and Library, forever.
             </BodyText>
         </YStack>
     )
@@ -235,7 +235,7 @@ export default function UpsellModal() {
     if (!open || !copy) return null
 
     return (
-        // No backdrop-click dismiss: in Arcade the dismiss callback ends
+        // No backdrop-click dismiss: in Infinite the dismiss callback ends
         // the run, and a stray click outside the card would silently
         // forfeit the player's progress. Esc and the explicit "Maybe
         // later" button are the only ways out.

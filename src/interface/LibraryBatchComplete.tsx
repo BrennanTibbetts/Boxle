@@ -1,6 +1,7 @@
 import { XStack, YStack } from 'tamagui'
 import useGame, { GameMode } from '../stores/useGame'
 import useLibraryRun from '../stores/useLibraryRun'
+import { formatTime } from '../utils/share'
 import {
     GlassCard,
     HudButton,
@@ -12,11 +13,15 @@ import {
 
 export default function LibraryBatchComplete() {
     const setMode = useGame((state) => state.setMode)
+    const startTime = useGame((s) => s.startTime)
+    const endTime = useGame((s) => s.endTime)
     const dismissBatchComplete = useLibraryRun((s) => s.dismissBatchComplete)
     const leaveTier = useLibraryRun((s) => s.leaveTier)
     const activeTierSize = useLibraryRun((s) => s.activeTierSize)
 
     if (activeTierSize === null) return null
+
+    const elapsed = startTime && endTime ? endTime - startTime : null
 
     return (
         <ModalOverlay intensity="light" layer="game">
@@ -27,6 +32,12 @@ export default function LibraryBatchComplete() {
                         <SubLabel>Size</SubLabel>
                         <StatValue>{activeTierSize}×{activeTierSize}</StatValue>
                     </YStack>
+                    {elapsed !== null && (
+                        <YStack alignItems="center" gap="$1">
+                            <SubLabel>Time</SubLabel>
+                            <StatValue>{formatTime(elapsed)}</StatValue>
+                        </YStack>
+                    )}
                 </XStack>
                 <SubLabel>10 puzzles cleared</SubLabel>
 

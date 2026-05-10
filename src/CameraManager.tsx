@@ -85,7 +85,7 @@ export default function CameraManager() {
         )
 
         // levelConfigs flips from [] to populated on first mount of the
-        // active mode, and on Arcade puzzle appends. currentLevel often
+        // active mode, and on Infinite puzzle appends. currentLevel often
         // doesn't change in those transitions, so we refit y here.
         const unsubscribeConfigs = useGame.subscribe(
             (state) => state.levelConfigs,

@@ -1,8 +1,8 @@
 import { supabase } from './supabase'
 import useAuth from '../stores/useAuth'
 import usePersistence, {
-    type ArcadeSave,
-    type ArcadeStats,
+    type InfiniteSave,
+    type InfiniteStats,
     type DailySave,
     type DailyStats,
     type LibraryProgress,
@@ -11,14 +11,14 @@ import usePersistence, {
 } from '../stores/usePersistence'
 import { Phase } from '../types/game'
 
-type TrackedMode = 'daily' | 'arcade' | 'library'
+type TrackedMode = 'daily' | 'infinite' | 'library'
 
 interface ProfileRow {
     is_premium: boolean
     stats: ModeStats
     library_progress: LibraryProgress
     daily_save: DailySave | null
-    arcade_save: ArcadeSave | null
+    infinite_save: InfiniteSave | null
     last_active_mode: TrackedMode | null
 }
 
@@ -71,7 +71,7 @@ function mergeDaily(local: DailyStats, server: DailyStats): DailyStats {
     }
 }
 
-function mergeArcade(local: ArcadeStats, server: ArcadeStats): ArcadeStats {
+function mergeInfinite(local: InfiniteStats, server: InfiniteStats): InfiniteStats {
     return {
         runsPlayed: maxNum(local.runsPlayed, server.runsPlayed),
         deepestSizeEver: maxNum(local.deepestSizeEver, server.deepestSizeEver),
@@ -103,7 +103,7 @@ function mergeLibrary(local: LibraryStats, server: LibraryStats): LibraryStats {
 function mergeStats(local: ModeStats, server: ModeStats): ModeStats {
     return {
         daily: mergeDaily(local.daily, server.daily),
-        arcade: mergeArcade(local.arcade, server.arcade),
+        infinite: mergeInfinite(local.infinite, server.infinite),
         library: mergeLibrary(local.library, server.library),
     }
 }
@@ -113,14 +113,14 @@ function pickDailySave(local: DailySave | null, server: DailySave | null): Daily
     return server
 }
 
-function pickArcadeSave(local: ArcadeSave | null, server: ArcadeSave | null): ArcadeSave | null {
+function pickInfiniteSave(local: InfiniteSave | null, server: InfiniteSave | null): InfiniteSave | null {
     return local ?? server
 }
 
 async function pullProfile(userId: string): Promise<ProfileRow | null> {
     const { data, error } = await supabase
         .from('profiles')
-        .select('is_premium, stats, library_progress, daily_save, arcade_save, last_active_mode')
+        .select('is_premium, stats, library_progress, daily_save, infinite_save, last_active_mode')
         .eq('user_id', userId)
         .single()
     if (error) {
@@ -137,7 +137,7 @@ async function pushProfile(userId: string): Promise<void> {
         stats: state.stats,
         library_progress: state.libraryProgress,
         daily_save: state.dailySave,
-        arcade_save: state.arcadeSave,
+        infinite_save: state.infiniteSave,
         last_active_mode: state.lastActiveMode,
     }
     const { error } = await supabase.from('profiles').update(payload).eq('user_id', userId)
@@ -165,7 +165,7 @@ export async function runSync(userId: string): Promise<void> {
                 stats: server.stats,
                 libraryProgress: server.library_progress,
                 dailySave: server.daily_save,
-                arcadeSave: server.arcade_save,
+                infiniteSave: server.infinite_save,
                 lastActiveMode: server.last_active_mode,
                 lastSyncedUserId: userId,
             })
@@ -180,7 +180,7 @@ export async function runSync(userId: string): Promise<void> {
                     ),
                 },
                 dailySave: pickDailySave(local.dailySave, server.daily_save),
-                arcadeSave: pickArcadeSave(local.arcadeSave, server.arcade_save),
+                infiniteSave: pickInfiniteSave(local.infiniteSave, server.infinite_save),
                 lastActiveMode: local.lastActiveMode ?? server.last_active_mode,
                 lastSyncedUserId: userId,
             })

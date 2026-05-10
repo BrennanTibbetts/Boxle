@@ -290,7 +290,7 @@ const S = 1
 
 // Wall-clock budget for a single generate call. The synchronous codepath
 // blocks the main thread while it runs, so an open-ended budget produces
-// the kind of multi-minute hang that locked the user out of Arcade after
+// the kind of multi-minute hang that locked the user out of Infinite after
 // completing a size-16 puzzle. Callers (mode providers) handle a null
 // return by ending the run gracefully.
 //

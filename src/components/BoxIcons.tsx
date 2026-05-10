@@ -46,3 +46,12 @@ export function BoxleIcon({ size = 29 }: IconProps) {
         </svg>
     )
 }
+
+export function EmptyBoxIcon({ size = 29 }: IconProps) {
+    const outer = useMemo(() => pickFrom(COLORS), [])
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ display: 'inline-block', flexShrink: 0, verticalAlign: '-0.25em' }}>
+            <rect x="2" y="2" width="20" height="20" rx="5" fill={outer} opacity={0.35} />
+        </svg>
+    )
+}

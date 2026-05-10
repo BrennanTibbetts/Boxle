@@ -4,7 +4,7 @@ import type { BoxStateValue, PhaseValue } from '../types/game'
 import type { DecodedBoard } from '../types/puzzle'
 import { MIN_PUZZLE_SIZE } from '../config/puzzleSize'
 
-type TrackedMode = 'daily' | 'arcade' | 'library'
+type TrackedMode = 'daily' | 'infinite' | 'library'
 
 function getToday(): string {
     return new Date().toISOString().slice(0, 10)
@@ -28,7 +28,7 @@ export interface DailySave {
     elapsedMs: number
 }
 
-export interface ArcadeSave {
+export interface InfiniteSave {
     // Run-level state
     currentSize: number
     puzzlesCompleted: number
@@ -68,7 +68,7 @@ export interface DailyStats {
     lastResult: DailyResult | null
 }
 
-export interface ArcadeStats {
+export interface InfiniteStats {
     runsPlayed: number
     deepestSizeEver: number
     hintsUsed: number
@@ -83,7 +83,7 @@ export interface LibraryStats {
 
 export interface ModeStats {
     daily: DailyStats
-    arcade: ArcadeStats
+    infinite: InfiniteStats
     library: LibraryStats
 }
 
@@ -93,7 +93,7 @@ export interface LibraryProgress {
 
 interface PersistenceData {
     dailySave: DailySave | null
-    arcadeSave: ArcadeSave | null
+    infiniteSave: InfiniteSave | null
     // The last non-menu mode the player was in. Used by boot routing so a
     // refresh drops them back where they were instead of at the menu.
     lastActiveMode: TrackedMode | null
@@ -121,11 +121,11 @@ interface PersistenceState extends PersistenceData {
     recordDailyResult: (result: DailyResult) => void
     checkStreakExpiry: () => void
 
-    // Arcade lifecycle
-    startArcadeRun: () => void
-    endArcadeRun: (params: { deepestSize: number }) => void
-    saveArcade: (save: ArcadeSave) => void
-    clearArcade: () => void
+    // Infinite lifecycle
+    startInfiniteRun: () => void
+    endInfiniteRun: (params: { deepestSize: number }) => void
+    saveInfinite: (save: InfiniteSave) => void
+    clearInfinite: () => void
 
     // Tracks the last non-menu mode the player was in.
     setLastActiveMode: (mode: TrackedMode) => void
@@ -151,7 +151,7 @@ const initialDaily: DailyStats = {
     lastResult: null,
 }
 
-const initialArcade: ArcadeStats = {
+const initialInfinite: InfiniteStats = {
     runsPlayed: 0,
     deepestSizeEver: 0,
     hintsUsed: 0,
@@ -172,11 +172,11 @@ const usePersistence = create<PersistenceState>()(
     persist(
         (set, get) => ({
             dailySave: null,
-            arcadeSave: null,
+            infiniteSave: null,
             lastActiveMode: null,
             stats: {
                 daily: initialDaily,
-                arcade: initialArcade,
+                infinite: initialInfinite,
                 library: initialLibrary,
             },
             libraryProgress: initialLibraryProgress,
@@ -258,34 +258,34 @@ const usePersistence = create<PersistenceState>()(
                 }
             },
 
-            startArcadeRun: () => {
+            startInfiniteRun: () => {
                 set((state) => ({
                     stats: {
                         ...state.stats,
-                        arcade: {
-                            ...state.stats.arcade,
-                            runsPlayed: state.stats.arcade.runsPlayed + 1,
+                        infinite: {
+                            ...state.stats.infinite,
+                            runsPlayed: state.stats.infinite.runsPlayed + 1,
                         },
                     },
                 }))
             },
 
-            endArcadeRun: ({ deepestSize }) => {
+            endInfiniteRun: ({ deepestSize }) => {
                 set((state) => ({
                     stats: {
                         ...state.stats,
-                        arcade: {
-                            ...state.stats.arcade,
-                            deepestSizeEver: Math.max(state.stats.arcade.deepestSizeEver, deepestSize),
+                        infinite: {
+                            ...state.stats.infinite,
+                            deepestSizeEver: Math.max(state.stats.infinite.deepestSizeEver, deepestSize),
                         },
                     },
-                    arcadeSave: null,
+                    infiniteSave: null,
                 }))
             },
 
-            saveArcade: (save) => set({ arcadeSave: save }),
+            saveInfinite: (save) => set({ infiniteSave: save }),
 
-            clearArcade: () => set({ arcadeSave: null }),
+            clearInfinite: () => set({ infiniteSave: null }),
 
             setLastActiveMode: (mode) => set({ lastActiveMode: mode }),
 
@@ -342,10 +342,10 @@ const usePersistence = create<PersistenceState>()(
             },
         }),
         {
-            name: 'boxle-v2',
+            name: 'boxle-v3',
             partialize: (state) => ({
                 dailySave: state.dailySave,
-                arcadeSave: state.arcadeSave,
+                infiniteSave: state.infiniteSave,
                 lastActiveMode: state.lastActiveMode,
                 stats: state.stats,
                 libraryProgress: state.libraryProgress,

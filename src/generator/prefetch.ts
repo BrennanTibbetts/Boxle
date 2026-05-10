@@ -7,8 +7,8 @@ import type { DecodedBoard } from '../types/puzzle'
 // so advancing between puzzles doesn't have to wait on synchronous generation.
 //
 // Why module-scoped: the cache survives React unmount/remount of mode providers
-// (e.g. the user briefly visiting the menu mid-Arcade), and there's never more
-// than one provider in play at a time. Two namespaces (arcade / library) keep
+// (e.g. the user briefly visiting the menu mid-Infinite), and there's never more
+// than one provider in play at a time. Two namespaces (infinite / library) keep
 // the contents from colliding when the user switches modes.
 //
 // Caveat: JavaScript can't preempt a synchronous generation in progress. If
@@ -21,17 +21,17 @@ interface CacheEntry {
     board: DecodedBoard
 }
 
-type Namespace = 'arcade' | 'library'
+type Namespace = 'infinite' | 'library'
 
 const cache: Record<Namespace, CacheEntry | null> = {
-    arcade: null,
+    infinite: null,
     library: null,
 }
 
 // The size we currently *want* prefetched. Updated atomically by callers; the
 // in-flight generation re-checks this before committing its result.
 const desiredSize: Record<Namespace, number | null> = {
-    arcade: null,
+    infinite: null,
     library: null,
 }
 

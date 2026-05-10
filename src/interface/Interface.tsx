@@ -11,10 +11,10 @@ import AuthModal from './AuthModal'
 import RulesModal, { useFirstVisitRules } from './RulesModal'
 import UpsellModal from './UpsellModal'
 import { DailyModeProvider } from '../modes/DailyModeProvider'
-import { ArcadeModeProvider } from '../modes/ArcadeModeProvider'
+import { InfiniteModeProvider } from '../modes/InfiniteModeProvider'
 import { LibraryModeProvider } from '../modes/LibraryModeProvider'
 import useGame, { GameMode, Phase } from '../stores/useGame'
-import useArcadeRun from '../stores/useArcadeRun'
+import useInfiniteRun from '../stores/useInfiniteRun'
 import useLibraryRun from '../stores/useLibraryRun'
 import usePersistence from '../stores/usePersistence'
 import useUI from '../stores/useUI'
@@ -32,21 +32,21 @@ function useBootMode(): void {
         const dailyForToday = dailySave?.date === today
         const dailyDoneToday = dailyForToday && dailySave?.phase === Phase.ENDED
         const dailyInFlight = dailyForToday && dailySave?.phase !== Phase.ENDED
-        const hasArcadeSave = persistence.arcadeSave !== null
+        const hasInfiniteSave = persistence.infiniteSave !== null
         const lastMode = persistence.lastActiveMode
 
         // Resume the last active mode if its state is restorable. Falls through
-        // to the menu (when there's a finished-daily / lone-arcade-save to
+        // to the menu (when there's a finished-daily / lone-infinite-save to
         // choose between) and finally to the daily ritual.
-        if (lastMode === 'arcade' && hasArcadeSave) {
-            useGame.getState().setMode(GameMode.ARCADE)
+        if (lastMode === 'infinite' && hasInfiniteSave) {
+            useGame.getState().setMode(GameMode.INFINITE)
             return
         }
         if (lastMode === 'daily' && dailyInFlight) {
             // useGame defaults to DAILY, no setMode needed.
             return
         }
-        if (dailyDoneToday || hasArcadeSave) {
+        if (dailyDoneToday || hasInfiniteSave) {
             useGame.getState().setMode(GameMode.MENU)
         }
     }, [])
@@ -107,7 +107,7 @@ export default function Interface() {
     useBootMode()
     useTrackActiveMode()
     const activeMode = useGame((state) => state.activeMode)
-    const arcadeRunId = useArcadeRun((s) => s.runId)
+    const infiniteRunId = useInfiniteRun((s) => s.runId)
     const libraryActiveTier = useLibraryRun((s) => s.activeTierSize)
     const libraryShowBatchComplete = useLibraryRun((s) => s.showBatchComplete)
     const libraryShowGameOver = useLibraryRun((s) => s.showGameOver)
@@ -127,7 +127,7 @@ export default function Interface() {
             pointerEvents="box-none"
         >
             {activeMode === GameMode.DAILY && <DailyModeProvider />}
-            {activeMode === GameMode.ARCADE && <ArcadeModeProvider key={arcadeRunId} />}
+            {activeMode === GameMode.INFINITE && <InfiniteModeProvider key={infiniteRunId} />}
             {activeMode === GameMode.LIBRARY && <LibraryModeProvider />}
 
             {showGameUI && (

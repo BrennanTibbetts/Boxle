@@ -9,7 +9,7 @@ build time, and a future iOS app will bundle the same JSONs at Xcode build
 time. Everyone gets the same daily because everyone reads the same file.
 
 The runtime, in-app generator at [`src/generator/generate.ts`](../src/generator/generate.ts)
-is a TypeScript port of this script and is used at runtime for Arcade and
+is a TypeScript port of this script and is used at runtime for Infinite and
 Library puzzles (one-off generation per puzzle, no pool). Keep both in sync
 when changing the algorithm.
 
@@ -101,5 +101,5 @@ The runtime decoder in [`src/utils/puzzle.ts`](../src/utils/puzzle.ts)
   much longer.
 - **When to regenerate:** if you change the algorithm in `generate.js`, or
   want a larger / fresher pool. Keep `src/generator/generate.ts` in sync
-  with any algorithm change so Arcade/Library runtime gen produces the same
+  with any algorithm change so Infinite/Library runtime gen produces the same
   shape of puzzle.

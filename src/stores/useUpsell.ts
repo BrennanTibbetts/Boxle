@@ -1,15 +1,15 @@
 import { create } from 'zustand'
 
-export type UpsellReason = 'arcade-depth' | 'library-tier'
+export type UpsellReason = 'infinite-depth' | 'library-tier'
 
 interface UpsellOptions {
     reason: UpsellReason
     // Called when the player closes the modal without unlocking. The caller
-    // wires the appropriate consequence here — Arcade ends the run, Library
+    // wires the appropriate consequence here — Infinite ends the run, Library
     // bounces back to the tier picker.
     onDismiss?: () => void
     // Called after a successful purchase. Caller continues the action that
-    // hit the gate (Arcade advances to the next size; Library enters the
+    // hit the gate (Infinite advances to the next size; Library enters the
     // tier batch). Phase 7 payment integration calls this; until then the
     // path is unreachable from production builds.
     onPurchaseSuccess?: () => void

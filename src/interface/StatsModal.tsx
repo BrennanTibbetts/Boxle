@@ -11,7 +11,7 @@ import {
     SubLabel,
 } from './ui'
 
-type StatsTab = 'daily' | 'arcade' | 'library'
+type StatsTab = 'daily' | 'infinite' | 'library'
 
 function StatItem({ value, label }: { value: string | number; label: string }) {
     return (
@@ -81,27 +81,27 @@ function DailyStats() {
     )
 }
 
-function ArcadeStats() {
-    const arcade = usePersistence((s) => s.stats.arcade)
+function InfiniteStats() {
+    const infinite = usePersistence((s) => s.stats.infinite)
     return (
         <>
             <Section>
                 <StatsRow>
                     <StatItem
-                        value={arcade.deepestSizeEver > 0 ? `${arcade.deepestSizeEver}×${arcade.deepestSizeEver}` : '—'}
+                        value={infinite.deepestSizeEver > 0 ? `${infinite.deepestSizeEver}×${infinite.deepestSizeEver}` : '—'}
                         label="Deepest"
                     />
                 </StatsRow>
             </Section>
             <Section>
                 <StatsRow>
-                    <StatItem value={arcade.runsPlayed} label="Runs" />
+                    <StatItem value={infinite.runsPlayed} label="Runs" />
                 </StatsRow>
             </Section>
             <Section>
                 <StatsRow>
-                    <StatItem value={arcade.hintsUsed} label="Hints" />
-                    <StatItem value={arcade.livesLost} label="Mistakes" />
+                    <StatItem value={infinite.hintsUsed} label="Hints" />
+                    <StatItem value={infinite.livesLost} label="Mistakes" />
                 </StatsRow>
             </Section>
         </>
@@ -174,12 +174,12 @@ export default function StatsModal({ onClose }: { onClose: () => void }) {
                     </HudButton.Text>
                 </HudButton>
                 <HudButton
-                    onPress={() => setTab('arcade')}
-                    tone={tab === 'arcade' ? 'statTabActive' : 'statTab'}
+                    onPress={() => setTab('infinite')}
+                    tone={tab === 'infinite' ? 'statTabActive' : 'statTab'}
                     size="sm"
                 >
-                    <HudButton.Text tone={tab === 'arcade' ? 'bright' : 'muted'} size="sm">
-                        Arcade
+                    <HudButton.Text tone={tab === 'infinite' ? 'bright' : 'muted'} size="sm">
+                        Infinite
                     </HudButton.Text>
                 </HudButton>
                 <HudButton
@@ -194,7 +194,7 @@ export default function StatsModal({ onClose }: { onClose: () => void }) {
             </XStack>
 
             {tab === 'daily' && <DailyStats />}
-            {tab === 'arcade' && <ArcadeStats />}
+            {tab === 'infinite' && <InfiniteStats />}
             {tab === 'library' && <LibraryStats />}
 
             <HudButton onPress={onClose} size="lg">

@@ -10,6 +10,7 @@ import {
     downloadJSON,
     postReportToRepo,
     fileSafeTimestamp,
+    hintReportKey,
 } from '../utils/hintReport'
 
 export default function BoxControls() {
@@ -39,12 +40,18 @@ export default function BoxControls() {
                 console.warn('[hint-report] No active level — nothing to report')
                 return
             }
-            const all = saveReport(report)
-            const filename = `boxle-hint-report-${report.mode}-L${report.level}-${fileSafeTimestamp(report.timestamp)}.json`
+            const { reports, deduped } = saveReport(report)
+            if (deduped) {
+                console.log(
+                    `[hint-report] Already recorded for this state — skipped (${reports.length} in localStorage)`,
+                )
+                return
+            }
+            const filename = `boxle-hint-report-${report.mode}-L${report.level}-${hintReportKey(report)}.json`
             const savedPath = await postReportToRepo(filename, report)
             if (savedPath) {
                 console.log(
-                    `[hint-report] Wrote ${savedPath} (${all.length} in localStorage). foundHint=${report.foundHint?.ruleId ?? 'null'}`,
+                    `[hint-report] Wrote ${savedPath} (${reports.length} in localStorage). foundHint=${report.foundHint?.ruleId ?? 'null'}`,
                     report,
                 )
             } else {

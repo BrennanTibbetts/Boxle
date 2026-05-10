@@ -19,6 +19,22 @@ export interface HintReport {
 
 const STORAGE_KEY = 'boxle:hint-reports'
 
+function fnv1a(s: string): string {
+    let h = 0x811c9dc5
+    for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i)
+        h = Math.imul(h, 0x01000193)
+    }
+    return (h >>> 0).toString(16).padStart(8, '0')
+}
+
+// Two reports describe the same hint failure when their (levelMatrix, grid)
+// pair matches — mashing the 💡 button on an unchanged state should not
+// produce a new entry.
+export function hintReportKey(report: Pick<HintReport, 'levelMatrix' | 'grid'>): string {
+    return fnv1a(JSON.stringify({ lm: report.levelMatrix, g: report.grid }))
+}
+
 export function captureHintReport(note?: string): HintReport | null {
     const game = useGame.getState()
     const levelIndex = game.currentLevel - 1
@@ -51,11 +67,15 @@ export function loadReports(): HintReport[] {
     }
 }
 
-export function saveReport(report: HintReport): HintReport[] {
+export function saveReport(report: HintReport): { reports: HintReport[]; deduped: boolean } {
     const all = loadReports()
+    const key = hintReportKey(report)
+    if (all.some((r) => hintReportKey(r) === key)) {
+        return { reports: all, deduped: true }
+    }
     all.push(report)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
-    return all
+    return { reports: all, deduped: false }
 }
 
 export function clearReports(): void {
@@ -94,8 +114,10 @@ export async function recordMissingHint(): Promise<void> {
     const report = captureHintReport('auto: hint button pressed but no hint returned')
     if (!report || report.foundHint) return
 
-    saveReport(report)
-    const filename = `boxle-hint-report-${report.mode}-L${report.level}-${fileSafeTimestamp(report.timestamp)}.json`
+    const { deduped } = saveReport(report)
+    if (deduped) return
+
+    const filename = `boxle-hint-report-${report.mode}-L${report.level}-${hintReportKey(report)}.json`
     const savedPath = await postReportToRepo(filename, report)
     console.warn(
         savedPath

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import usePersistence from './usePersistence'
+import { MIN_PUZZLE_SIZE, MAX_PUZZLE_SIZE } from '../config/puzzleSize'
 
 interface ArcadeRunState {
     runId: number
@@ -13,16 +14,14 @@ interface ArcadeRunState {
     addPuzzleStats: (hints: number, livesLost: number) => void
 }
 
-export const ARCADE_START_SIZE = 4
-// Capped at 14 because the synchronous generator runs on the main thread
-// (`generator/prefetch.ts` defers via `setTimeout`, which still executes on
-// the UI thread). At sizes 16+ the puzzle generator can backtrack long
-// enough to lock the tab — and because the same prefetch fires on resume
-// from `arcadeSave`, an oversized save can lock out the next page load too.
-// Until generation moves to a Web Worker, this cap keeps gen latency under
-// a noticeable stutter. Saves with `currentSize > ARCADE_MAX_SIZE` clamp
-// down here too: prefetch on resume always asks for `min(currentSize+1, MAX)`.
-export const ARCADE_MAX_SIZE = 14
+export const ARCADE_START_SIZE = MIN_PUZZLE_SIZE
+// Paid ceiling — the absolute cap on Arcade depth, even with premium.
+// Sourced from MAX_PUZZLE_SIZE (the shared min/max knob); the generator's
+// own pain point is far higher (size-16+ on the synchronous main-thread
+// generator), so today this cap is a pricing/pacing decision rather than
+// a generator constraint. Saves with `currentSize > ARCADE_MAX_SIZE`
+// clamp down on resume: prefetch always asks for `min(currentSize+1, MAX)`.
+export const ARCADE_MAX_SIZE = MAX_PUZZLE_SIZE
 
 const useArcadeRun = create<ArcadeRunState>((set) => ({
     runId: 0,

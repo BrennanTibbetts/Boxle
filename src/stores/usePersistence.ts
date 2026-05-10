@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { BoxStateValue, PhaseValue } from '../types/game'
 import type { DecodedBoard } from '../types/puzzle'
+import { MIN_PUZZLE_SIZE } from '../config/puzzleSize'
 
 type TrackedMode = 'daily' | 'arcade' | 'library'
 
@@ -164,7 +165,7 @@ const initialLibrary: LibraryStats = {
 }
 
 const initialLibraryProgress: LibraryProgress = {
-    unlockedMaxSize: 4,
+    unlockedMaxSize: MIN_PUZZLE_SIZE,
 }
 
 const usePersistence = create<PersistenceState>()(
@@ -354,5 +355,19 @@ const usePersistence = create<PersistenceState>()(
         }
     )
 )
+
+// Normalize the persisted Library floor on load. If MIN_PUZZLE_SIZE is
+// raised after a player has already played, their stored unlockedMaxSize
+// can be below the new floor, which would lock them out of the smallest
+// tier. The lower bound is the floor itself — players never need to "earn"
+// their way up to it.
+{
+    const lp = usePersistence.getState().libraryProgress
+    if (lp.unlockedMaxSize < MIN_PUZZLE_SIZE) {
+        usePersistence.setState({
+            libraryProgress: { ...lp, unlockedMaxSize: MIN_PUZZLE_SIZE },
+        })
+    }
+}
 
 export default usePersistence

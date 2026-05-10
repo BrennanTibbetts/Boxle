@@ -32,10 +32,12 @@ function hintReportPlugin(): Plugin {
                         const safe = path.basename(filename)
                         fs.mkdirSync(reportDir, { recursive: true })
                         const full = path.join(reportDir, safe)
-                        fs.writeFileSync(full, JSON.stringify(data, null, 2))
+                        const relPath = path.relative(process.cwd(), full)
+                        const deduped = fs.existsSync(full)
+                        if (!deduped) fs.writeFileSync(full, JSON.stringify(data, null, 2))
                         res.statusCode = 200
                         res.setHeader('content-type', 'application/json')
-                        res.end(JSON.stringify({ ok: true, path: path.relative(process.cwd(), full) }))
+                        res.end(JSON.stringify({ ok: true, path: relPath, deduped }))
                     } catch (err) {
                         res.statusCode = 500
                         res.end(JSON.stringify({ error: String(err) }))

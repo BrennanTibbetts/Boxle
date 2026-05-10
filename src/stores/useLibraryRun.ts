@@ -1,8 +1,9 @@
 import { create } from 'zustand'
+import { MIN_PUZZLE_SIZE, MAX_PUZZLE_SIZE } from '../config/puzzleSize'
 
 export const LIBRARY_BATCH_SIZE = 10
-export const LIBRARY_MIN_SIZE = 4
-export const LIBRARY_MAX_SIZE = 18
+export const LIBRARY_MIN_SIZE = MIN_PUZZLE_SIZE
+export const LIBRARY_MAX_SIZE = MAX_PUZZLE_SIZE
 
 interface LibraryRunState {
     activeTierSize: number | null

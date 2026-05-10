@@ -8,8 +8,6 @@ import {
 } from '@stripe/react-stripe-js'
 import useUpsell, { type UpsellReason } from '../stores/useUpsell'
 import useAuth from '../stores/useAuth'
-import useArcadeRun from '../stores/useArcadeRun'
-import useLibraryRun from '../stores/useLibraryRun'
 import usePersistence from '../stores/usePersistence'
 import useUI from '../stores/useUI'
 import { useModalEscape } from './Modal'
@@ -21,33 +19,15 @@ import {
     HudButton,
     ModalOverlay,
     ModalTitle,
-    SubLabel,
 } from './ui'
 
 interface CopyShape {
     headline: string
-    subhead: string
 }
 
 function useReasonCopy(reason: UpsellReason | null): CopyShape | null {
-    const arcadeSize = useArcadeRun((s) => s.currentSize)
-    const libraryTier = useLibraryRun((s) => s.activeTierSize)
-    if (reason === 'arcade-depth') {
-        return {
-            headline: 'Unlock all sizes',
-            subhead: arcadeSize > 0
-                ? `You hit the free depth wall at ${arcadeSize}×${arcadeSize}. Unlock to keep the run going.`
-                : 'Unlock to keep the run going.',
-        }
-    }
-    if (reason === 'library-tier') {
-        const size = libraryTier ?? 0
-        return {
-            headline: 'Unlock all tiers',
-            subhead: size > 0
-                ? `Tier ${size} (${size}×${size}) and beyond is part of the full unlock.`
-                : 'Higher tiers are part of the full unlock.',
-        }
+    if (reason === 'arcade-depth' || reason === 'library-tier') {
+        return { headline: 'Unlock to play further' }
     }
     return null
 }
@@ -272,36 +252,24 @@ export default function UpsellModal() {
                 alignItems="stretch"
                 gap="$5"
             >
-                <YStack gap="$2" alignItems="center">
-                    <SubLabel>One-time unlock</SubLabel>
-                    <ModalTitle>{copy.headline}</ModalTitle>
-                </YStack>
-
-                <BodyText tone="body" textAlign="center">
-                    {copy.subhead}
-                </BodyText>
+                <ModalTitle textAlign="center">{copy.headline}</ModalTitle>
 
                 <PriceBlock />
 
                 {authStatus !== 'authenticated' && (
-                    <YStack gap="$3" alignItems="stretch">
-                        <BodyText tone="muted" textAlign="center" fontSize="$3">
-                            Create an account first — your unlock rides with the account, so it follows you across devices.
-                        </BodyText>
-                        <HudButton
-                            tone="primary"
-                            size="lg"
-                            onPress={() => {
-                                setOpenedAuthFromUpsell(true)
-                                setAuthOpen(true)
-                            }}
-                            alignSelf="stretch"
-                        >
-                            <HudButton.Text tone="primary" size="md">
-                                Create your unlock account
-                            </HudButton.Text>
-                        </HudButton>
-                    </YStack>
+                    <HudButton
+                        tone="success"
+                        size="lg"
+                        onPress={() => {
+                            setOpenedAuthFromUpsell(true)
+                            setAuthOpen(true)
+                        }}
+                        alignSelf="stretch"
+                    >
+                        <HudButton.Text tone="bright" size="md">
+                            Sign in to continue
+                        </HudButton.Text>
+                    </HudButton>
                 )}
 
                 {authStatus === 'authenticated' && intentError && (

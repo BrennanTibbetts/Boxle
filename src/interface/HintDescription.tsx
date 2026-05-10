@@ -1,4 +1,4 @@
-import { Text, XStack } from 'tamagui'
+import { Text, View } from 'tamagui'
 import useHint from '../stores/useHint'
 import type { HintDescription as HintDescriptionTokens } from '../utils/hintRules'
 import { useResource, COLORS } from '../stores/useResource'
@@ -23,36 +23,27 @@ function TokenDescription({ tokens }: { tokens: HintDescriptionTokens }) {
         <>
             {tokens.map((token, i) => {
                 if (token.type === 'text') {
-                    return (
-                        <Text key={i} color="$textMuted" fontFamily="$body">
-                            {token.content}
-                        </Text>
-                    )
+                    return <Text key={i}>{token.content}</Text>
                 }
                 if (token.type === 'region') {
                     const color = COLORS[(token.groupId + materialOffset) % COLORS.length]
                     const label = COLOR_LABELS[color] ?? color
                     return (
-                        <Text
-                            key={i}
-                            color={color as any}
-                            fontWeight="700"
-                            fontFamily="$body"
-                        >
+                        <Text key={i} color={color as any} fontWeight="700">
                             {label}
                         </Text>
                     )
                 }
                 if (token.type === 'row') {
                     return (
-                        <Text key={i} color="$accentInfo" fontWeight="700" fontFamily="$body">
+                        <Text key={i} color="$accentInfo" fontWeight="700">
                             this row
                         </Text>
                     )
                 }
                 if (token.type === 'col') {
                     return (
-                        <Text key={i} color="$accentSuccess" fontWeight="700" fontFamily="$body">
+                        <Text key={i} color="$accentSuccess" fontWeight="700">
                             this column
                         </Text>
                     )
@@ -68,7 +59,7 @@ export default function HintDescription() {
 
     if (!activeHint) return null
     return (
-        <XStack
+        <View
             position="absolute"
             bottom={80}
             left="50%"
@@ -81,18 +72,21 @@ export default function HintDescription() {
             paddingVertical={7}
             zIndex="$1"
             pointerEvents="none"
-            gap={4}
-            alignItems="center"
+            maxWidth="90%"
             $sm={{
                 bottom: 78,
                 paddingHorizontal: '$3',
                 paddingVertical: '$1',
-                maxWidth: '90%',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
             }}
         >
-            <TokenDescription tokens={activeHint.description} />
-        </XStack>
+            <Text
+                color="$textMuted"
+                fontFamily="$body"
+                textAlign="center"
+                lineHeight={22}
+            >
+                <TokenDescription tokens={activeHint.description} />
+            </Text>
+        </View>
     )
 }

@@ -5,6 +5,7 @@ import ControlsManager from './ControlsManager'
 import HUD from './HUD'
 import HintDescription from './HintDescription'
 import EndScreen from './EndScreen'
+import GenerationOverlay from './GenerationOverlay'
 import MainMenu from './MainMenu'
 import AccountButton from './AccountButton'
 import AuthModal from './AuthModal'
@@ -135,6 +136,7 @@ export default function Interface() {
                     <HUD />
                     <TimerDisplay />
                     <EndScreen />
+                    <GenerationOverlay />
                     <HintDescription />
                     <ControlsManager />
                 </>

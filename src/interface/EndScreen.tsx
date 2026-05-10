@@ -4,6 +4,7 @@ import useGame, { Phase, GameMode } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useInfiniteRun from '../stores/useInfiniteRun'
 import useUpsell from '../stores/useUpsell'
+import useGeneration from '../stores/useGeneration'
 import StatsModal from './StatsModal'
 import { BoxleIcon, MarkIcon, EmptyBoxIcon } from '../components/BoxIcons'
 import { buildShareGrid, formatTime, shareOrCopy } from '../utils/share'
@@ -174,12 +175,18 @@ export default function EndScreen() {
     const phase = useGame((state) => state.phase)
     const activeMode = useGame((state) => state.activeMode)
     const upsellOpen = useUpsell((s) => s.open)
+    const generating = useGeneration((s) => s.pending)
 
     if (phase !== Phase.ENDED) return null
     // Suppress while the upsell modal is up — Infinite gate-fail leaves the
     // game in ENDED but defers run-end until the player dismisses. EndScreen
     // appears after dismiss without an extra phase transition.
     if (upsellOpen) return null
+    // Suppress while a between-puzzle generation is in flight — the
+    // worker-backed advance leaves the game in ENDED for a beat before
+    // flipping back to PLAYING. Without this, the EndScreen would flash
+    // every level transition in Infinite/Library.
+    if (generating) return null
 
     return (
         <ModalOverlay layer="game" intensity="light">

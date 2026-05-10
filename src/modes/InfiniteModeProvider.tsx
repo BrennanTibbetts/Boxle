@@ -4,8 +4,14 @@ import usePersistence from '../stores/usePersistence'
 import type { InfiniteSave } from '../stores/usePersistence'
 import useInfiniteRun, { INFINITE_START_SIZE, INFINITE_MAX_SIZE } from '../stores/useInfiniteRun'
 import useUpsell from '../stores/useUpsell'
+import useGeneration from '../stores/useGeneration'
 import { canPlayAt } from '../utils/gates'
 import { prefetchPuzzle, takeOrGenerate, resetPrefetch } from '../generator/prefetch'
+
+// Flip to re-enable the depth-wall upsell that fires when the player
+// crosses canPlayAt() in Infinite. Off while we sort out the generator —
+// the wall would currently land on a generator-broken size range.
+const INFINITE_DEPTH_GATE_ENABLED = false
 
 function snapshot(): InfiniteSave {
     const game = useGame.getState()
@@ -30,42 +36,55 @@ export function InfiniteModeProvider() {
     const runId = useInfiniteRun((s) => s.runId)
 
     useEffect(() => {
+        // Cancellation flag for any in-flight worker awaits — prevents a stale
+        // generation result from mutating game state after this provider has
+        // unmounted (e.g. user changed runs or modes mid-generation).
+        let cancelled = false
+        const setPending = useGeneration.getState().setPending
+
         const persistence = usePersistence.getState()
         const infinite = useInfiniteRun.getState()
         const existing = persistence.infiniteSave
 
-        if (existing) {
-            // Resume: restore previous run state into useGame + useInfiniteRun.
-            // Note: we deliberately do NOT call startInfiniteRun here — that
-            // counter is for runs *started*, not resumed.
-            useGame.setState({
-                levelConfigs: existing.levelConfigs,
-                levels: existing.levels,
-                levelMistakes: existing.levelMistakes,
-                currentLevel: existing.currentLevel,
-                phase: Phase.PLAYING,
-                startTime: Date.now() - (existing.elapsedMs ?? 0),
-                endTime: null,
-                wrongPlacement: null,
-                lastBoxlePosition: null,
-                lives: existing.lives,
-                sessionHints: existing.sessionHints,
-                sessionLivesLost: existing.sessionLivesLost,
-            })
-            useInfiniteRun.setState({
-                currentSize: existing.currentSize,
-                puzzlesCompleted: existing.puzzlesCompleted,
-                runHintsUsed: existing.runHintsUsed,
-                runLivesLost: existing.runLivesLost,
-            })
-            resetPrefetch('infinite')
-            prefetchPuzzle('infinite', Math.min(existing.currentSize + 1, INFINITE_MAX_SIZE))
-        } else {
+        async function bootstrap() {
+            if (existing) {
+                // Resume: restore previous run state into useGame + useInfiniteRun.
+                // Note: we deliberately do NOT call startInfiniteRun here — that
+                // counter is for runs *started*, not resumed.
+                useGame.setState({
+                    levelConfigs: existing.levelConfigs,
+                    levels: existing.levels,
+                    levelMistakes: existing.levelMistakes,
+                    currentLevel: existing.currentLevel,
+                    phase: Phase.PLAYING,
+                    startTime: Date.now() - (existing.elapsedMs ?? 0),
+                    endTime: null,
+                    wrongPlacement: null,
+                    lastBoxlePosition: null,
+                    lives: existing.lives,
+                    sessionHints: existing.sessionHints,
+                    sessionLivesLost: existing.sessionLivesLost,
+                })
+                useInfiniteRun.setState({
+                    currentSize: existing.currentSize,
+                    puzzlesCompleted: existing.puzzlesCompleted,
+                    runHintsUsed: existing.runHintsUsed,
+                    runLivesLost: existing.runLivesLost,
+                })
+                resetPrefetch('infinite')
+                prefetchPuzzle('infinite', Math.min(existing.currentSize + 1, INFINITE_MAX_SIZE))
+                return
+            }
+
             // Fresh run.
             persistence.startInfiniteRun()
             resetPrefetch('infinite')
 
-            const first = takeOrGenerate('infinite', INFINITE_START_SIZE)
+            setPending(true)
+            const first = await takeOrGenerate('infinite', INFINITE_START_SIZE)
+            if (cancelled) return
+            setPending(false)
+
             if (!first) {
                 persistence.endInfiniteRun({ deepestSize: 0 })
                 useGame.setState({ phase: Phase.ENDED })
@@ -79,6 +98,8 @@ export function InfiniteModeProvider() {
             // before any move still resumes the same run.
             persistence.saveInfinite(snapshot())
         }
+
+        void bootstrap()
 
         // Debounced auto-save — flushes ~250ms after any relevant state change.
         let saveTimeout: ReturnType<typeof setTimeout> | null = null
@@ -122,7 +143,7 @@ export function InfiniteModeProvider() {
                 // runs out of lives.
                 const nextSize = Math.min(run.currentSize + 1, INFINITE_MAX_SIZE)
 
-                if (!canPlayAt(nextSize, GameMode.INFINITE)) {
+                if (INFINITE_DEPTH_GATE_ENABLED && !canPlayAt(nextSize, GameMode.INFINITE)) {
                     // Free-tier depth wall: leave the run in ENDED phase but
                     // hold off on calling endInfiniteRun. The upsell modal is
                     // the next surface — dismiss ends the run (revealing the
@@ -135,20 +156,24 @@ export function InfiniteModeProvider() {
                                 deepestSize: useInfiniteRun.getState().currentSize,
                             })
                         },
-                        onPurchaseSuccess: () => advanceInfiniteTo(nextSize),
+                        onPurchaseSuccess: () => { void advanceInfiniteTo(nextSize) },
                     })
                     return
                 }
 
-                advanceInfiniteTo(nextSize)
+                void advanceInfiniteTo(nextSize)
             }
         )
 
         // Pulled out so the upsell-success callback can resume the advance
         // after a purchase clears the gate. Reads fresh state from the
         // stores rather than closing over the subscriber's snapshot.
-        function advanceInfiniteTo(nextSize: number) {
-            const next = takeOrGenerate('infinite', nextSize)
+        async function advanceInfiniteTo(nextSize: number) {
+            setPending(true)
+            const next = await takeOrGenerate('infinite', nextSize)
+            if (cancelled) return
+            setPending(false)
+
             const run = useInfiniteRun.getState()
             if (!next) {
                 usePersistence.getState().endInfiniteRun({ deepestSize: run.currentSize })
@@ -161,6 +186,9 @@ export function InfiniteModeProvider() {
         }
 
         return () => {
+            cancelled = true
+            // Clear pending so the spinner doesn't linger after unmount.
+            useGeneration.getState().setPending(false)
             unsubPhase()
             unsubLevels()
             unsubLives()

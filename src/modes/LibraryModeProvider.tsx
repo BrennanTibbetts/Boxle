@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import useGame, { Phase, initGameState, advanceGameState } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useLibraryRun, { LIBRARY_BATCH_SIZE } from '../stores/useLibraryRun'
+import useGeneration from '../stores/useGeneration'
 import { prefetchPuzzle, takeOrGenerate, resetPrefetch } from '../generator/prefetch'
 import LibraryTierPicker from '../interface/LibraryTierPicker'
 import LibraryBatchComplete from '../interface/LibraryBatchComplete'
@@ -18,18 +19,36 @@ export function LibraryModeProvider() {
         if (activeTierSize === null) return
         if (showBatchComplete || showGameOver) return
 
-        resetPrefetch('library')
-        const first = takeOrGenerate('library', activeTierSize)
-        if (!first) return
-        useGame.setState(initGameState([first]))
-        // Prefetch the next puzzle in the batch (same size).
-        prefetchPuzzle('library', activeTierSize)
+        let cancelled = false
+        const setPending = useGeneration.getState().setPending
+
+        async function bootstrap() {
+            resetPrefetch('library')
+            setPending(true)
+            const first = await takeOrGenerate('library', activeTierSize as number)
+            if (cancelled) return
+            setPending(false)
+            if (!first) return
+            useGame.setState(initGameState([first]))
+            // Prefetch the next puzzle in the batch (same size).
+            prefetchPuzzle('library', activeTierSize as number)
+        }
+
+        void bootstrap()
+
+        return () => {
+            cancelled = true
+            useGeneration.getState().setPending(false)
+        }
     }, [activeTierSize, batchId])
 
     // Watch for puzzle completion / game over within an active batch.
     useEffect(() => {
         if (activeTierSize === null) return
         if (showBatchComplete || showGameOver) return
+
+        let cancelled = false
+        const setPending = useGeneration.getState().setPending
 
         const unsub = useGame.subscribe(
             (state) => state.phase,
@@ -61,20 +80,31 @@ export function LibraryModeProvider() {
                     return
                 }
 
-                // Generate the next puzzle in this batch and stack it on.
-                const next = takeOrGenerate('library', activeTierSize)
-                if (!next) {
-                    libRun.markGameOver()
-                    return
-                }
-
-                // lives preserved across the batch
-                useGame.setState(advanceGameState(game, next))
-                // Prefetch one more for the next advance.
-                prefetchPuzzle('library', activeTierSize)
+                void advanceToNext()
             }
         )
-        return () => unsub()
+
+        async function advanceToNext() {
+            setPending(true)
+            const next = await takeOrGenerate('library', activeTierSize as number)
+            if (cancelled) return
+            setPending(false)
+
+            if (!next) {
+                useLibraryRun.getState().markGameOver()
+                return
+            }
+            // lives preserved across the batch
+            useGame.setState(advanceGameState(useGame.getState(), next))
+            // Prefetch one more for the next advance.
+            prefetchPuzzle('library', activeTierSize as number)
+        }
+
+        return () => {
+            cancelled = true
+            useGeneration.getState().setPending(false)
+            unsub()
+        }
     }, [activeTierSize, batchId, showBatchComplete, showGameOver])
 
     if (activeTierSize === null) return <LibraryTierPicker />

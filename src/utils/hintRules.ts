@@ -135,6 +135,84 @@ function listTokens(groupIds: number[]): DescToken[] {
     return result
 }
 
+// Mirrors useGame.placeBoxle: locks same row, same col, same region, and 8 neighbours.
+function simulatePlacement(grid: LevelGrid, r: number, c: number, levelMatrix: number[][]): LevelGrid {
+    const group = levelMatrix[r][c]
+    return grid.map((rowData, i) =>
+        rowData.map((s, j): BoxStateValue => {
+            if (i === r && j === c) return BoxState.BOXLE
+            if (s !== BoxState.BLANK) return s
+            if (levelMatrix[i][j] === group) return BoxState.LOCK
+            if (i === r || j === c) return BoxState.LOCK
+            if (Math.abs(i - r) === 1 && Math.abs(j - c) === 1) return BoxState.LOCK
+            return s
+        }),
+    )
+}
+
+type EmptyConstraint =
+    | { kind: 'region'; idx: number; sourceBoxes: BoxRef[] }
+    | { kind: 'row';    idx: number; sourceBoxes: BoxRef[] }
+    | { kind: 'col';    idx: number; sourceBoxes: BoxRef[] }
+
+// In `next`, find the first unsolved region/row/col with zero available cells.
+// `originalGrid` supplies the source-box highlights (the constraint's current
+// candidates, before tentative placement).
+function findEmptyConstraint(
+    next: LevelGrid,
+    originalGrid: LevelGrid,
+    n: number,
+    groupMap: Map<number, BoxRef[]>,
+): EmptyConstraint | null {
+    for (const [g, boxes] of groupMap) {
+        if (boxes.some(({ row, col }) => next[row][col] === BoxState.BOXLE)) continue
+        if (avail(boxes, next).length === 0)
+            return { kind: 'region', idx: g, sourceBoxes: avail(boxes, originalGrid) }
+    }
+    for (let r = 0; r < n; r++) {
+        const boxes = rowBoxes(n, r)
+        if (boxes.some(({ row, col }) => next[row][col] === BoxState.BOXLE)) continue
+        if (avail(boxes, next).length === 0)
+            return { kind: 'row', idx: r, sourceBoxes: avail(boxes, originalGrid) }
+    }
+    for (let c = 0; c < n; c++) {
+        const boxes = colBoxes(n, c)
+        if (boxes.some(({ row, col }) => next[row][col] === BoxState.BOXLE)) continue
+        if (avail(boxes, next).length === 0)
+            return { kind: 'col', idx: c, sourceBoxes: avail(boxes, originalGrid) }
+    }
+    return null
+}
+
+// Forward-chain the three single-in-* rules to a fixed point. Used by
+// lookahead-1 to deepen the contradiction search beyond a single placement.
+function propagateSingles(grid: LevelGrid, levelMatrix: number[][], n: number, groupMap: Map<number, BoxRef[]>): LevelGrid {
+    let g = grid
+    let changed = true
+    while (changed) {
+        changed = false
+        for (const [, boxes] of groupMap) {
+            if (boxes.some(b => g[b.row][b.col] === BoxState.BOXLE)) continue
+            const a = avail(boxes, g)
+            if (a.length === 1) { g = simulatePlacement(g, a[0].row, a[0].col, levelMatrix); changed = true; break }
+        }
+        if (changed) continue
+        for (let r = 0; r < n; r++) {
+            if (g[r].some(s => s === BoxState.BOXLE)) continue
+            const a = avail(rowBoxes(n, r), g)
+            if (a.length === 1) { g = simulatePlacement(g, a[0].row, a[0].col, levelMatrix); changed = true; break }
+        }
+        if (changed) continue
+        for (let c = 0; c < n; c++) {
+            const boxes = colBoxes(n, c)
+            if (boxes.some(b => g[b.row][b.col] === BoxState.BOXLE)) continue
+            const a = avail(boxes, g)
+            if (a.length === 1) { g = simulatePlacement(g, a[0].row, a[0].col, levelMatrix); changed = true; break }
+        }
+    }
+    return g
+}
+
 // ---------------------------------------------------------------------------
 // Naked-tuple shared logic
 // ---------------------------------------------------------------------------
@@ -366,52 +444,87 @@ export const HINT_RULES: HintRule[] = [
 
     // ── Level 4: Adjacency-based elimination ───────────────────────────────
 
+    // Tentatively place at each available cell; if doing so would leave any
+    // unsolved region, row, or column with zero candidates, the cell can be
+    // ruled out. The "blocked" set mirrors useGame.placeBoxle (same row, same
+    // col, same region, and 8 neighbours).
     {
         id: 'adjacency-elimination',
         priority: 12,
         find({ levelIndex, levelMatrix, grid, n, groupMap }) {
-            // Groups that already have a placed boxle don't need a box
-            const solvedGroups = new Set<number>()
-            for (const [g, boxes] of groupMap)
-                if (boxes.some(b => grid[b.row][b.col] === BoxState.BOXLE))
-                    solvedGroups.add(g)
-
             for (let r = 0; r < n; r++) {
                 for (let c = 0; c < n; c++) {
                     if (!isAvailable(grid[r][c])) continue
                     const boxleGroup = levelMatrix[r][c]
-                    if (solvedGroups.has(boxleGroup)) continue
+                    const next = simulatePlacement(grid, r, c, levelMatrix)
+                    const empty = findEmptyConstraint(next, grid, n, groupMap)
+                    if (!empty) continue
 
-                    // Boxes that become unavailable if a boxle is placed at (r, c):
-                    // same row, same col, all 8 neighbours
-                    const blocked = new Set<string>()
-                    for (let i = 0; i < n; i++) {
-                        blocked.add(`${r},${i}`)
-                        blocked.add(`${i},${c}`)
+                    const eliminateBoxes = [{ row: r, col: c }]
+                    const sourceBoxes = empty.sourceBoxes
+                    if (empty.kind === 'region')
+                        return {
+                            ruleId: 'adjacency-elimination', levelIndex,
+                            description: [t('Placing a boxle here would leave '), region(empty.idx), t(' with no valid boxes — rule out this '), region(boxleGroup), t(' box.')],
+                            answerBoxes: [], sourceBoxes, eliminateBoxes,
+                        }
+                    if (empty.kind === 'row')
+                        return {
+                            ruleId: 'adjacency-elimination', levelIndex,
+                            description: [t('Placing a boxle here would leave '), row, t(' with no valid boxes — rule out this '), region(boxleGroup), t(' box.')],
+                            answerBoxes: [], sourceBoxes, eliminateBoxes,
+                        }
+                    return {
+                        ruleId: 'adjacency-elimination', levelIndex,
+                        description: [t('Placing a boxle here would leave '), col, t(' with no valid boxes — rule out this '), region(boxleGroup), t(' box.')],
+                        answerBoxes: [], sourceBoxes, eliminateBoxes,
                     }
-                    for (let dr = -1; dr <= 1; dr++)
-                        for (let dc = -1; dc <= 1; dc++) {
-                            const nr = r + dr, nc = c + dc
-                            if (nr >= 0 && nr < n && nc >= 0 && nc < n)
-                                blocked.add(`${nr},${nc}`)
-                        }
+                }
+            }
+            return null
+        },
+    },
 
-                    // Check if any unsolved region would be left with no valid boxes
-                    for (const [g, boxes] of groupMap) {
-                        if (g === boxleGroup || solvedGroups.has(g)) continue
-                        const remaining = boxes.filter(b =>
-                            isAvailable(grid[b.row][b.col]) &&
-                            !blocked.has(`${b.row},${b.col}`)
-                        )
-                        if (remaining.length === 0) {
-                            return {
-                                ruleId: 'adjacency-elimination', levelIndex,
-                                description: [t('Placing a boxle here would leave '), region(g), t(' with no valid boxes — rule out this '), region(boxleGroup), t(' box.')],
-                                answerBoxes: [],
-                                sourceBoxes: avail(boxes, grid),
-                                eliminateBoxes: [{ row: r, col: c }],
-                            }
+    // ── Level 5: One-ply lookahead ─────────────────────────────────────────
+
+    // Tentatively place, propagate single-in-* deductions to a fixed point,
+    // then check for an empty region/row/col. Catches contradictions that only
+    // surface after a chain of forced placements.
+    {
+        id: 'lookahead-1',
+        priority: 13,
+        find({ levelIndex, levelMatrix, grid, n, groupMap }) {
+            for (let r = 0; r < n; r++) {
+                for (let c = 0; c < n; c++) {
+                    if (!isAvailable(grid[r][c])) continue
+                    const boxleGroup = levelMatrix[r][c]
+                    const placed = simulatePlacement(grid, r, c, levelMatrix)
+                    // Skip if the shallow rule already catches this — keeps the
+                    // hint specific to deductions that genuinely need lookahead.
+                    if (findEmptyConstraint(placed, grid, n, groupMap)) continue
+
+                    const propagated = propagateSingles(placed, levelMatrix, n, groupMap)
+                    const empty = findEmptyConstraint(propagated, grid, n, groupMap)
+                    if (!empty) continue
+
+                    const eliminateBoxes = [{ row: r, col: c }]
+                    const sourceBoxes = empty.sourceBoxes
+                    if (empty.kind === 'region')
+                        return {
+                            ruleId: 'lookahead-1', levelIndex,
+                            description: [t('Placing a boxle here forces a chain that would leave '), region(empty.idx), t(' with no valid boxes — rule out this '), region(boxleGroup), t(' box.')],
+                            answerBoxes: [], sourceBoxes, eliminateBoxes,
                         }
+                    if (empty.kind === 'row')
+                        return {
+                            ruleId: 'lookahead-1', levelIndex,
+                            description: [t('Placing a boxle here forces a chain that would leave '), row, t(' with no valid boxes — rule out this '), region(boxleGroup), t(' box.')],
+                            answerBoxes: [], sourceBoxes, eliminateBoxes,
+                        }
+                    return {
+                        ruleId: 'lookahead-1', levelIndex,
+                        description: [t('Placing a boxle here forces a chain that would leave '), col, t(' with no valid boxes — rule out this '), region(boxleGroup), t(' box.')],
+                        answerBoxes: [], sourceBoxes, eliminateBoxes,
                     }
                 }
             }
@@ -423,7 +536,7 @@ export const HINT_RULES: HintRule[] = [
 
     {
         id: 'impossible-state',
-        priority: 13,
+        priority: 14,
         find({ levelIndex, grid, n, groupMap }) {
             for (const [g, boxes] of groupMap) {
                 const hasBoxle = boxes.some(b => grid[b.row][b.col] === BoxState.BOXLE)

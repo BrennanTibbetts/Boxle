@@ -3,7 +3,7 @@ import useGame, { GameMode } from '../stores/useGame'
 import useHint from '../stores/useHint'
 import usePersistence from '../stores/usePersistence'
 import { findBestHint } from '../utils/hintRules'
-import { recordMissingHint } from '../utils/hintReport'
+import { recordMissingHint, recordLookahead1Hint } from '../utils/hintReport'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { HudButton, HudLabel, HudValue, HudChip } from './ui'
 
@@ -52,6 +52,7 @@ export default function HUD() {
         const result = findBestHint(levelIndex, config.levelMatrix, grid)
         setHint(result)
         if (result === null) void recordMissingHint()
+        else if (result.ruleId === 'lookahead-1') void recordLookahead1Hint()
         game.incrementSessionHint()
         if (game.activeMode !== GameMode.MENU) {
             usePersistence.getState().recordHint(game.activeMode)

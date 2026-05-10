@@ -23,15 +23,21 @@ function hintReportPlugin(): Plugin {
                 req.on('data', (chunk) => { body += chunk })
                 req.on('end', () => {
                     try {
-                        const { filename, data } = JSON.parse(body) as { filename?: unknown; data?: unknown }
+                        const { filename, data, subfolder } = JSON.parse(body) as { filename?: unknown; data?: unknown; subfolder?: unknown }
                         if (typeof filename !== 'string' || filename.length === 0) {
                             res.statusCode = 400
                             res.end(JSON.stringify({ error: 'filename required' }))
                             return
                         }
                         const safe = path.basename(filename)
-                        fs.mkdirSync(reportDir, { recursive: true })
-                        const full = path.join(reportDir, safe)
+                        // Restrict subfolder to a simple slug to keep this endpoint
+                        // from being a path-traversal foot-gun in dev.
+                        const safeSub = typeof subfolder === 'string' && /^[a-z0-9_-]+$/i.test(subfolder)
+                            ? subfolder
+                            : ''
+                        const targetDir = safeSub ? path.join(reportDir, safeSub) : reportDir
+                        fs.mkdirSync(targetDir, { recursive: true })
+                        const full = path.join(targetDir, safe)
                         const relPath = path.relative(process.cwd(), full)
                         const deduped = fs.existsSync(full)
                         if (!deduped) fs.writeFileSync(full, JSON.stringify(data, null, 2))

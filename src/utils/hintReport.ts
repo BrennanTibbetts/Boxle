@@ -18,6 +18,8 @@ export interface HintReport {
 }
 
 const STORAGE_KEY = 'boxle:hint-reports'
+const LOOKAHEAD_STORAGE_KEY = 'boxle:lookahead-reports'
+const LOOKAHEAD_SUBFOLDER = 'lookahead-1'
 
 function fnv1a(s: string): string {
     let h = 0x811c9dc5
@@ -58,28 +60,32 @@ export function captureHintReport(note?: string): HintReport | null {
     }
 }
 
-export function loadReports(): HintReport[] {
+export function loadReports(storageKey: string = STORAGE_KEY): HintReport[] {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY)
+        const raw = localStorage.getItem(storageKey)
         return raw ? JSON.parse(raw) : []
     } catch {
         return []
     }
 }
 
-export function saveReport(report: HintReport): { reports: HintReport[]; deduped: boolean } {
-    const all = loadReports()
+export function saveReport(
+    report: HintReport,
+    storageKey: string = STORAGE_KEY,
+): { reports: HintReport[]; deduped: boolean } {
+    const all = loadReports(storageKey)
     const key = hintReportKey(report)
     if (all.some((r) => hintReportKey(r) === key)) {
         return { reports: all, deduped: true }
     }
     all.push(report)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
+    localStorage.setItem(storageKey, JSON.stringify(all))
     return { reports: all, deduped: false }
 }
 
 export function clearReports(): void {
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(LOOKAHEAD_STORAGE_KEY)
 }
 
 export function downloadJSON(filename: string, data: unknown): void {
@@ -127,15 +133,42 @@ export async function recordMissingHint(): Promise<void> {
     )
 }
 
+// Companion to recordMissingHint: when the rule engine *did* return a hint
+// but it was the lookahead-1 rule, capture the state into a sibling
+// `lookahead-1/` subfolder so we can audit when this rule actually fires
+// in real play. Dedup is keyed off the same (levelMatrix, grid) hash but
+// stored under a separate localStorage key.
+export async function recordLookahead1Hint(): Promise<void> {
+    const report = captureHintReport('auto: lookahead-1 hint fired')
+    if (!report || !report.foundHint || report.foundHint.ruleId !== 'lookahead-1') return
+
+    const { deduped } = saveReport(report, LOOKAHEAD_STORAGE_KEY)
+    if (deduped) return
+
+    const filename = `boxle-hint-report-${report.mode}-L${report.level}-${hintReportKey(report)}.json`
+    const savedPath = await postReportToRepo(filename, report, LOOKAHEAD_SUBFOLDER)
+    console.info(
+        savedPath
+            ? `[hint-report] Auto-captured lookahead-1 hint → ${savedPath}`
+            : '[hint-report] Auto-capture: dev endpoint unreachable; saved to localStorage only',
+        report,
+    )
+}
+
 // Posts to the dev-server middleware in vite.config.ts, which writes the
 // payload into the gitignored `hint-reports/` folder at the project root.
+// `subfolder` (optional) lands the file under hint-reports/<subfolder>/.
 // Returns the saved relative path on success, null on failure.
-export async function postReportToRepo(filename: string, data: unknown): Promise<string | null> {
+export async function postReportToRepo(
+    filename: string,
+    data: unknown,
+    subfolder?: string,
+): Promise<string | null> {
     try {
         const res = await fetch('/__hint-report', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ filename, data }),
+            body: JSON.stringify({ filename, data, subfolder }),
         })
         if (!res.ok) return null
         const json = await res.json() as { ok?: boolean; path?: string }

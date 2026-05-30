@@ -13,6 +13,23 @@ export function makeBlankGrid(size: number): LevelGrid {
     )
 }
 
+// Deep copy of a single level's grid for the undo stack — rows hold primitive
+// box states, so a row-wise spread is a full clone.
+function cloneGrid(grid: LevelGrid): LevelGrid {
+    return grid.map((row) => [...row])
+}
+
+function gridsEqual(a: LevelGrid, b: LevelGrid): boolean {
+    if (a.length !== b.length) return false
+    for (let r = 0; r < a.length; r++) {
+        if (a[r].length !== b[r].length) return false
+        for (let c = 0; c < a[r].length; c++) if (a[r][c] !== b[r][c]) return false
+    }
+    return true
+}
+
+type UndoEntry = { levelIndex: number, grid: LevelGrid }
+
 // Mode-provider helpers: produce the partial GameState patch for starting
 // a fresh session and for stacking the next puzzle onto an in-progress run.
 // Kept here (not in modes/) so the shape stays in sync with GameState itself.
@@ -20,7 +37,7 @@ export function makeBlankGrid(size: number): LevelGrid {
 type InitPatch = Pick<GameState,
     'levelConfigs' | 'levels' | 'levelMistakes' | 'currentLevel' | 'phase' |
     'startTime' | 'endTime' | 'wrongPlacement' | 'lastBoxlePosition' |
-    'lives' | 'sessionHints' | 'sessionLivesLost'
+    'lives' | 'sessionHints' | 'sessionLivesLost' | 'undoStack' | 'isReverting'
 >
 
 // advance keeps `startTime` from the prior puzzle so the round's clock keeps
@@ -42,6 +59,8 @@ export function initGameState(puzzles: DecodedBoard[]): InitPatch {
         lives: 3,
         sessionHints: 0,
         sessionLivesLost: 0,
+        undoStack: [],
+        isReverting: false,
     }
 }
 
@@ -61,6 +80,8 @@ export function advanceGameState(
         lastBoxlePosition: null,
         sessionHints: 0,
         sessionLivesLost: 0,
+        undoStack: [],
+        isReverting: false,
     }
 }
 
@@ -89,6 +110,20 @@ interface GameState {
     toggleMark: (levelIndex: number, row: number, col: number) => void
     getBoxState: (levelIndex: number, row: number, col: number) => BoxStateValue
     clearMarks: (levelIndex: number) => void
+
+    // Undo — snapshot stack of grid edits (marks, correct placements,
+    // clear-marks) within the current level. Resets on level change. Wrong
+    // placements never push, so lives lost are not reversible.
+    //
+    // `isReverting` tells Box to reverse-animate a LOCK/BOXLE→BLANK transition
+    // (undo) rather than snap it (restart). Undo is the only producer of those
+    // transitions besides hard resets, and every hard-reset path clears the
+    // flag alongside `undoStack` — so it's deterministic with no timer: it
+    // stays true after an undo (harmlessly; nothing else reads it) until the
+    // next reset/new-puzzle/level-change sets it false.
+    undoStack: UndoEntry[]
+    isReverting: boolean
+    undo: () => void
 
     // Lives
     lives: number
@@ -142,6 +177,8 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         sessionLivesLost: 0,
         levelMistakes: state.levelConfigs.map(() => 0),
         levels: state.levelConfigs.map(({ levelMatrix }) => makeBlankGrid(levelMatrix.length)),
+        undoStack: [],
+        isReverting: false,
     })),
     end: () => set({ phase: Phase.ENDED, endTime: Date.now() }),
 
@@ -160,9 +197,11 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         sessionHints: 0,
         sessionLivesLost: 0,
         levelMistakes: configs.map(() => 0),
+        undoStack: [],
+        isReverting: false,
     }),
 
-    setCurrentLevel: (level) => set({ currentLevel: level }),
+    setCurrentLevel: (level) => set({ currentLevel: level, undoStack: [], isReverting: false }),
 
     placeBoxle: (levelIndex, row, col) => set((state) => {
         const config = state.levelConfigs[levelIndex]
@@ -210,11 +249,28 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         )
 
         const isSessionComplete = isComplete && state.currentLevel >= state.levels.length
+        const advancing = nextLevel !== state.currentLevel
+
+        // The undo target for a placement returns the placed box to BLANK —
+        // consuming the transient mark a double-click creates (onClick marks,
+        // onDoubleClick places) — while preserving every other box's marks.
+        const preGrid = cloneGrid(levelState)
+        preGrid[row][col] = BoxState.BLANK
+        // If the immediately-preceding action was marking this same box (the
+        // double-click case), its snapshot already equals preGrid — reuse it so
+        // the whole gesture is a single undo step instead of two.
+        const top = state.undoStack[state.undoStack.length - 1]
+        const collapse = !!top && top.levelIndex === levelIndex && gridsEqual(top.grid, preGrid)
 
         return {
             levels: updatedLevels,
             currentLevel: nextLevel,
             lastBoxlePosition: { levelIndex, row, col },
+            undoStack: advancing
+                ? []
+                : collapse
+                    ? state.undoStack
+                    : [...state.undoStack, { levelIndex, grid: preGrid }],
             ...(isSessionComplete ? { phase: Phase.ENDED, endTime: Date.now() } : {}),
         }
     }),
@@ -233,7 +289,10 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         const updatedLevels = state.levels.map((level, i) =>
             i === levelIndex ? updatedLevel : level
         )
-        return { levels: updatedLevels }
+        return {
+            levels: updatedLevels,
+            undoStack: [...state.undoStack, { levelIndex, grid: cloneGrid(levelState) }],
+        }
     }),
 
     getBoxState: (levelIndex, row, col) => {
@@ -244,10 +303,28 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
     clearMarks: (levelIndex) => set((state) => {
         const levelState = state.levels[levelIndex]
         if (!levelState) return {}
+        const hasMarks = levelState.some((rowData) => rowData.some((s) => s === BoxState.MARK))
+        if (!hasMarks) return {}
         const updatedLevel = levelState.map((rowData) =>
             rowData.map((boxState): BoxStateValue => boxState === BoxState.MARK ? BoxState.BLANK : boxState)
         )
-        return { levels: state.levels.map((level, i) => i === levelIndex ? updatedLevel : level) }
+        return {
+            levels: state.levels.map((level, i) => i === levelIndex ? updatedLevel : level),
+            undoStack: [...state.undoStack, { levelIndex, grid: cloneGrid(levelState) }],
+        }
+    }),
+
+    // Undo
+    undoStack: [],
+    isReverting: false,
+    undo: () => set((state) => {
+        const last = state.undoStack[state.undoStack.length - 1]
+        if (!last) return {}
+        return {
+            levels: state.levels.map((level, i) => i === last.levelIndex ? last.grid : level),
+            undoStack: state.undoStack.slice(0, -1),
+            isReverting: true,
+        }
     }),
 
     // Lives

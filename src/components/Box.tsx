@@ -102,14 +102,25 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
             if (boxleMeshRef.current) gsap.killTweensOf(boxleMeshRef.current.scale)
             if (glowRef.current)       gsap.killTweensOf(glowRef.current.scale)
 
-            if (prev === BoxState.LOCK || prev === BoxState.BOXLE) {
-                // Only happens on restart — instant reset, no animation
+            const reverting = useGame.getState().isReverting
+
+            if ((prev === BoxState.LOCK || prev === BoxState.BOXLE) && !reverting) {
+                // Restart — instant reset, no animation
                 box.current.rotation.set(0, 0, 0)
                 if (markRef.current)       markRef.current.scale.set(0, 0.1, 0)
                 if (boxleMeshRef.current) { boxleMeshRef.current.scale.set(1, 1, 1); boxleMeshRef.current.rotation.set(0, 0, 0) }
                 if (glowRef.current)       glowRef.current.scale.set(0, 0, 0)
             } else {
-                // User toggled off a mark — animate the flip back
+                // Undo (reverse the lock cascade / boxle) or a mark toggled off —
+                // animate the flip back. Reverting a BOXLE also shrinks the boxle
+                // and glow and settles its spin back to rest.
+                if (prev === BoxState.BOXLE) {
+                    if (boxleMeshRef.current) {
+                        gsap.to(boxleMeshRef.current.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.in' })
+                        gsap.to(boxleMeshRef.current.rotation, { x: 0, y: 0, z: 0, duration: 0.3 })
+                    }
+                    if (glowRef.current) gsap.to(glowRef.current.scale, { x: 0, y: 0, z: 0, duration: 0.3, ease: 'power2.in' })
+                }
                 gsap.to(box.current.rotation, { x: 0, y: 0, z: 0, duration: markDuration })
                 if (markRef.current) gsap.to(markRef.current.scale, { x: 0, z: 0, duration: markDuration * 0.75 })
             }
@@ -305,6 +316,11 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         if (!interactive || isBlocked) return
         e.stopPropagation()
         if (dragTracker.hasDragged || e.nativeEvent.shiftKey) return
+        // The 2nd+ click of a double-click (detail >= 2) is the place-a-star
+        // gesture, handled by onDoubleClick — not a mark. Toggling here would
+        // churn the mark on/off mid-double-click and leak phantom marks into
+        // the undo stack. A double-click is one intent: place a boxle.
+        if (e.nativeEvent.detail >= 2) return
         if (boxState === BoxState.BLANK || boxState === BoxState.MARK) toggleMark(levelIndex, row, col)
     }
 

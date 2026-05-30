@@ -34,6 +34,8 @@ export default function HUD() {
     const lives = useGame((state) => state.lives)
     const currentLevel = useGame((state) => state.currentLevel)
     const clearMarks = useGame((state) => state.clearMarks)
+    const undo = useGame((state) => state.undo)
+    const canUndo = useGame((state) => state.undoStack.length > 0)
     const activeHint = useHint((state) => state.activeHint)
     const setHint = useHint((state) => state.setHint)
     const clearHint = useHint((state) => state.clearHint)
@@ -95,6 +97,16 @@ export default function HUD() {
                         justifyContent="center"
                         gap={isMobile ? '$3' : '$2'}
                     >
+                        <HudButton
+                            onPress={() => undo()}
+                            disabled={!canUndo}
+                            aria-label="Undo"
+                            size={isMobile ? 'tap' : 'md'}
+                        >
+                            <HudButton.Text size={isMobile ? 'lg' : 'md'}>
+                                {isMobile ? '↶' : 'Undo'}
+                            </HudButton.Text>
+                        </HudButton>
                         <HudButton
                             onPress={() => clearMarks(currentLevel - 1)}
                             aria-label="Clear marks"

@@ -4,15 +4,20 @@ import type { PerspectiveCamera } from 'three'
 import gsap from 'gsap'
 import { useControls } from 'leva'
 import useGame from './stores/useGame'
+import { useBoardLayout, boardZAt } from './hooks/useBoardLayout'
 
 const BOX_SPACING = 1
 // 15% margin so the board doesn't kiss the edge of the viewport in portrait.
 const PORTRAIT_FIT_MARGIN = 1.15
 
+// Base top-down height in landscape. Also the Leva default below; exported so
+// the board-intro fly-in lands exactly where CameraManager will take over.
+export const PLAY_BASE_HEIGHT = 16
+
 // Camera height needed to fit `gridSize` boxes wide at this aspect, given the
 // camera's vertical FOV. Returns the *minimum* y; callers take a max with the
 // configured base height so landscape stays unchanged.
-function requiredCameraY(gridSize: number, aspect: number, fovDeg: number): number {
+export function requiredCameraY(gridSize: number, aspect: number, fovDeg: number): number {
     const fovRad = (fovDeg * Math.PI) / 180
     const tanHalfFov = Math.tan(fovRad / 2)
     return (gridSize * BOX_SPACING * PORTRAIT_FIT_MARGIN) / (2 * tanHalfFov * aspect)
@@ -23,9 +28,12 @@ export default function CameraManager() {
 
     const props = useControls('Camera', {
         levelHeightIncrease: 0.4,
-        cameraHeightY: 16,
-        boardSpacing: 16,
+        cameraHeightY: PLAY_BASE_HEIGHT,
     })
+    // Board z-spacing is shared with Level/IntroCamera (and size-aware) — see
+    // hooks/useBoardLayout. Read it here so the camera pans to the exact z each
+    // board is rendered at.
+    const layout = useBoardLayout()
 
     // Live values read inside subscription callbacks. Subscriptions install
     // once (only `camera` in the dep array) so resize observers can't tear
@@ -34,12 +42,19 @@ export default function CameraManager() {
     const aspectRef = useRef(1)
     const cameraHeightYRef = useRef(props.cameraHeightY)
     const levelHeightIncreaseRef = useRef(props.levelHeightIncrease)
-    const boardSpacingRef = useRef(props.boardSpacing)
+    const layoutRef = useRef(layout)
 
     aspectRef.current = size.width / Math.max(size.height, 1)
     cameraHeightYRef.current = props.cameraHeightY
     levelHeightIncreaseRef.current = props.levelHeightIncrease
-    boardSpacingRef.current = props.boardSpacing
+    layoutRef.current = layout
+
+    // Z the camera should sit above, for the given 1-based level: the board's
+    // own z in the ladder, derived from every board's size up to it.
+    const levelZ = (level: number) => {
+        const sizes = useGame.getState().levelConfigs.map((c) => c.levelMatrix.length)
+        return boardZAt(sizes, level - 1, layoutRef.current)
+    }
 
     // The camera's intended (y, z) destination. Every tween restart reads
     // both axes from here so resize-mid-transition can't strand z partway.
@@ -68,7 +83,7 @@ export default function CameraManager() {
 
         const { currentLevel, cameraRotationZ } = useGame.getState()
         targetRef.current.y = computeY(currentLevel)
-        targetRef.current.z = -boardSpacingRef.current * (currentLevel - 1)
+        targetRef.current.z = levelZ(currentLevel)
         camera.position.y = targetRef.current.y
         camera.position.z = targetRef.current.z
         camera.rotation.z = -cameraRotationZ
@@ -79,7 +94,7 @@ export default function CameraManager() {
             (state) => state.currentLevel,
             (value) => {
                 targetRef.current.y = computeY(value)
-                targetRef.current.z = -boardSpacingRef.current * (value - 1)
+                targetRef.current.z = levelZ(value)
                 tweenToTarget(1)
             }
         )
@@ -124,7 +139,7 @@ export default function CameraManager() {
         const gridSize = cfg ? cfg.levelMatrix.length : 1
         const fitY = requiredCameraY(gridSize, aspectRef.current, cam.fov)
         targetRef.current.y = Math.max(cameraHeightYRef.current, fitY) + (game.currentLevel - 1) * levelHeightIncreaseRef.current
-        targetRef.current.z = -boardSpacingRef.current * (game.currentLevel - 1)
+        targetRef.current.z = levelZ(game.currentLevel)
         posTweenRef.current?.kill()
         posTweenRef.current = gsap.to(camera.position, {
             y: targetRef.current.y,

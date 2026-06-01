@@ -20,7 +20,7 @@ export default function Lights() {
         shadowCameraRight: { value: 10, step: 0.1 },
         shadowCameraBottom: { value: -10, step: 0.1 },
         shadowCameraLeft: { value: -10, step: 0.1 },
-        castShadow: true,
+        castShadow: false,
     })
 
     const al = useControls('ambientLight', {

@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { Group, PerspectiveCamera } from 'three'
 import Title from './components/Title'
-import useGame, { GameMode } from './stores/useGame'
+import useGame, { GameMode, Phase } from './stores/useGame'
 import useUI from './stores/useUI'
 import { useIsMobile } from './hooks/useIsMobile'
 
@@ -18,6 +18,7 @@ export default function Display() {
     const currentLevel = useGame((state) => state.currentLevel)
     const configs = useGame((state) => state.levelConfigs)
     const activeMode = useGame((state) => state.activeMode)
+    const phase = useGame((state) => state.phase)
     const isMobile = useIsMobile()
     const { camera, size } = useThree()
 
@@ -69,7 +70,7 @@ export default function Display() {
 
     return (
         <group ref={groupRef}>
-            {activeMode !== GameMode.MENU && <Title />}
+            {activeMode !== GameMode.MENU && phase !== Phase.READY && <Title />}
         </group>
     )
 }

@@ -2,8 +2,10 @@ import { useEffect } from 'react'
 import useGame, { Phase, initGameState, advanceGameState } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useLibraryRun, { LIBRARY_BATCH_SIZE } from '../stores/useLibraryRun'
+import useIntro, { INTRO_LOOKAHEAD, PLAY_LOOKAHEAD } from '../stores/useIntro'
 import useGeneration from '../stores/useGeneration'
 import { prefetchPuzzle, takeOrGenerate, resetPrefetch } from '../generator/prefetch'
+import type { DecodedBoard } from '../types/puzzle'
 import LibraryTierPicker from '../interface/LibraryTierPicker'
 import LibraryBatchComplete from '../interface/LibraryBatchComplete'
 import LibraryGameOver from '../interface/LibraryGameOver'
@@ -14,24 +16,51 @@ export function LibraryModeProvider() {
     const showBatchComplete = useLibraryRun((s) => s.showBatchComplete)
     const showGameOver = useLibraryRun((s) => s.showGameOver)
 
-    // Fresh batch start: reset game state with puzzle #1.
+    // The not-yet-played lookahead lives in useIntro.upcomingBoards: the advance
+    // handler drains it before falling back to fresh generation (so the boards
+    // you previewed are the boards you play), and keeps it topped up so the play
+    // ladder always previews the upcoming boards above the current one.
+
+    // Fresh batch start: pre-generate the intro lookahead, open on puzzle #1.
     useEffect(() => {
         if (activeTierSize === null) return
         if (showBatchComplete || showGameOver) return
 
         let cancelled = false
         const setPending = useGeneration.getState().setPending
+        const size = activeTierSize as number
 
         async function bootstrap() {
             resetPrefetch('library')
+            // Drop the prior session's ladder up front so it doesn't show
+            // through while this batch's boards generate.
+            useIntro.getState().setSessionBoards([])
+            useIntro.getState().setUpcomingBoards([])
             setPending(true)
-            const first = await takeOrGenerate('library', activeTierSize as number)
-            if (cancelled) return
+
+            // Pre-generate the intro ladder: up to INTRO_LOOKAHEAD boards, but
+            // never more than the batch has left. Same size, so they stack into
+            // a clean receding ladder.
+            const wanted = Math.min(INTRO_LOOKAHEAD, LIBRARY_BATCH_SIZE)
+            const boards: DecodedBoard[] = []
+            for (let i = 0; i < wanted; i++) {
+                const board = await takeOrGenerate('library', size)
+                if (cancelled) return
+                if (!board) break
+                boards.push(board)
+            }
             setPending(false)
-            if (!first) return
-            useGame.setState(initGameState([first]))
-            // Prefetch the next puzzle in the batch (same size).
-            prefetchPuzzle('library', activeTierSize as number)
+            if (!boards.length) return
+
+            // Publish the ladder before flipping to READY so IntroCamera frames
+            // the whole stack from its first frame (no single-board flash). The
+            // boards past #1 become the rolling play lookahead (the ghosts shown
+            // above the current board), drained by advanceToNext.
+            useIntro.getState().setSessionBoards(boards)
+            useIntro.getState().setUpcomingBoards(boards.slice(1))
+            useGame.setState(initGameState([boards[0]]))
+            // Warm the cache for the first board past the lookahead.
+            prefetchPuzzle('library', size)
         }
 
         void bootstrap()
@@ -85,10 +114,18 @@ export function LibraryModeProvider() {
         )
 
         async function advanceToNext() {
-            setPending(true)
-            const next = await takeOrGenerate('library', activeTierSize as number)
-            if (cancelled) return
-            setPending(false)
+            const upcoming = useIntro.getState().upcomingBoards
+            let next: DecodedBoard | null
+            if (upcoming.length > 0) {
+                // Drain a board the player already previewed in the play ladder.
+                next = upcoming[0]
+                useIntro.getState().setUpcomingBoards(upcoming.slice(1))
+            } else {
+                setPending(true)
+                next = await takeOrGenerate('library', activeTierSize as number)
+                if (cancelled) return
+                setPending(false)
+            }
 
             if (!next) {
                 useLibraryRun.getState().markGameOver()
@@ -96,8 +133,27 @@ export function LibraryModeProvider() {
             }
             // lives preserved across the batch
             useGame.setState(advanceGameState(useGame.getState(), next))
-            // Prefetch one more for the next advance.
-            prefetchPuzzle('library', activeTierSize as number)
+            // Refill the lookahead so the play ladder keeps previewing boards
+            // above the current one (bounded by what's left in the batch).
+            void topUpLookahead()
+        }
+
+        // Keep PLAY_LOOKAHEAD boards generated ahead of the current position,
+        // but never past the end of the batch. Library tiers are uniform-size,
+        // so every board is activeTierSize.
+        async function topUpLookahead() {
+            const target = PLAY_LOOKAHEAD
+            const size = activeTierSize as number
+            while (!cancelled) {
+                const upcoming = useIntro.getState().upcomingBoards
+                if (upcoming.length >= target) break
+                // Don't pre-generate past the boards this batch will ever play.
+                const loaded = useGame.getState().levelConfigs.length + upcoming.length
+                if (loaded >= LIBRARY_BATCH_SIZE) break
+                const board = await takeOrGenerate('library', size)
+                if (cancelled || !board) break
+                useIntro.getState().setUpcomingBoards([...useIntro.getState().upcomingBoards, board])
+            }
         }
 
         return () => {

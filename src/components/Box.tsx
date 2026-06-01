@@ -6,7 +6,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 
 import { useResource } from '../stores/useResource'
 import useButtonAnimation from '../utils/useButtonAnimation'
-import useGame, { BoxState } from '../stores/useGame'
+import useGame, { BoxState, Phase } from '../stores/useGame'
 import type { BoxStateValue } from '../stores/useGame'
 import useBoxSettings from '../stores/useBoxSettings'
 import useHint from '../stores/useHint'
@@ -37,6 +37,10 @@ function getFlip(dx: number, dy: number) {
 
 export default function Box({ group, levelIndex, row, col, gridSize, spacing, interactive = true }: BoxProps) {
     const boxState = useGame((state) => state.levels[levelIndex]?.[row]?.[col] ?? BoxState.BLANK)
+    // Block all input during the board-intro (Phase.READY) — the board is on
+    // display, not yet in play. Shadows stay on (castShadow keys off
+    // `interactive`, not this) so the hero shot still reads as 3D.
+    const canPlay = useGame((state) => state.phase === Phase.PLAYING)
     const placeBoxle = useGame((state) => state.placeBoxle)
     const toggleMark = useGame((state) => state.toggleMark)
     const hintRole   = useHint((state) => state.getBoxRole(levelIndex, row, col))
@@ -214,7 +218,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     const isBlocked = hintActive && !hintRole
 
     const handlePointerEnter = (e: ThreeEvent<PointerEvent>) => {
-        if (!interactive || isBlocked) return
+        if (!interactive || isBlocked || !canPlay) return
         pointerEnter(e)
         if (e.nativeEvent.buttons !== 1) return
         // Skip the synthetic pointerenter R3F fires on the start box right
@@ -254,7 +258,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     }
 
     const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
-        if (!interactive || isBlocked) return
+        if (!interactive || isBlocked || !canPlay) return
         e.stopPropagation()
         const isTouch = e.nativeEvent.pointerType !== 'mouse'
 
@@ -302,18 +306,18 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     // pointermove is the fallback for big-box-small-drag cases where the
     // pointer never leaves the origin box but still passes the threshold.
     const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
-        if (!interactive || isBlocked) return
+        if (!interactive || isBlocked || !canPlay) return
         dragTracker.maybeStartDrag(e.nativeEvent)
     }
 
     const handlePointerLeave = (e: ThreeEvent<PointerEvent>) => {
         pointerLeave(e)
-        if (!interactive || isBlocked) return
+        if (!interactive || isBlocked || !canPlay) return
         dragTracker.maybeStartDrag(e.nativeEvent)
     }
 
     const handleClick = (e: ThreeEvent<MouseEvent>) => {
-        if (!interactive || isBlocked) return
+        if (!interactive || isBlocked || !canPlay) return
         e.stopPropagation()
         if (dragTracker.hasDragged || e.nativeEvent.shiftKey) return
         // The 2nd+ click of a double-click (detail >= 2) is the place-a-star
@@ -325,7 +329,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     }
 
     const handleDoubleClick = (e: ThreeEvent<MouseEvent>) => {
-        if (!interactive || isBlocked) return
+        if (!interactive || isBlocked || !canPlay) return
         e.stopPropagation()
         e.nativeEvent.preventDefault()
         if (boxState === BoxState.BLANK || boxState === BoxState.MARK) placeBoxle(levelIndex, row, col)

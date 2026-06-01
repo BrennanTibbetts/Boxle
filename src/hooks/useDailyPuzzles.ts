@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { RawPuzzle } from '../types/puzzle'
 import { getDateSeed, seededRandom, decodeBoard } from '../utils/puzzle'
 import useGame from '../stores/useGame'
+import useIntro from '../stores/useIntro'
 import { MIN_PUZZLE_SIZE } from '../config/puzzleSize'
 
 export function useDailyPuzzles(puzzleData: RawPuzzle[][]): void {
@@ -19,6 +20,12 @@ export function useDailyPuzzles(puzzleData: RawPuzzle[][]): void {
             const puzzle = puzzles[Math.floor(random() * puzzles.length)]
             return decodeBoard(puzzle.Board)
         })
+        // Daily loads every puzzle into levelConfigs up front, so the intro
+        // ladder and the play window both read those directly — clear any
+        // lookahead a prior Library/Infinite session left behind so it doesn't
+        // bleed through.
+        useIntro.getState().setSessionBoards([])
+        useIntro.getState().setUpcomingBoards([])
         populatePuzzles(configs)
     }, [populatePuzzles])
 }

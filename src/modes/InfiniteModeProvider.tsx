@@ -3,10 +3,12 @@ import useGame, { Phase, GameMode, initGameState, advanceGameState } from '../st
 import usePersistence from '../stores/usePersistence'
 import type { InfiniteSave } from '../stores/usePersistence'
 import useInfiniteRun, { INFINITE_START_SIZE, INFINITE_MAX_SIZE } from '../stores/useInfiniteRun'
+import useIntro, { INTRO_LOOKAHEAD, PLAY_LOOKAHEAD } from '../stores/useIntro'
 import useUpsell from '../stores/useUpsell'
 import useGeneration from '../stores/useGeneration'
 import { canPlayAt } from '../utils/gates'
-import { prefetchPuzzle, takeOrGenerate, resetPrefetch } from '../generator/prefetch'
+import { takeOrGenerate, resetPrefetch } from '../generator/prefetch'
+import type { DecodedBoard } from '../types/puzzle'
 
 // Flip to re-enable the depth-wall upsell that fires when the player
 // crosses canPlayAt() in Infinite. Off while we sort out the generator —
@@ -72,28 +74,51 @@ export function InfiniteModeProvider() {
                     runLivesLost: existing.runLivesLost,
                 })
                 resetPrefetch('infinite')
-                prefetchPuzzle('infinite', Math.min(existing.currentSize + 1, INFINITE_MAX_SIZE))
+                // Resume skips the intro — clear any stale ladder, then rebuild
+                // the rolling lookahead so the play preview works immediately.
+                useIntro.getState().setSessionBoards([])
+                useIntro.getState().setUpcomingBoards([])
+                void topUpLookahead()
                 return
             }
 
             // Fresh run.
             persistence.startInfiniteRun()
             resetPrefetch('infinite')
+            // Drop the prior session's ladder up front so it doesn't show
+            // through while this run's boards generate.
+            useIntro.getState().setSessionBoards([])
+            useIntro.getState().setUpcomingBoards([])
 
             setPending(true)
-            const first = await takeOrGenerate('infinite', INFINITE_START_SIZE)
-            if (cancelled) return
+            // Pre-generate the intro ladder: INTRO_LOOKAHEAD boards of growing
+            // size (START, START+1, ...), so the receding stack previews the
+            // ramp you're about to climb. Infinite never ends, so this is a
+            // fixed lookahead — boards past it generate lazily as today.
+            const boards: DecodedBoard[] = []
+            for (let i = 0; i < INTRO_LOOKAHEAD; i++) {
+                const size = Math.min(INFINITE_START_SIZE + i, INFINITE_MAX_SIZE)
+                const board = await takeOrGenerate('infinite', size)
+                if (cancelled) return
+                if (!board) break
+                boards.push(board)
+            }
             setPending(false)
 
-            if (!first) {
+            if (!boards.length) {
                 persistence.endInfiniteRun({ deepestSize: 0 })
                 useGame.setState({ phase: Phase.ENDED })
                 return
             }
 
-            useGame.setState(initGameState([first]))
-            infinite.setCurrentSize(INFINITE_START_SIZE)
-            prefetchPuzzle('infinite', Math.min(INFINITE_START_SIZE + 1, INFINITE_MAX_SIZE))
+            // Publish the ladder before flipping to READY so IntroCamera frames
+            // the whole stack from its first frame (no single-board flash). The
+            // boards past #1 become the rolling play lookahead (the ghosts shown
+            // above the current board), drained by advanceInfiniteTo.
+            useIntro.getState().setSessionBoards(boards)
+            useIntro.getState().setUpcomingBoards(boards.slice(1))
+            useGame.setState(initGameState([boards[0]]))
+            infinite.setCurrentSize(boards[0].levelMatrix.length)
             // Persist the freshly initialised state immediately so a reload
             // before any move still resumes the same run.
             persistence.saveInfinite(snapshot())
@@ -169,20 +194,52 @@ export function InfiniteModeProvider() {
         // after a purchase clears the gate. Reads fresh state from the
         // stores rather than closing over the subscriber's snapshot.
         async function advanceInfiniteTo(nextSize: number) {
-            setPending(true)
-            const next = await takeOrGenerate('infinite', nextSize)
-            if (cancelled) return
-            setPending(false)
+            const upcoming = useIntro.getState().upcomingBoards
+            let next: DecodedBoard | null
+            if (upcoming.length > 0) {
+                // Drain a board the player already previewed in the play ladder
+                // (its size matches the growing-size lookahead).
+                next = upcoming[0]
+                useIntro.getState().setUpcomingBoards(upcoming.slice(1))
+            } else {
+                setPending(true)
+                next = await takeOrGenerate('infinite', nextSize)
+                if (cancelled) return
+                setPending(false)
+            }
 
             const run = useInfiniteRun.getState()
             if (!next) {
                 usePersistence.getState().endInfiniteRun({ deepestSize: run.currentSize })
                 return
             }
-            if (nextSize !== run.currentSize) run.setCurrentSize(nextSize)
-            prefetchPuzzle('infinite', Math.min(nextSize + 1, INFINITE_MAX_SIZE))
+            const size = next.levelMatrix.length
+            if (size !== run.currentSize) run.setCurrentSize(size)
             useGame.setState(advanceGameState(useGame.getState(), next))
             usePersistence.getState().saveInfinite(snapshot())
+            // Keep the lookahead refilled so the play ladder always previews the
+            // upcoming boards above the current one (not just the initial five).
+            void topUpLookahead()
+        }
+
+        // Keep PLAY_LOOKAHEAD boards generated ahead of the current play
+        // position — enough to render the above-ghost(s) and buffer the next
+        // advance, without loading the whole ladder. Runs in the background (no
+        // spinner); if generation can't keep pace, advanceInfiniteTo falls back
+        // to on-demand generation.
+        async function topUpLookahead() {
+            const target = PLAY_LOOKAHEAD
+            while (!cancelled) {
+                const upcoming = useIntro.getState().upcomingBoards
+                if (upcoming.length >= target) break
+                // Index of the next board in the full session = boards already
+                // loaded into play + boards already queued ahead.
+                const nextIndex = useGame.getState().levelConfigs.length + upcoming.length
+                const size = Math.min(INFINITE_START_SIZE + nextIndex, INFINITE_MAX_SIZE)
+                const board = await takeOrGenerate('infinite', size)
+                if (cancelled || !board) break
+                useIntro.getState().setUpcomingBoards([...useIntro.getState().upcomingBoards, board])
+            }
         }
 
         return () => {

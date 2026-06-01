@@ -51,8 +51,12 @@ export function initGameState(puzzles: DecodedBoard[]): InitPatch {
         levels: puzzles.map(({ levelMatrix }) => makeBlankGrid(levelMatrix.length)),
         levelMistakes: puzzles.map(() => 0),
         currentLevel: 1,
-        phase: Phase.PLAYING,
-        startTime: Date.now(),
+        // Fresh sessions open on the board-intro (hero framing + Start). The
+        // clock doesn't run until start() flips to PLAYING. advanceGameState
+        // (next puzzle in a run/batch) goes straight to PLAYING — the intro is
+        // once per session entry, not per puzzle.
+        phase: Phase.READY,
+        startTime: null,
         endTime: null,
         wrongPlacement: null,
         lastBoxlePosition: null,
@@ -191,7 +195,11 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         levelConfigs: configs,
         levels: configs.map(({ levelMatrix }) => makeBlankGrid(levelMatrix.length)),
         currentLevel: 1,
-        startTime: Date.now(),
+        // Daily opens on the board-intro too; a saved in-flight daily overrides
+        // this back to its stored phase in usePersistenceSync, so resumes skip
+        // the intro.
+        phase: Phase.READY,
+        startTime: null,
         endTime: null,
         wrongPlacement: null,
         sessionHints: 0,

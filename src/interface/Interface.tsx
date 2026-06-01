@@ -11,6 +11,7 @@ import AccountButton from './AccountButton'
 import AuthModal from './AuthModal'
 import RulesModal, { useFirstVisitRules } from './RulesModal'
 import UpsellModal from './UpsellModal'
+import StartOverlay from './StartOverlay'
 import { DailyModeProvider } from '../modes/DailyModeProvider'
 import { InfiniteModeProvider } from '../modes/InfiniteModeProvider'
 import { LibraryModeProvider } from '../modes/LibraryModeProvider'
@@ -108,6 +109,7 @@ export default function Interface() {
     useBootMode()
     useTrackActiveMode()
     const activeMode = useGame((state) => state.activeMode)
+    const phase = useGame((state) => state.phase)
     const infiniteRunId = useInfiniteRun((s) => s.runId)
     const libraryActiveTier = useLibraryRun((s) => s.activeTierSize)
     const libraryShowBatchComplete = useLibraryRun((s) => s.showBatchComplete)
@@ -117,6 +119,9 @@ export default function Interface() {
         libraryActiveTier === null || libraryShowBatchComplete || libraryShowGameOver
     )
     const showGameUI = activeMode !== GameMode.MENU && !inLibraryOverlay
+    // During the board-intro the in-game HUD is hidden in favour of the Start
+    // affordance; the play HUD comes up only once the puzzle is live.
+    const inIntro = showGameUI && phase === Phase.READY
 
     return (
         <YStack
@@ -131,7 +136,7 @@ export default function Interface() {
             {activeMode === GameMode.INFINITE && <InfiniteModeProvider key={infiniteRunId} />}
             {activeMode === GameMode.LIBRARY && <LibraryModeProvider />}
 
-            {showGameUI && (
+            {showGameUI && !inIntro && (
                 <>
                     <HUD />
                     <TimerDisplay />
@@ -141,6 +146,8 @@ export default function Interface() {
                     <ControlsManager />
                 </>
             )}
+
+            {inIntro && <StartOverlay />}
 
             {activeMode === GameMode.MENU && <MainMenu />}
 

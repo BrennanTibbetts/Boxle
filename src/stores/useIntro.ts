@@ -1,13 +1,15 @@
 import { create } from 'zustand'
 import type { DecodedBoard } from '../types/puzzle'
 
-// How many of the session's upcoming boards to frame in the board-intro ladder.
-// Daily already has all its puzzles loaded up front, so it ignores this and
-// shows them all. Library/Infinite generate lazily, so they pre-generate up to
-// this many boards before the intro so the ladder isn't a lonely single board.
-// Bounded so the pre-generation wait (and the receding ladder's depth) stay
-// reasonable — Library batches are 10 and Infinite is endless.
-export const INTRO_LOOKAHEAD = 5
+// Default number of the session's upcoming boards to frame in the board-intro
+// ladder. Daily already has all its puzzles loaded up front, so it ignores this
+// and shows them all. Library/Infinite generate lazily, so they pre-generate up
+// to this many boards before the intro so the ladder isn't a lonely single
+// board. This is just the default — the live value comes from the Leva control
+// in useIntroLadder (`Board Intro → intro boards`), read by the providers at
+// session bootstrap. Bounded so the pre-generation wait (and the receding
+// ladder's depth) stay reasonable — Library batches are 10 and Infinite is endless.
+export const INTRO_LOOKAHEAD = 20
 
 // How many not-yet-played boards to keep generated ahead during *play* (the
 // rolling `upcomingBoards` lookahead). The play ladder only previews a board or

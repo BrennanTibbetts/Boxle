@@ -30,7 +30,7 @@ root.render(
                 depth: true,
                 alpha: false,
             }}
-            camera={{ fov: 45, near: 0.1, far: 100, position: [0, 60, 0] }}
+            camera={{ fov: 45, near: 0.1, far: 260, position: [0, 60, 0] }}
         >
             <ResourceLoader>
                 <Experience />

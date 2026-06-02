@@ -24,6 +24,12 @@ interface BoxProps {
     gridSize: number
     spacing: number
     interactive?: boolean
+    // LOD: when true, render only the base box mesh and skip every overlay
+    // (glow, mark, charge, dim, wrong). Used for receding intro boards where
+    // nothing is placed, so the simplified version is visually identical but
+    // cuts draw calls. All overlay refs are null-guarded, so animations that
+    // target them safely no-op when they aren't rendered.
+    simplified?: boolean
 }
 
 function getFlip(dx: number, dy: number) {
@@ -35,7 +41,7 @@ function getFlip(dx: number, dy: number) {
 }
 
 
-export default function Box({ group, levelIndex, row, col, gridSize, spacing, interactive = true }: BoxProps) {
+export default function Box({ group, levelIndex, row, col, gridSize, spacing, interactive = true, simplified = false }: BoxProps) {
     const boxState = useGame((state) => state.levels[levelIndex]?.[row]?.[col] ?? BoxState.BLANK)
     // Block all input during the board-intro (Phase.READY) — the board is on
     // display, not yet in play. Shadows stay on (castShadow keys off
@@ -359,29 +365,35 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
                 geometry={geometry}
                 material={isBoxle ? boxleMaterial : material}
             >
-                <mesh
-                    ref={glowRef}
-                    scale={0}
-                    geometry={geometry}
-                    material={glowMaterial}
-                />
+                {!simplified && (
+                    <mesh
+                        ref={glowRef}
+                        scale={0}
+                        geometry={geometry}
+                        material={glowMaterial}
+                    />
+                )}
             </mesh>
-            <mesh
-                ref={markRef}
-                renderOrder={3}
-                position-y={-0.5}
-                geometry={geometry}
-                material={markMaterial}
-                scale={[0, 0.1, 0]}
-            />
-            <mesh
-                ref={chargeMeshRef}
-                geometry={geometry}
-                material={boxleMaterial}
-                scale={0}
-            />
-            {showDim && <mesh geometry={geometry} material={dimMaterial} scale={dimScale} />}
-            {isWrongPlacement && <mesh geometry={geometry} material={wrongMaterial} scale={1.0} />}
+            {!simplified && (
+                <mesh
+                    ref={markRef}
+                    renderOrder={3}
+                    position-y={-0.5}
+                    geometry={geometry}
+                    material={markMaterial}
+                    scale={[0, 0.1, 0]}
+                />
+            )}
+            {!simplified && (
+                <mesh
+                    ref={chargeMeshRef}
+                    geometry={geometry}
+                    material={boxleMaterial}
+                    scale={0}
+                />
+            )}
+            {!simplified && showDim && <mesh geometry={geometry} material={dimMaterial} scale={dimScale} />}
+            {!simplified && isWrongPlacement && <mesh geometry={geometry} material={wrongMaterial} scale={1.0} />}
         </group>
     )
 }

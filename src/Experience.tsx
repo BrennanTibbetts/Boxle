@@ -4,6 +4,7 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing'
 
 import Lights from './Lights'
 import Game from './Game'
+import CameraClip from './CameraClip'
 import BoxControls from './components/BoxControls'
 
 export default function Experience() {
@@ -28,6 +29,7 @@ export default function Experience() {
         <color args={[props.background]} attach='background' />
         {props.performance && <Perf position='top-left' />}
         <Lights />
+        <CameraClip />
         <BoxControls />
         <Game />
         {bloom.usePostBloom && (

@@ -15,13 +15,14 @@ interface InfiniteRunState {
 }
 
 export const INFINITE_START_SIZE = MIN_PUZZLE_SIZE
-// Paid ceiling — the absolute cap on Infinite depth, even with premium.
-// Sourced from MAX_PUZZLE_SIZE (the shared min/max knob); the generator's
-// own pain point is far higher (size-16+ on the synchronous main-thread
-// generator), so today this cap is a pricing/pacing decision rather than
-// a generator constraint. Saves with `currentSize > INFINITE_MAX_SIZE`
-// clamp down on resume: prefetch always asks for `min(currentSize+1, MAX)`.
-export const INFINITE_MAX_SIZE = MAX_PUZZLE_SIZE
+// Infinite's ladder tops out at 12×12, deliberately below the shared
+// MAX_PUZZLE_SIZE (18). This is a pacing/feel decision, not a generator
+// constraint: boards beyond ~12 take long enough to read that they stop
+// feeling like a "survival sprint", and the per-board generation cost grows
+// with size. Capped via `Math.min` so it can never exceed the shared ceiling.
+// Saves with `currentSize > INFINITE_MAX_SIZE` clamp down on resume; prefetch
+// always asks for `min(currentSize+1, INFINITE_MAX_SIZE)`.
+export const INFINITE_MAX_SIZE = Math.min(12, MAX_PUZZLE_SIZE)
 
 const useInfiniteRun = create<InfiniteRunState>((set) => ({
     runId: 0,

@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import useGame, { Phase, initGameState, advanceGameState } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useLibraryRun, { LIBRARY_BATCH_SIZE } from '../stores/useLibraryRun'
-import useIntro, { INTRO_LOOKAHEAD, PLAY_LOOKAHEAD } from '../stores/useIntro'
+import useIntro, { PLAY_LOOKAHEAD } from '../stores/useIntro'
+import { useIntroLookahead } from '../hooks/useIntroLadder'
 import useGeneration from '../stores/useGeneration'
-import { prefetchPuzzle, takeOrGenerate, resetPrefetch } from '../generator/prefetch'
+import { prefetchPuzzle, takeOrGenerate, generateMany, resetPrefetch } from '../generator/prefetch'
 import type { DecodedBoard } from '../types/puzzle'
 import LibraryTierPicker from '../interface/LibraryTierPicker'
 import LibraryBatchComplete from '../interface/LibraryBatchComplete'
@@ -15,6 +16,12 @@ export function LibraryModeProvider() {
     const batchId = useLibraryRun((s) => s.batchId)
     const showBatchComplete = useLibraryRun((s) => s.showBatchComplete)
     const showGameOver = useLibraryRun((s) => s.showGameOver)
+
+    // Leva-tunable intro ladder depth, held in a ref so the bootstrap effect
+    // reads the latest value at batch start without re-running on every change.
+    const introLookahead = useIntroLookahead()
+    const introLookaheadRef = useRef(introLookahead)
+    introLookaheadRef.current = introLookahead
 
     // The not-yet-played lookahead lives in useIntro.upcomingBoards: the advance
     // handler drains it before falling back to fresh generation (so the boards
@@ -38,14 +45,16 @@ export function LibraryModeProvider() {
             useIntro.getState().setUpcomingBoards([])
             setPending(true)
 
-            // Pre-generate the intro ladder: up to INTRO_LOOKAHEAD boards, but
+            // Pre-generate the intro ladder: up to `introBoards` boards, but
             // never more than the batch has left. Same size, so they stack into
-            // a clean receding ladder.
-            const wanted = Math.min(INTRO_LOOKAHEAD, LIBRARY_BATCH_SIZE)
+            // a clean receding ladder. Generated in parallel across the worker
+            // pool (generateMany never dedupes same-size, so these are distinct
+            // boards), then truncated at the first failure.
+            const wanted = Math.min(introLookaheadRef.current, LIBRARY_BATCH_SIZE)
+            const results = await generateMany('library', Array.from({ length: wanted }, () => size))
+            if (cancelled) return
             const boards: DecodedBoard[] = []
-            for (let i = 0; i < wanted; i++) {
-                const board = await takeOrGenerate('library', size)
-                if (cancelled) return
+            for (const board of results) {
                 if (!board) break
                 boards.push(board)
             }

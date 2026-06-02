@@ -18,10 +18,13 @@ export default function LevelManager() {
     // way. (The intro phase above still frames the full session.) Tunable live
     // for feel-vs-perf; the above-window is capped by how many boards the
     // providers keep generated ahead (PLAY_LOOKAHEAD).
-    const { below, above } = useControls('Level', {
+    const { below, above, introFullDetail } = useControls('Level', {
         ladder: folder({
             below: { value: 1, min: 0, max: 8, step: 1, label: 'preview below' },
             above: { value: 1, min: 0, max: 8, step: 1, label: 'preview above' },
+            // LOD: how many front boards in the intro ladder render full detail;
+            // every board past this draws base meshes only (see Box `simplified`).
+            introFullDetail: { value: 1, min: 1, max: 6, step: 1, label: 'intro full-detail' },
         }),
     })
 
@@ -41,12 +44,18 @@ export default function LevelManager() {
         const introZ = boardZPositions(introBoards.map((b) => b.levelMatrix.length), layout)
         return <>
             {introBoards.map((config, index) => (
+                // LOD: the front `introFullDetail` boards render full; the
+                // boards receding behind them draw base meshes only. Nothing is
+                // placed during the intro, so the overlays they skip (glow,
+                // mark, charge, dim, wrong) are invisible anyway — pure
+                // draw-call savings with no visual change.
                 <Level
                     key={index}
                     levelIndex={index}
                     levelMatrix={config.levelMatrix}
                     answerMatrix={config.answerMatrix}
                     interactive
+                    simplified={index >= introFullDetail}
                     z={introZ[index]}
                     boxSpacing={layout.boxSpacing}
                 />

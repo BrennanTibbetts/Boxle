@@ -17,7 +17,13 @@ import type { DecodedBoard } from '../types/puzzle'
 // Caveat: JavaScript can't preempt a generation in progress, even in a worker
 // — so if the player retargets to a new size while a stale generation is
 // in flight, that generation runs to completion and its result is discarded
-// on the host side. The worker processes its message queue serially.
+// on the host side. Each worker processes its message queue serially.
+//
+// Parallelism: a *pool* of workers (sized to the machine, capped) backs all
+// generation. Single-board prefetch/take requests round-robin across the pool;
+// the batch path (generateMany) fans a whole intro ladder out at once, so a
+// deep ladder generates concurrently across cores instead of one board at a
+// time. See generateMany.
 
 interface CacheEntry {
     size: number
@@ -42,25 +48,48 @@ const cache: Record<Namespace, CacheEntry | null> = {
 const pending = new Map<number, PendingJob>()
 let nextRequestId = 1
 
-let worker: Worker | null = null
+// Worker pool. Sized to leave a core for the main thread, capped so we don't
+// spawn a wasteful number on many-core machines. Created lazily on first use.
+const POOL_SIZE = (() => {
+    const cores = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4
+    return Math.max(1, Math.min(4, cores - 1))
+})()
 
-function getWorker(): Worker {
-    if (worker) return worker
-    worker = new GeneratorWorker()
-    worker.onmessage = (event: MessageEvent<GenerateResponse>) => {
-        const { type, requestId, board } = event.data
-        if (type !== 'result') return
-        const job = pending.get(requestId)
-        if (!job) return // stale — request was discarded by the host
-        pending.delete(requestId)
-        if (job.resolvers.length > 0) {
-            for (const resolve of job.resolvers) resolve(board)
-        } else if (board) {
-            // Pure prefetch with no awaiters — fill the cache slot.
-            cache[job.ns] = { size: job.size, board }
-        }
+let pool: Worker[] = []
+let nextWorker = 0
+
+function handleMessage(event: MessageEvent<GenerateResponse>) {
+    const { type, requestId, board } = event.data
+    if (type !== 'result') return
+    const job = pending.get(requestId)
+    if (!job) return // stale — request was discarded by the host
+    pending.delete(requestId)
+    if (job.resolvers.length > 0) {
+        for (const resolve of job.resolvers) resolve(board)
+    } else if (board) {
+        // Pure prefetch with no awaiters — fill the cache slot.
+        cache[job.ns] = { size: job.size, board }
     }
-    return worker
+}
+
+function ensurePool(): Worker[] {
+    if (pool.length) return pool
+    for (let i = 0; i < POOL_SIZE; i++) {
+        const w = new GeneratorWorker()
+        w.onmessage = handleMessage
+        pool.push(w)
+    }
+    return pool
+}
+
+// Round-robin a worker off the pool. Each worker is its own OS thread, so jobs
+// handed to different workers run concurrently; jobs piled on one worker still
+// serialize. Round-robin keeps a batch evenly spread.
+function pickWorker(): Worker {
+    const p = ensurePool()
+    const w = p[nextWorker % p.length]
+    nextWorker++
+    return w
 }
 
 function findInflight(ns: Namespace, size: number): number | null {
@@ -73,7 +102,7 @@ function findInflight(ns: Namespace, size: number): number | null {
 function postGenerate(ns: Namespace, size: number): number {
     const requestId = nextRequestId++
     pending.set(requestId, { ns, size, resolvers: [] })
-    getWorker().postMessage({ type: 'generate', requestId, size })
+    pickWorker().postMessage({ type: 'generate', requestId, size })
     return requestId
 }
 
@@ -119,6 +148,29 @@ export function takeOrGenerate(ns: Namespace, size: number): Promise<DecodedBoar
         if (id === null) id = postGenerate(ns, size)
         pending.get(id)!.resolvers.push(resolve)
     })
+}
+
+/**
+ * Generate `sizes.length` boards in parallel across the worker pool, one per
+ * entry (order preserved). Used to fan out the whole intro ladder at once
+ * instead of awaiting boards one at a time.
+ *
+ * Unlike takeOrGenerate this **never dedupes** same-size requests: each entry
+ * gets its own job and its own fresh board, so a uniform-size ladder (Library)
+ * yields N distinct boards rather than N references to one. Jobs carry `ns` so
+ * an in-flight batch is cancelled by resetPrefetch (resolving those slots null).
+ */
+export function generateMany(ns: Namespace, sizes: number[]): Promise<Array<DecodedBoard | null>> {
+    return Promise.all(
+        sizes.map(
+            (size) =>
+                new Promise<DecodedBoard | null>((resolve) => {
+                    const requestId = nextRequestId++
+                    pending.set(requestId, { ns, size, resolvers: [resolve] })
+                    pickWorker().postMessage({ type: 'generate', requestId, size })
+                })
+        )
+    )
 }
 
 /**

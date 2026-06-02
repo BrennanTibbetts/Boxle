@@ -1,13 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import useGame, { Phase, GameMode, initGameState, advanceGameState } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import type { InfiniteSave } from '../stores/usePersistence'
 import useInfiniteRun, { INFINITE_START_SIZE, INFINITE_MAX_SIZE } from '../stores/useInfiniteRun'
-import useIntro, { INTRO_LOOKAHEAD, PLAY_LOOKAHEAD } from '../stores/useIntro'
+import useIntro, { PLAY_LOOKAHEAD } from '../stores/useIntro'
+import { useIntroLookahead } from '../hooks/useIntroLadder'
 import useUpsell from '../stores/useUpsell'
 import useGeneration from '../stores/useGeneration'
 import { canPlayAt } from '../utils/gates'
-import { takeOrGenerate, resetPrefetch } from '../generator/prefetch'
+import { takeOrGenerate, generateMany, resetPrefetch } from '../generator/prefetch'
 import type { DecodedBoard } from '../types/puzzle'
 
 // Flip to re-enable the depth-wall upsell that fires when the player
@@ -36,6 +37,13 @@ function snapshot(): InfiniteSave {
 
 export function InfiniteModeProvider() {
     const runId = useInfiniteRun((s) => s.runId)
+
+    // Leva-tunable intro ladder depth. Held in a ref so the bootstrap effect
+    // (keyed on runId) reads the latest value at session start without re-running
+    // — and therefore re-generating — every time the knob changes mid-run.
+    const introLookahead = useIntroLookahead()
+    const introLookaheadRef = useRef(introLookahead)
+    introLookaheadRef.current = introLookahead
 
     useEffect(() => {
         // Cancellation flag for any in-flight worker awaits — prevents a stale
@@ -91,15 +99,19 @@ export function InfiniteModeProvider() {
             useIntro.getState().setUpcomingBoards([])
 
             setPending(true)
-            // Pre-generate the intro ladder: INTRO_LOOKAHEAD boards of growing
+            // Pre-generate the intro ladder: `introBoards` boards of growing
             // size (START, START+1, ...), so the receding stack previews the
             // ramp you're about to climb. Infinite never ends, so this is a
             // fixed lookahead — boards past it generate lazily as today.
+            // Fanned out in parallel across the worker pool, then truncated at
+            // the first failure so the kept ramp stays contiguous.
+            const introLookahead = introLookaheadRef.current
+            const sizes = Array.from({ length: introLookahead }, (_, i) =>
+                Math.min(INFINITE_START_SIZE + i, INFINITE_MAX_SIZE))
+            const results = await generateMany('infinite', sizes)
+            if (cancelled) return
             const boards: DecodedBoard[] = []
-            for (let i = 0; i < INTRO_LOOKAHEAD; i++) {
-                const size = Math.min(INFINITE_START_SIZE + i, INFINITE_MAX_SIZE)
-                const board = await takeOrGenerate('infinite', size)
-                if (cancelled) return
+            for (const board of results) {
                 if (!board) break
                 boards.push(board)
             }

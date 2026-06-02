@@ -14,8 +14,9 @@ import { requiredCameraY, PLAY_BASE_HEIGHT } from './CameraManager'
 // Two states, both driven here:
 //   - Hold: anchor on board 1 (which sits at z = 0) and look *forward* down the
 //     ladder — a low-angle hero shot of the first board with the rest receding
-//     behind it. The framing depends only on the first board (its position and
-//     size), not on how many boards trail behind it or how big they are.
+//     behind it. Both how far we look (`lookForward`) and how far back the
+//     camera sits (a fixed proportion of `lookForward`) are size-independent,
+//     so the framing is identical regardless of board size or how many trail.
 //   - Fly-in: on Start (useIntro.transitioning) lerp position to straight above
 //     board 1 and slerp orientation to the exact top-down play pose, then flip
 //     the game to PLAYING. Quaternion slerp (vs lookAt-per-frame) avoids the
@@ -29,8 +30,9 @@ export default function IntroCamera() {
         camera: folder({
             pitch: { value: 19, min: 5, max: 89, step: 1 },
             yaw: { value: 0, min: -90, max: 90, step: 1 },
-            distanceMul: { value: 2.5, min: 0.5, max: 6, step: 0.05, label: 'distance ×size' },
+            distanceMul: { value: 0.6, min: 0.2, max: 3, step: 0.05, label: 'distance ×forward' },
             targetY: { value: 0.75, min: -10, max: 10, step: 0.25 },
+            lookForward: { value: 20, min: 0, max: 60, step: 1, label: 'look forward' },
             flyDuration: { value: 2.4, min: 0.2, max: 4, step: 0.1 },
         }),
     })
@@ -62,17 +64,21 @@ export default function IntroCamera() {
 
         if (!useIntro.getState().transitioning) {
             // Hero hold — anchor on board 1 (z = 0) and look forward down the
-            // ladder. Distance scales with the first board's size only, so the
-            // shot is identical regardless of how many boards trail behind it.
+            // ladder. Distance is tied to how far we look forward (a fixed
+            // proportion of `lookForward`), not to board size or count, so the
+            // framing stays consistent across every mode and board size.
             const pitch = THREE.MathUtils.degToRad(knobs.pitch)
             const yaw = THREE.MathUtils.degToRad(knobs.yaw)
-            const d = firstN * knobs.distanceMul
+            const d = knobs.lookForward * knobs.distanceMul
             camera.position.set(
                 d * Math.cos(pitch) * Math.sin(yaw),
                 knobs.targetY + d * Math.sin(pitch),
                 d * Math.cos(pitch) * Math.cos(yaw) // +z: in front of board 1, looking toward -z
             )
-            camera.lookAt(0, knobs.targetY, 0)
+            // Look *forward* down the ladder (boards recede toward -z), not at
+            // board 1 itself — a low hero angle with the rest of the ladder
+            // trailing behind the first board.
+            camera.lookAt(0, knobs.targetY, -knobs.lookForward)
             flyingRef.current = false
             progressRef.current = 0
             return

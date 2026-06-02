@@ -1,5 +1,16 @@
 import { writeFileSync, readFileSync, existsSync } from 'fs'
 
+// Thrown when a single generation attempt blows its time budget mid-search.
+// Caught at the attempt boundary in generatePuzzle, which abandons the
+// attempt and retries with a fresh seed. Without this, one runaway
+// repairBoard run measured 79s — the budget was only checked at attempt
+// boundaries, never inside the inner loops.
+class DeadlineReached extends Error {}
+
+function nowMs() {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now()
+}
+
 // --- PRNG ---
 
 function seededRng(seed) {
@@ -135,7 +146,7 @@ function isConnectedWithout(board, N, regionId, removeR, removeC) {
 // or null if no alternative exists (puzzle is unique).
 // Note: designed for S=1; S>1 support is partial.
 
-function findAlternativeSolution(board, N, S, intendedStars) {
+function findAlternativeSolution(board, N, S, intendedStars, deadline = Infinity) {
   const regionCells = Array.from({ length: N }, () => [])
   for (let r = 0; r < N; r++)
     for (let c = 0; c < N; c++)
@@ -148,6 +159,7 @@ function findAlternativeSolution(board, N, S, intendedStars) {
   const colCount = new Array(N).fill(0)
   const regionCount = new Array(N).fill(0)
   const placed = []
+  let nodes = 0
 
   function getCandidates(reg) {
     return regionCells[reg].filter(([r, c]) => {
@@ -159,6 +171,10 @@ function findAlternativeSolution(board, N, S, intendedStars) {
   }
 
   function backtrack() {
+    // Bail mid-search if the attempt budget is spent. Checked every 1024
+    // nodes so the clock read isn't itself a hot-path cost.
+    if ((++nodes & 1023) === 0 && nowMs() > deadline) throw new DeadlineReached()
+
     if (placed.length === N * S) {
       for (const [r, c] of placed)
         if (!intendedKey.has(r * N + c)) return true
@@ -211,11 +227,12 @@ function findAlternativeSolution(board, N, S, intendedStars) {
 // regions. Repair choices are driven by the solver output — not random sampling.
 // Connectivity is verified before every move. Never moves star cells.
 
-function repairBoard(board, N, S, stars, rng) {
+function repairBoard(board, N, S, stars, rng, deadline = Infinity) {
   const starKeySet = new Set(stars.map(([r, c]) => r * N + c))
 
   for (let iter = 0; iter < 500; iter++) {
-    const alt = findAlternativeSolution(board, N, S, stars)
+    if (nowMs() > deadline) throw new DeadlineReached()
+    const alt = findAlternativeSolution(board, N, S, stars, deadline)
     if (!alt) return board
 
     const conflicts = []
@@ -284,12 +301,13 @@ function repairBoard(board, N, S, stars, rng) {
 // --- Region generation outer loop ---
 // Tries up to 30 BFS seeds per star placement before giving up.
 
-function generateRegions(N, S, stars, masterSeed) {
+function generateRegions(N, S, stars, masterSeed, deadline = Infinity) {
   for (let bfsSeed = 0; bfsSeed < 30; bfsSeed++) {
+    if (nowMs() > deadline) throw new DeadlineReached()
     const bfsRng = seededRng(masterSeed * 1000 + bfsSeed + 1)
     const board = growRegions(N, stars, bfsRng)
     const repairRng = seededRng(masterSeed * 9999 + bfsSeed + 1)
-    const result = repairBoard(board, N, S, stars, repairRng)
+    const result = repairBoard(board, N, S, stars, repairRng, deadline)
     if (result !== null) return result
   }
   return null
@@ -298,12 +316,22 @@ function generateRegions(N, S, stars, masterSeed) {
 // --- Puzzle assembly ---
 // Compact encoding: star in region r → value r + N, regular cell → value r.
 
-function generatePuzzle(N, S, seed) {
+function generatePuzzle(N, S, seed, attemptBudgetMs = 0) {
   for (let attempt = 0; attempt < 100; attempt++) {
+    // Each attempt gets its own fresh budget: a single attempt that stalls
+    // is abandoned (DeadlineReached) and the next seed is tried, rather
+    // than letting one runaway repair consume the whole build.
+    const deadline = attemptBudgetMs > 0 ? nowMs() + attemptBudgetMs : Infinity
     const stars = placeStars(N, S, seededRng(seed * 1000 + attempt + 1))
     if (!stars) continue
 
-    const board = generateRegions(N, S, stars, seed * 999 + attempt + 1)
+    let board
+    try {
+      board = generateRegions(N, S, stars, seed * 999 + attempt + 1, deadline)
+    } catch (e) {
+      if (e instanceof DeadlineReached) continue
+      throw e
+    }
     if (!board) continue
 
     const starKeySet = new Set(stars.map(([r, c]) => r * N + c))
@@ -347,6 +375,10 @@ function main() {
   const masterSeed = parseInt(params.seed ?? String(Date.now()))
   const outPath = params.out ?? `./generated-puzzles/puzzles_n${N}_s${S}.json`
   const append = params.append === true
+  // Per-attempt wall-clock budget. 0 = unbounded (legacy behaviour). At large
+  // sizes a single repair can otherwise hang for tens of seconds; a bounded
+  // attempt is abandoned and retried with a fresh seed instead.
+  const budgetMs = parseInt(params.budget ?? '0')
 
   if (!N || isNaN(N)) {
     console.error('Usage: node generate.js --n <gridSize> [--s <stars>] [--count <n>] [--out <path>] [--seed <n>] [--append]')
@@ -356,6 +388,7 @@ function main() {
     console.error('  --out    Output file path')
     console.error('  --seed   Master PRNG seed for reproducibility')
     console.error('  --append Append to existing file instead of overwriting')
+    console.error('  --budget Per-attempt time budget in ms (0 = unbounded)')
     process.exit(1)
   }
 
@@ -365,7 +398,7 @@ function main() {
   let attempts = 0
 
   while (puzzles.length < count && attempts < count * 50) {
-    const puzzle = generatePuzzle(N, S, masterSeed + attempts)
+    const puzzle = generatePuzzle(N, S, masterSeed + attempts, budgetMs)
     attempts++
     if (puzzle) {
       puzzles.push(puzzle)

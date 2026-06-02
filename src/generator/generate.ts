@@ -3,6 +3,13 @@ import type { RawBoard } from '../types/puzzle'
 type Rng = () => number
 type Cell = [number, number]
 
+// Thrown when generation blows its time budget mid-search. Caught in
+// generateBoard, which returns null. Mirrors generate.js — see the parity
+// note in CLAUDE.md. Without this the deadline was only honoured at attempt
+// boundaries, so a single repairBoard run could still hang for tens of
+// seconds inside one attempt.
+class DeadlineReached extends Error {}
+
 function seededRng(seed: number): Rng {
     let s = Math.abs(Math.floor(seed)) % 2147483647 || 1
     return () => {
@@ -124,7 +131,7 @@ function isConnectedWithout(board: number[][], N: number, regionId: number, remo
     return visited.size === cells.length
 }
 
-function findAlternativeSolution(board: number[][], N: number, S: number, intendedStars: Cell[]): Cell[] | null {
+function findAlternativeSolution(board: number[][], N: number, S: number, intendedStars: Cell[], deadline = Infinity): Cell[] | null {
     const regionCells: Cell[][] = Array.from({ length: N }, () => [])
     for (let r = 0; r < N; r++) {
         for (let c = 0; c < N; c++) {
@@ -139,6 +146,7 @@ function findAlternativeSolution(board: number[][], N: number, S: number, intend
     const colCount = new Array<number>(N).fill(0)
     const regionCount = new Array<number>(N).fill(0)
     const placed: Cell[] = []
+    let nodes = 0
 
     function getCandidates(reg: number): Cell[] {
         return regionCells[reg].filter(([r, c]) => {
@@ -151,6 +159,10 @@ function findAlternativeSolution(board: number[][], N: number, S: number, intend
     }
 
     function backtrack(): boolean {
+        // Bail mid-search if the budget is spent. Checked every 1024 nodes so
+        // the clock read isn't itself a hot-path cost.
+        if ((++nodes & 1023) === 0 && nowMs() > deadline) throw new DeadlineReached()
+
         if (placed.length === N * S) {
             for (const [r, c] of placed) {
                 if (!intendedKey.has(r * N + c)) return true
@@ -201,11 +213,12 @@ function findAlternativeSolution(board: number[][], N: number, S: number, intend
     return altByRegion
 }
 
-function repairBoard(board: number[][], N: number, S: number, stars: Cell[], rng: Rng): number[][] | null {
+function repairBoard(board: number[][], N: number, S: number, stars: Cell[], rng: Rng, deadline = Infinity): number[][] | null {
     const starKeySet = new Set(stars.map(([r, c]) => r * N + c))
 
     for (let iter = 0; iter < 500; iter++) {
-        const alt = findAlternativeSolution(board, N, S, stars)
+        if (nowMs() > deadline) throw new DeadlineReached()
+        const alt = findAlternativeSolution(board, N, S, stars, deadline)
         if (!alt) return board
 
         const conflicts: { reg: number; r: number; c: number }[] = []
@@ -271,12 +284,13 @@ function repairBoard(board: number[][], N: number, S: number, stars: Cell[], rng
     return null
 }
 
-function generateRegions(N: number, S: number, stars: Cell[], masterSeed: number): number[][] | null {
+function generateRegions(N: number, S: number, stars: Cell[], masterSeed: number, deadline = Infinity): number[][] | null {
     for (let bfsSeed = 0; bfsSeed < 30; bfsSeed++) {
+        if (nowMs() > deadline) throw new DeadlineReached()
         const bfsRng = seededRng(masterSeed * 1000 + bfsSeed + 1)
         const board = growRegions(N, stars, bfsRng)
         const repairRng = seededRng(masterSeed * 9999 + bfsSeed + 1)
-        const result = repairBoard(board, N, S, stars, repairRng)
+        const result = repairBoard(board, N, S, stars, repairRng, deadline)
         if (result !== null) return result
     }
     return null
@@ -313,7 +327,13 @@ export function generateBoard(N: number, seed?: number, timeBudgetMs = DEFAULT_T
         const stars = placeStars(N, S, seededRng(masterSeed * 1000 + attempt + 1))
         if (!stars) continue
 
-        const board = generateRegions(N, S, stars, masterSeed * 999 + attempt + 1)
+        let board: number[][] | null
+        try {
+            board = generateRegions(N, S, stars, masterSeed * 999 + attempt + 1, deadline)
+        } catch (e) {
+            if (e instanceof DeadlineReached) return null
+            throw e
+        }
         if (!board) continue
 
         const starKeySet = new Set(stars.map(([r, c]) => r * N + c))

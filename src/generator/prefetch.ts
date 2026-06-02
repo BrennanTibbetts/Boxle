@@ -1,12 +1,25 @@
 import GeneratorWorker from './generator.worker.ts?worker'
 import type { GenerateResponse } from './generator.worker'
 import type { DecodedBoard } from '../types/puzzle'
+import {
+    hasBundledPool,
+    selectBundled,
+    selectServer,
+    fetchServerPool,
+    resetPoolSelection,
+} from './poolSource'
 
-// Single-slot prefetch cache per namespace. Used by mode providers to generate
-// the next puzzle in the background while the player is still solving the
-// current one, so advancing between puzzles doesn't have to wait on
-// generation. Generation itself runs in a Web Worker (see generator.worker.ts)
-// so the main thread is never blocked, no matter the size.
+// Puzzle source for the mode providers. Boards now come from pre-generated
+// pools (poolSource.ts): bundled JSON for free sizes (≤8×8), Supabase for paid
+// sizes (9×9–18×18). The Web Worker generator below is kept as a *fallback*
+// for any size a pool doesn't cover (e.g. a paid pool not yet uploaded, or a
+// reader RLS rejects) — it no longer drives the common path. The public
+// surface (takeOrGenerate / prefetchPuzzle / generateMany / resetPrefetch) is
+// unchanged so the providers didn't need restructuring.
+//
+// Below this point is the worker-fallback machinery: a single-slot prefetch
+// cache per namespace, backed by a pool of Web Workers, so a fallback
+// generation never blocks the main thread.
 //
 // Why module-scoped: the cache survives React unmount/remount of mode
 // providers (e.g. the user briefly visiting the menu mid-Infinite), and
@@ -114,7 +127,7 @@ function postGenerate(ns: Namespace, size: number): number {
  * result will be discarded on arrival — we don't try to cancel it on the
  * worker side since JS can't preempt mid-generation.
  */
-export function prefetchPuzzle(ns: Namespace, size: number): void {
+function prefetchViaWorker(ns: Namespace, size: number): void {
     if (cache[ns]?.size === size) return
     if (findInflight(ns, size) !== null) return
 
@@ -137,7 +150,7 @@ export function prefetchPuzzle(ns: Namespace, size: number): void {
  * If a generation for this `(ns, size)` is already in flight (e.g. from a
  * prior prefetch), this attaches to that job rather than starting a new one.
  */
-export function takeOrGenerate(ns: Namespace, size: number): Promise<DecodedBoard | null> {
+function takeFromWorker(ns: Namespace, size: number): Promise<DecodedBoard | null> {
     if (cache[ns]?.size === size) {
         const board = cache[ns]!.board
         cache[ns] = null
@@ -150,38 +163,78 @@ export function takeOrGenerate(ns: Namespace, size: number): Promise<DecodedBoar
     })
 }
 
-/**
- * Generate `sizes.length` boards in parallel across the worker pool, one per
- * entry (order preserved). Used to fan out the whole intro ladder at once
- * instead of awaiting boards one at a time.
- *
- * Unlike takeOrGenerate this **never dedupes** same-size requests: each entry
- * gets its own job and its own fresh board, so a uniform-size ladder (Library)
- * yields N distinct boards rather than N references to one. Jobs carry `ns` so
- * an in-flight batch is cancelled by resetPrefetch (resolving those slots null).
- */
-export function generateMany(ns: Namespace, sizes: number[]): Promise<Array<DecodedBoard | null>> {
-    return Promise.all(
-        sizes.map(
-            (size) =>
-                new Promise<DecodedBoard | null>((resolve) => {
-                    const requestId = nextRequestId++
-                    pending.set(requestId, { ns, size, resolvers: [resolve] })
-                    pickWorker().postMessage({ type: 'generate', requestId, size })
-                })
-        )
-    )
+// One worker generation that never dedupes against in-flight jobs: each call
+// gets its own fresh board. Used by the generateMany fallback so a uniform-size
+// batch yields distinct boards rather than N references to one in-flight job.
+function generateOneViaWorker(ns: Namespace, size: number): Promise<DecodedBoard | null> {
+    return new Promise<DecodedBoard | null>((resolve) => {
+        const requestId = nextRequestId++
+        pending.set(requestId, { ns, size, resolvers: [resolve] })
+        pickWorker().postMessage({ type: 'generate', requestId, size })
+    })
 }
 
 /**
- * Drop cached/pending state for a namespace (e.g. on a fresh run). Pending
- * awaiters resolve with `null` so callers don't hang.
+ * Drop cached/pending state for a namespace (e.g. on a fresh run) and reseed
+ * pool selection. Pending worker awaiters resolve with `null` so callers don't
+ * hang. `seed` ties the pool sequence to the run (Infinite runId, Library
+ * batchId) so it's deterministic and no-repeat-within-run.
  */
-export function resetPrefetch(ns: Namespace): void {
+export function resetPrefetch(ns: Namespace, seed = 1): void {
     cache[ns] = null
     for (const [id, job] of pending) {
         if (job.ns !== ns) continue
         pending.delete(id)
         for (const resolve of job.resolvers) resolve(null)
     }
+    resetPoolSelection(ns, seed)
+}
+
+// --- Public source API (pool-first, worker fallback) ---
+
+// Resolve one board for a size: bundled pool (sync) → server pool (async) →
+// worker generator (fallback). Shared by takeOrGenerate and generateMany.
+//
+// `dedupe` controls only the worker-fallback path: takeOrGenerate attaches to
+// an in-flight same-size job (dedupe), while generateMany wants a distinct
+// board per entry so a uniform-size batch doesn't collapse to one (no dedupe).
+// Pool selection always yields distinct boards via pickIndex regardless.
+function resolveOne(ns: Namespace, size: number, dedupe: boolean): Promise<DecodedBoard | null> {
+    const fallback = () => (dedupe ? takeFromWorker(ns, size) : generateOneViaWorker(ns, size))
+    if (hasBundledPool(size)) {
+        const board = selectBundled(ns, size)
+        return board ? Promise.resolve(board) : fallback()
+    }
+    return selectServer(ns, size).then((board) => board ?? fallback())
+}
+
+/**
+ * Warm the next puzzle's source so advancing doesn't wait. Bundled sizes
+ * resolve instantly so there's nothing to warm; paid sizes warm the Supabase
+ * fetch (cached per session), and fall back to warming the worker only if no
+ * server pool is available.
+ */
+export function prefetchPuzzle(ns: Namespace, size: number): void {
+    if (hasBundledPool(size)) return
+    void fetchServerPool(size).then((pool) => {
+        if (!pool) prefetchViaWorker(ns, size)
+    })
+}
+
+/**
+ * Return a board at `size`, resolving from a pool when one exists and falling
+ * back to the worker generator otherwise. Deterministic + no-repeat within a
+ * run via the pool selection seeded in resetPrefetch.
+ */
+export function takeOrGenerate(ns: Namespace, size: number): Promise<DecodedBoard | null> {
+    return resolveOne(ns, size, true)
+}
+
+/**
+ * Resolve `sizes.length` boards in parallel (order preserved). Pool selection
+ * dedupes within a run, so a uniform-size batch (Library) yields distinct
+ * boards. Falls back to the worker per-size where no pool covers the size.
+ */
+export function generateMany(ns: Namespace, sizes: number[]): Promise<Array<DecodedBoard | null>> {
+    return Promise.all(sizes.map((size) => resolveOne(ns, size, false)))
 }

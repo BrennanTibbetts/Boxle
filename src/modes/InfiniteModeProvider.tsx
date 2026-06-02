@@ -81,7 +81,7 @@ export function InfiniteModeProvider() {
                     runHintsUsed: existing.runHintsUsed,
                     runLivesLost: existing.runLivesLost,
                 })
-                resetPrefetch('infinite')
+                resetPrefetch('infinite', runId)
                 // Resume skips the intro — clear any stale ladder, then rebuild
                 // the rolling lookahead so the play preview works immediately.
                 useIntro.getState().setSessionBoards([])
@@ -92,7 +92,7 @@ export function InfiniteModeProvider() {
 
             // Fresh run.
             persistence.startInfiniteRun()
-            resetPrefetch('infinite')
+            resetPrefetch('infinite', runId)
             // Drop the prior session's ladder up front so it doesn't show
             // through while this run's boards generate.
             useIntro.getState().setSessionBoards([])

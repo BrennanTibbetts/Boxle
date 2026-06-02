@@ -38,7 +38,9 @@ export function LibraryModeProvider() {
         const size = activeTierSize as number
 
         async function bootstrap() {
-            resetPrefetch('library')
+            // Seed pool selection per batch + tier so a batch draws a
+            // deterministic, no-repeat sequence of distinct boards.
+            resetPrefetch('library', batchId * 100 + size)
             // Drop the prior session's ladder up front so it doesn't show
             // through while this batch's boards generate.
             useIntro.getState().setSessionBoards([])

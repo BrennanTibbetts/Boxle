@@ -6,7 +6,7 @@ import { XStack, YStack, styled } from 'tamagui'
  */
 export const HudChip = styled(XStack, {
     name: 'HudChip',
-    backgroundColor: '$bgGlassMid',
+    backgroundColor: '$bgGlassChip',
     borderColor: '$borderMuted',
     borderWidth: 1,
     borderRadius: '$5',
@@ -19,7 +19,7 @@ export const HudChip = styled(XStack, {
 
 export const HudChipColumn = styled(YStack, {
     name: 'HudChipColumn',
-    backgroundColor: '$bgGlassMid',
+    backgroundColor: '$bgGlassChip',
     borderColor: '$borderMuted',
     borderWidth: 1,
     borderRadius: '$5',

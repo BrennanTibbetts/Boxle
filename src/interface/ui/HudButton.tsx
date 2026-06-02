@@ -67,17 +67,35 @@ const HudButtonFrame = styled(View, {
                 borderRadius: '$pill',
                 paddingHorizontal: '$6',
                 height: 40,
+                backgroundColor: '$bgGlassChip',
+                hoverStyle: {
+                    backgroundColor: '$bgCardSolid',
+                    borderColor: '$borderActive',
+                },
+                pressStyle: {
+                    backgroundColor: '$bgCardSolidStronger',
+                    borderColor: '$borderEmphasis',
+                },
             },
             accountSignedIn: {
                 borderRadius: '$pill',
                 paddingHorizontal: 26,
                 height: 40,
+                backgroundColor: '$bgGlassChip',
+                hoverStyle: {
+                    backgroundColor: '$bgCardSolid',
+                    borderColor: '$borderActive',
+                },
+                pressStyle: {
+                    backgroundColor: '$bgCardSolidStronger',
+                    borderColor: '$borderEmphasis',
+                },
             },
             danger: {
-                backgroundColor: 'rgba(239,68,68,0.12)',
-                borderColor: 'rgba(239,68,68,0.4)',
+                backgroundColor: 'rgba(239,68,68,0.22)',
+                borderColor: 'rgba(239,68,68,0.5)',
                 hoverStyle: {
-                    backgroundColor: 'rgba(239,68,68,0.18)',
+                    backgroundColor: 'rgba(239,68,68,0.32)',
                     borderColor: 'rgba(239,68,68,0.6)',
                 },
             },

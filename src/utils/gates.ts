@@ -12,7 +12,18 @@ function isPremiumComposed(): boolean {
     return usePersistence.getState().isPremium
 }
 
+// Dev-only master unlock. A Leva button (see LibraryTierPicker) flips this to
+// play the full paid ladder without a real purchase. Honored only in dev
+// builds — in production import.meta.env.DEV is falsy, so it can never unlock
+// paid content for real users.
+let devUnlockAll = false
+
+export function setDevUnlockAll(on: boolean): void {
+    devUnlockAll = on
+}
+
 export function canPlayAt(size: number, mode: GameModeValue): boolean {
+    if (import.meta.env.DEV && devUnlockAll) return true
     if (mode === GameMode.DAILY) return true
     if (isPremiumComposed()) return true
     if (mode === GameMode.INFINITE) return size <= FREE_INFINITE_MAX_SIZE

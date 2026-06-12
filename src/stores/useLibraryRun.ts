@@ -18,7 +18,6 @@ interface LibraryRunState {
     enterTier: (size: number) => void
     leaveTier: () => void
     incrementCompleted: () => void
-    resetCompleted: () => void
     markBatchComplete: () => void
     dismissBatchComplete: () => void
     markGameOver: () => void
@@ -48,7 +47,6 @@ const useLibraryRun = create<LibraryRunState>((set) => ({
         ...blankBatchStats,
     }),
     incrementCompleted: () => set((s) => ({ puzzlesCompletedInTier: s.puzzlesCompletedInTier + 1 })),
-    resetCompleted: () => set({ puzzlesCompletedInTier: 0 }),
     markBatchComplete: () => set({ showBatchComplete: true }),
     dismissBatchComplete: () => set((s) => ({
         ...blankBatchStats,

@@ -12,8 +12,9 @@
 //   - INFINITE_MAX_SIZE in src/stores/useInfiniteRun.ts (paid ceiling)
 //   - LIBRARY_MAX_SIZE in src/stores/useLibraryRun.ts (paid ceiling)
 //
-// Daily pool (data/puzzles.js) carries sizes 4..8; raising MIN above 4
-// just drops smaller pools at runtime, so daily ends up with fewer levels
-// per session unless larger pools are added.
+// Daily pool (data/puzzles.js) carries sizes 5..9 (the 4×4 JSON exists on
+// disk but isn't imported while MIN is 5); raising MIN drops smaller pools
+// at runtime, so daily ends up with fewer levels per session unless larger
+// pools are added.
 export const MIN_PUZZLE_SIZE = 5
-export const MAX_PUZZLE_SIZE = 18
+export const MAX_PUZZLE_SIZE = 12

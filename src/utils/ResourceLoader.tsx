@@ -36,12 +36,6 @@ export default function ResourceLoader({ children }: ResourceLoaderProps) {
         const markMaterial = new THREE.MeshStandardMaterial({ color: '#272729' })
         addMaterial('mark', markMaterial)
 
-        const lifeBarGeometry = new RoundedBoxGeometry(1, 1, 1, props.boxSegments, props.boxRadius)
-        addGeometry('lifeBar', lifeBarGeometry)
-
-        const lifeBarMaterial = new THREE.MeshStandardMaterial({ color: '#454b51' })
-        addMaterial('lifeBar', lifeBarMaterial)
-
         for (let i = 0; i < COLORS.length; i++) {
             getGroupMaterial(i, props.boxWireframe)
             getBoxleMaterial(i)

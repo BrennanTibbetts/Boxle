@@ -2,10 +2,11 @@ import { useEffect, useRef } from 'react'
 import useGame, { Phase, initGameState, advanceGameState } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useLibraryRun, { LIBRARY_BATCH_SIZE } from '../stores/useLibraryRun'
-import useIntro, { PLAY_LOOKAHEAD } from '../stores/useIntro'
-import { useIntroLookahead } from '../hooks/useIntroLadder'
+import useIntro from '../stores/useIntro'
+import { useIntroLookahead } from '../hooks/useIntroLookahead'
 import useGeneration from '../stores/useGeneration'
 import { prefetchPuzzle, takeOrGenerate, generateMany, resetPrefetch } from '../generator/prefetch'
+import { topUpLookahead as topUpLookaheadShared, recordPuzzleEnd } from './shared'
 import type { DecodedBoard } from '../types/puzzle'
 import LibraryTierPicker from '../interface/LibraryTierPicker'
 import LibraryBatchComplete from '../interface/LibraryBatchComplete'
@@ -35,7 +36,7 @@ export function LibraryModeProvider() {
 
         let cancelled = false
         const setPending = useGeneration.getState().setPending
-        const size = activeTierSize as number
+        const size = activeTierSize
 
         async function bootstrap() {
             // Seed pool selection per batch + tier so a batch draws a
@@ -87,6 +88,9 @@ export function LibraryModeProvider() {
         if (activeTierSize === null) return
         if (showBatchComplete || showGameOver) return
 
+        // Narrowed once here — the guard above doesn't carry into the
+        // closures below (they run later, from subscribers).
+        const tierSize: number = activeTierSize
         let cancelled = false
         const setPending = useGeneration.getState().setPending
 
@@ -95,27 +99,21 @@ export function LibraryModeProvider() {
             (phase, prevPhase) => {
                 if (phase !== Phase.ENDED || prevPhase === Phase.ENDED) return
 
-                const game = useGame.getState()
-                const persistence = usePersistence.getState()
                 const libRun = useLibraryRun.getState()
+                const { isGameOver } = recordPuzzleEnd('library', libRun)
 
-                if (game.sessionLivesLost > 0) {
-                    persistence.recordLivesLost('library', game.sessionLivesLost)
-                }
-                libRun.addPuzzleStats(game.sessionHints, game.sessionLivesLost)
-
-                if (game.lives === 0) {
+                if (isGameOver) {
                     libRun.markGameOver()
                     return
                 }
 
                 // Puzzle solved.
-                persistence.recordLibraryPuzzleCompletion(activeTierSize)
+                usePersistence.getState().recordLibraryPuzzleCompletion(activeTierSize)
                 const completedAfter = libRun.puzzlesCompletedInTier + 1
                 libRun.incrementCompleted()
 
                 if (completedAfter >= LIBRARY_BATCH_SIZE) {
-                    persistence.unlockLibrarySize(activeTierSize + 1)
+                    usePersistence.getState().unlockLibrarySize(activeTierSize + 1)
                     libRun.markBatchComplete()
                     return
                 }
@@ -133,7 +131,7 @@ export function LibraryModeProvider() {
                 useIntro.getState().setUpcomingBoards(upcoming.slice(1))
             } else {
                 setPending(true)
-                next = await takeOrGenerate('library', activeTierSize as number)
+                next = await takeOrGenerate('library', tierSize)
                 if (cancelled) return
                 setPending(false)
             }
@@ -149,22 +147,16 @@ export function LibraryModeProvider() {
             void topUpLookahead()
         }
 
-        // Keep PLAY_LOOKAHEAD boards generated ahead of the current position,
-        // but never past the end of the batch. Library tiers are uniform-size,
-        // so every board is activeTierSize.
-        async function topUpLookahead() {
-            const target = PLAY_LOOKAHEAD
-            const size = activeTierSize as number
-            while (!cancelled) {
-                const upcoming = useIntro.getState().upcomingBoards
-                if (upcoming.length >= target) break
-                // Don't pre-generate past the boards this batch will ever play.
-                const loaded = useGame.getState().levelConfigs.length + upcoming.length
-                if (loaded >= LIBRARY_BATCH_SIZE) break
-                const board = await takeOrGenerate('library', size)
-                if (cancelled || !board) break
-                useIntro.getState().setUpcomingBoards([...useIntro.getState().upcomingBoards, board])
-            }
+        // Library tiers are uniform-size, so every board is the tier size —
+        // but never pre-generate past the boards this batch will ever play.
+        function topUpLookahead() {
+            return topUpLookaheadShared('library', {
+                isCancelled: () => cancelled,
+                nextSize: (upcomingCount) => {
+                    const loaded = useGame.getState().levelConfigs.length + upcomingCount
+                    return loaded >= LIBRARY_BATCH_SIZE ? null : tierSize
+                },
+            })
         }
 
         return () => {

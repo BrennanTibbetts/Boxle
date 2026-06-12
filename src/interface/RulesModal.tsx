@@ -3,7 +3,7 @@ import { Text, YStack, XStack } from 'tamagui'
 import useUI from '../stores/useUI'
 import useGame, { GameMode } from '../stores/useGame'
 import { useIsMobile } from '../hooks/useIsMobile'
-import { BoxleIcon, MarkIcon, LockIcon } from '../components/BoxIcons'
+import { BoxleIcon, MarkIcon, LockIcon } from './BoxIcons'
 import { useModalEscape } from './Modal'
 import {
     BodyText,

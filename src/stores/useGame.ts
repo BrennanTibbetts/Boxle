@@ -68,6 +68,22 @@ export function initGameState(puzzles: DecodedBoard[]): InitPatch {
     }
 }
 
+// End-of-session outcome, shared by the Daily stats recorder
+// (DailyModeProvider) and the EndScreen UI so the completion rule can't
+// drift between what's recorded and what's displayed.
+export function deriveSessionOutcome(args: {
+    lives: number
+    startTime: number | null
+    endTime: number | null
+    currentLevel: number
+    levelCount: number
+}) {
+    const isComplete = args.lives > 0
+    const elapsedMs = args.startTime && args.endTime ? args.endTime - args.startTime : null
+    const levelsCompleted = isComplete ? args.levelCount : args.currentLevel - 1
+    return { isComplete, elapsedMs, levelCount: args.levelCount, levelsCompleted }
+}
+
 export function advanceGameState(
     current: Pick<GameState, 'levelConfigs' | 'levels' | 'levelMistakes'>,
     nextPuzzle: DecodedBoard,
@@ -90,11 +106,6 @@ export function advanceGameState(
 }
 
 interface GameState {
-    // Camera
-    cameraPosition: [number, number, number]
-    cameraRotationZ: number
-    setCameraPosition: (position: [number, number, number]) => void
-    rotateCamera: (times: number) => void
 
     // Phase
     phase: PhaseValue
@@ -112,7 +123,6 @@ interface GameState {
     setCurrentLevel: (level: number) => void
     placeBoxle: (levelIndex: number, row: number, col: number) => void
     toggleMark: (levelIndex: number, row: number, col: number) => void
-    getBoxState: (levelIndex: number, row: number, col: number) => BoxStateValue
     clearMarks: (levelIndex: number) => void
 
     // Undo — snapshot stack of grid edits (marks, correct placements,
@@ -129,11 +139,10 @@ interface GameState {
     isReverting: boolean
     undo: () => void
 
-    // Lives
+    // Lives. Decrements happen inline in placeBoxle, which defers Phase.ENDED
+    // to the wrong-shake animation's end() call — don't add a setter that
+    // flips ENDED immediately.
     lives: number
-    incrementLives: () => void
-    decrementLives: () => void
-    setLives: (lives: number) => void
 
     // Boxle tracking (for cascade animation)
     lastBoxlePosition: { levelIndex: number, row: number, col: number } | null
@@ -142,7 +151,10 @@ interface GameState {
     wrongPlacement: { levelIndex: number, row: number, col: number } | null
     clearWrongPlacement: () => void
 
-    // Session stats (ephemeral, not persisted)
+    // Session stats. Reset by advanceGameState on every puzzle advance, so in
+    // Infinite/Library these are per-puzzle counters (rolled up into the run/
+    // batch stores); only in Daily (no advances) do they span the session.
+    // Persisted by Infinite's snapshot so a resumed run keeps its counters.
     sessionHints: number
     sessionLivesLost: number
     levelMistakes: number[]
@@ -155,16 +167,10 @@ interface GameState {
     toggleMenu: () => void
 }
 
-export default create<GameState>()(subscribeWithSelector((set, get) => ({
-    // Camera
-    cameraPosition: [0, 0, 0],
-    cameraRotationZ: 0,
-    setCameraPosition: (position) => set({ cameraPosition: position }),
-    rotateCamera: (times) => set((state) => ({
-        cameraRotationZ: state.cameraRotationZ - (Math.PI / 2) * times
-    })),
-
-    // Phase
+export default create<GameState>()(subscribeWithSelector((set) => ({
+    // Phase. The PLAYING default is only alive for the frames before a mode
+    // provider bootstraps (every real entry path sets READY via initGameState/
+    // populatePuzzles); with no boards loaded nothing phase-gated can render.
     phase: Phase.PLAYING,
     startTime: null,
     endTime: null,
@@ -196,8 +202,8 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         levels: configs.map(({ levelMatrix }) => makeBlankGrid(levelMatrix.length)),
         currentLevel: 1,
         // Daily opens on the board-intro too; a saved in-flight daily overrides
-        // this back to its stored phase in usePersistenceSync, so resumes skip
-        // the intro.
+        // this back to its stored phase in DailyModeProvider's restore effect,
+        // so resumes skip the intro.
         phase: Phase.READY,
         startTime: null,
         endTime: null,
@@ -303,11 +309,6 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
         }
     }),
 
-    getBoxState: (levelIndex, row, col) => {
-        const state = get()
-        return state.levels[levelIndex]?.[row]?.[col] ?? BoxState.BLANK
-    },
-
     clearMarks: (levelIndex) => set((state) => {
         const levelState = state.levels[levelIndex]
         if (!levelState) return {}
@@ -337,13 +338,6 @@ export default create<GameState>()(subscribeWithSelector((set, get) => ({
 
     // Lives
     lives: 3,
-    incrementLives: () => set((state) => ({ lives: state.lives + 1 })),
-    decrementLives: () => set((state) => {
-        const newLives = state.lives - 1
-        if (newLives <= 0) return { lives: 0, endTime: Date.now(), phase: Phase.ENDED }
-        return { lives: newLives }
-    }),
-    setLives: (lives) => set({ lives }),
 
     // Boxle tracking
     lastBoxlePosition: null,

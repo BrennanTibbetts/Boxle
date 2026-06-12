@@ -10,21 +10,20 @@ interface ButtonAnimation {
     leave: (e: ThreeEvent<PointerEvent>) => void
 }
 
-export default function useButtonAnimation(
-    customEnter?: (e: ThreeEvent<PointerEvent>) => void,
-    customLeave?: (e: ThreeEvent<PointerEvent>) => void
-): ButtonAnimation {
+export default function useButtonAnimation(): ButtonAnimation {
     const ref = useRef<Group>(null)
 
-    const enter = customEnter ?? ((e: ThreeEvent<PointerEvent>) => {
+    const enter = (e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation()
-        if (ref.current) gsap.to(ref.current.scale, { x: 0.9, y: 0.9, z: 0.9, duration: 0.5 })
-    })
+        // overwrite: rapid hover in/out otherwise stacks contending tweens on
+        // the same scale target (gsap's default is overwrite: false)
+        if (ref.current) gsap.to(ref.current.scale, { x: 0.9, y: 0.9, z: 0.9, duration: 0.5, overwrite: 'auto' })
+    }
 
-    const leave = customLeave ?? ((e: ThreeEvent<PointerEvent>) => {
+    const leave = (e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation()
-        if (ref.current) gsap.to(ref.current.scale, { x: 1, y: 1, z: 1, duration: 0.5 })
-    })
+        if (ref.current) gsap.to(ref.current.scale, { x: 1, y: 1, z: 1, duration: 0.5, overwrite: 'auto' })
+    }
 
     return { ref, enter, leave }
 }

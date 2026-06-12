@@ -1,14 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { BoxStateValue, PhaseValue } from '../types/game'
+import type { BoxStateValue, PhaseValue, TrackedMode } from '../types/game'
 import type { DecodedBoard } from '../types/puzzle'
 import { MIN_PUZZLE_SIZE } from '../config/puzzleSize'
-
-type TrackedMode = 'daily' | 'infinite' | 'library'
-
-function getToday(): string {
-    return new Date().toISOString().slice(0, 10)
-}
+import { todayISO as getToday } from '../utils/date'
 
 // Streaks live and die by this check. Computes yesterday from `today` so the
 // function is a pure date comparison — testable without freezing the clock.
@@ -111,14 +106,32 @@ interface PersistenceData {
 }
 
 interface PersistenceState extends PersistenceData {
+    // The ONLY sanctioned writer for server-derived state — notably isPremium
+    // (see the trust note above) and lastSyncedUserId. sync.ts calls this
+    // with merged/replaced profile state; nothing else should set these
+    // fields, so any other write path is a red flag in review.
+    applyServerState: (server: {
+        isPremium: boolean
+        stats: ModeStats
+        libraryProgress: LibraryProgress
+        dailySave: DailySave | null
+        infiniteSave: InfiniteSave | null
+        lastActiveMode: TrackedMode | null
+        lastSyncedUserId: string
+    }) => void
+
     // Daily save slot
     saveDaily: (data: Omit<DailySave, 'date'>) => void
     loadDaily: () => Omit<DailySave, 'date'> | null
 
     // Daily lifecycle
     startDailySession: () => void
-    completeDailySession: (timeMs: number) => void
-    recordDailyResult: (result: DailyResult) => void
+    // Batches the session-end trio (lives-lost counter, completion stats +
+    // streak, lastResult snapshot) into one set() — each set() on this store
+    // re-serializes the whole persist blob to localStorage, so three separate
+    // actions meant three full writes in one tick at the moment the
+    // EndScreen mounts. `completedTimeMs` is null for a failed session.
+    recordDailySessionEnd: (params: { livesLost: number; completedTimeMs: number | null; result: DailyResult }) => void
     checkStreakExpiry: () => void
 
     // Infinite lifecycle
@@ -183,6 +196,8 @@ const usePersistence = create<PersistenceState>()(
             isPremium: false,
             lastSyncedUserId: null,
 
+            applyServerState: (server) => set(server),
+
             saveDaily: (data) => {
                 set({ dailySave: { date: getToday(), ...data } })
             },
@@ -206,42 +221,42 @@ const usePersistence = create<PersistenceState>()(
                 }))
             },
 
-            completeDailySession: (timeMs) => {
+            recordDailySessionEnd: ({ livesLost, completedTimeMs, result }) => {
                 const today = getToday()
                 set((state) => {
-                    const daily = state.stats.daily
-                    const { lastCompletedDate, currentStreak, longestStreak, bestTimeMs } = daily
+                    let daily = state.stats.daily
 
-                    let newStreak = currentStreak
-                    if (isConsecutiveDay(lastCompletedDate, today)) {
-                        newStreak = currentStreak + 1
-                    } else if (lastCompletedDate !== today) {
-                        newStreak = 1
+                    if (livesLost > 0) {
+                        daily = { ...daily, livesLost: daily.livesLost + livesLost }
+                    }
+
+                    if (completedTimeMs !== null) {
+                        const { lastCompletedDate, currentStreak, longestStreak, bestTimeMs } = daily
+
+                        let newStreak = currentStreak
+                        if (isConsecutiveDay(lastCompletedDate, today)) {
+                            newStreak = currentStreak + 1
+                        } else if (lastCompletedDate !== today) {
+                            newStreak = 1
+                        }
+
+                        daily = {
+                            ...daily,
+                            sessionsCompleted: daily.sessionsCompleted + 1,
+                            bestTimeMs: bestTimeMs === null || completedTimeMs < bestTimeMs ? completedTimeMs : bestTimeMs,
+                            currentStreak: newStreak,
+                            longestStreak: Math.max(longestStreak, newStreak),
+                            lastCompletedDate: today,
+                        }
                     }
 
                     return {
                         stats: {
                             ...state.stats,
-                            daily: {
-                                ...daily,
-                                sessionsCompleted: daily.sessionsCompleted + 1,
-                                bestTimeMs: bestTimeMs === null || timeMs < bestTimeMs ? timeMs : bestTimeMs,
-                                currentStreak: newStreak,
-                                longestStreak: Math.max(longestStreak, newStreak),
-                                lastCompletedDate: today,
-                            },
+                            daily: { ...daily, lastResult: result },
                         },
                     }
                 })
-            },
-
-            recordDailyResult: (result) => {
-                set((state) => ({
-                    stats: {
-                        ...state.stats,
-                        daily: { ...state.stats.daily, lastResult: result },
-                    },
-                }))
             },
 
             checkStreakExpiry: () => {

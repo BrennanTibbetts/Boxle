@@ -124,8 +124,10 @@ function isConnectedWithout(board, N, regionId, removeR, removeC) {
   visited.add(cells[0][0] * N + cells[0][1])
   const queue = [cells[0]]
 
-  while (queue.length > 0) {
-    const [r, c] = queue.shift()
+  // Index-pointer dequeue — Array.shift() is O(queue length), which turns
+  // the BFS quadratic on large regions inside repairBoard's loop.
+  for (let head = 0; head < queue.length; head++) {
+    const [r, c] = queue[head]
     for (const [dr, dc] of DIRS) {
       const nr = r + dr, nc = c + dc
       if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue
@@ -182,6 +184,10 @@ function findAlternativeSolution(board, N, S, intendedStars, deadline = Infinity
     }
 
     let bestReg = -1, bestCount = Infinity
+    // Keep the winning candidate list from the min-scan — getCandidates
+    // re-filters the whole region against every placed star, so calling
+    // it again for the chosen region doubles the innermost cost.
+    let bestCands = null
     for (let reg = 0; reg < N; reg++) {
       if (regionCount[reg] >= S) continue
       const cands = getCandidates(reg)
@@ -189,13 +195,14 @@ function findAlternativeSolution(board, N, S, intendedStars, deadline = Infinity
       if (cands.length < bestCount) {
         bestReg = reg
         bestCount = cands.length
+        bestCands = cands
         if (bestCount === 1) break
       }
     }
 
-    if (bestReg === -1) return false
+    if (bestReg === -1 || bestCands === null) return false
 
-    for (const [r, c] of getCandidates(bestReg)) {
+    for (const [r, c] of bestCands) {
       starGrid[r][c] = true
       rowCount[r]++
       colCount[c]++
@@ -314,7 +321,10 @@ function generateRegions(N, S, stars, masterSeed, deadline = Infinity) {
 }
 
 // --- Puzzle assembly ---
-// Compact encoding: star in region r → value r + N, regular cell → value r.
+// Encoding: solution box in region r → the string `${r}*`, regular box →
+// the number r. decodeBoard in src/utils/puzzle.ts relies on this exact
+// shape (string = solution), as will the iOS port — see RawBox in
+// src/types/puzzle.ts.
 
 function generatePuzzle(N, S, seed, attemptBudgetMs = 0) {
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -382,7 +392,7 @@ function main() {
 
   if (!N || isNaN(N)) {
     console.error('Usage: node generate.js --n <gridSize> [--s <stars>] [--count <n>] [--out <path>] [--seed <n>] [--append]')
-    console.error('  --n      Grid size (required). S=1: 4–11, S=2: 8–11')
+    console.error('  --n      Grid size (required). S=1: 4–12, S=2: 8–11')
     console.error('  --s      Stars per row/column/region (default: 1)')
     console.error('  --count  Number of puzzles to generate (default: 10)')
     console.error('  --out    Output file path')
@@ -392,7 +402,7 @@ function main() {
     process.exit(1)
   }
 
-  console.log(`Generating ${count} Star Battle puzzle(s): N=${N}, S=${S}, seed=${masterSeed}`)
+  console.log(`Generating ${count} Boxle puzzle(s): N=${N}, S=${S}, seed=${masterSeed}`)
 
   const puzzles = []
   let attempts = 0

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { User } from '@supabase/supabase-js'
-import { supabase } from '../utils/supabase'
+import { getSupabase } from '../utils/supabase'
 import { flushPendingPush, runSync } from '../utils/sync'
 
 type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated'
@@ -18,6 +18,7 @@ const useAuth = create<AuthState>(() => ({
     user: null,
     status: 'loading',
     signInWithGoogleIdToken: async (idToken, rawNonce) => {
+        const supabase = await getSupabase()
         const { error } = await supabase.auth.signInWithIdToken({
             provider: 'google',
             token: idToken,
@@ -30,6 +31,7 @@ const useAuth = create<AuthState>(() => ({
         // already gates on a domain you own, so the consent screen shows
         // boxle.click natively (no equivalent of GIS needed). Wired but
         // inert until the Supabase Apple provider is enabled.
+        const supabase = await getSupabase()
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'apple',
             options: { redirectTo: window.location.origin },
@@ -41,6 +43,7 @@ const useAuth = create<AuthState>(() => ({
         // returns the user to `emailRedirectTo` already authenticated, at
         // which point onAuthStateChange fires SIGNED_IN and the rest of the
         // sign-in plumbing (sync, profile fetch) kicks in normally.
+        const supabase = await getSupabase()
         const { error } = await supabase.auth.signInWithOtp({
             email,
             options: { emailRedirectTo: window.location.origin },
@@ -51,6 +54,7 @@ const useAuth = create<AuthState>(() => ({
         // Flush any debounced sync push first — once supabase clears the JWT,
         // RLS will reject writes to the (now ex-)user's profile row.
         await flushPendingPush()
+        const supabase = await getSupabase()
         const { error } = await supabase.auth.signOut()
         if (error) throw error
     },
@@ -72,7 +76,17 @@ function applySession(session: { user: User } | null): void {
     }
 }
 
-void supabase.auth.getSession().then(({ data }) => applySession(data.session))
-supabase.auth.onAuthStateChange((_event, session) => applySession(session))
+// The SDK chunk starts fetching immediately at boot (so session restore isn't
+// gated on user action) but off the critical render path — the game is
+// playable signed-out while this resolves.
+void getSupabase()
+    .then((supabase) => {
+        void supabase.auth.getSession().then(({ data }) => applySession(data.session))
+        supabase.auth.onAuthStateChange((_event, session) => applySession(session))
+    })
+    .catch((err) => {
+        console.error('[auth] supabase client failed to load', err)
+        useAuth.setState({ status: 'unauthenticated' })
+    })
 
 export default useAuth

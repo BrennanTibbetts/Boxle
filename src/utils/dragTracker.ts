@@ -15,6 +15,11 @@
 // drag was never seen by a window listener. R3F's per-mesh pointermove
 // fires reliably on the same channel that already works for boxes 2+ via
 // pointerenter, so we route through that.
+//
+// `hasDragged` doubles as a generic "suppress the upcoming click" flag — its
+// three writers are: a real drag commit (here), the shift-mark path, and the
+// long-press place commit (both in Box's pointer handlers). handleClick's
+// `if (dragTracker.hasDragged) return` is guarding against all three.
 
 const DRAG_THRESHOLD_PX = 6
 

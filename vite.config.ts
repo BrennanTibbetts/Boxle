@@ -82,6 +82,18 @@ export default defineConfig(({ mode }) => {
         resolve: {
             alias: {
                 'react-native': 'react-native-web',
+                // Dev tooling out of the prod bundle (~110KB gzipped total):
+                // leva is mounted-but-hidden in prod, and r3f-perf /
+                // postprocessing only render behind leva toggles that are
+                // unreachable there. The stubs return schema defaults (leva)
+                // or null components. See src/utils/prod-stubs/.
+                ...(isProd
+                    ? {
+                          leva: path.resolve(import.meta.dirname, 'src/utils/prod-stubs/leva.ts'),
+                          'r3f-perf': path.resolve(import.meta.dirname, 'src/utils/prod-stubs/r3f-perf.ts'),
+                          '@react-three/postprocessing': path.resolve(import.meta.dirname, 'src/utils/prod-stubs/postprocessing.ts'),
+                      }
+                    : {}),
             },
         },
         optimizeDeps: {
@@ -120,6 +132,16 @@ export default defineConfig(({ mode }) => {
                     assetFileNames: 'boxle/assets/[name]-[hash][extname]',
                     chunkFileNames: 'boxle/assets/[name]-[hash].js',
                     entryFileNames: 'boxle/assets/[name]-[hash].js',
+                    // Split the big stable vendors into their own chunks so an
+                    // app-code change doesn't invalidate the browser-cached
+                    // three.js (~700KB min) / react / tamagui bytes on deploy.
+                    advancedChunks: {
+                        groups: [
+                            { name: 'three', test: /node_modules[\\/](three|@react-three)[\\/]/ },
+                            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+                            { name: 'ui', test: /node_modules[\\/](tamagui|@tamagui|react-native-web)[\\/]/ },
+                        ],
+                    },
                 },
             },
         },

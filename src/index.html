@@ -11,11 +11,15 @@
     <title>Boxle</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa+Ink:wght@400;700&family=Bebas+Neue&family=Lexend:wght@100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <!-- Bebas Neue only — the app's single UI font (tamagui.config.ts maps
+         body/heading to it). This stylesheet blocks first render, so unused
+         families here cost real paint time. -->
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="/boxle/img/Boxle.png">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google GSI client is injected on demand by AuthModal (ensureGsiScript),
+         not loaded at boot for every player. -->
 </head>
 <body>
-    <div id="root"/>
+    <div id="root"></div>
     <script type="module" src="./index.tsx"></script></body>
 </html>

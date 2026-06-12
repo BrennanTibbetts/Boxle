@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Text, XStack, YStack } from 'tamagui'
 import {
     Elements,
@@ -228,9 +228,16 @@ export default function UpsellModal() {
         }
     }, [open, authStatus, clientSecret, intentError, completePurchase])
 
-    // Stripe.js promise — cached at module scope, so the useMemo is just
-    // for stable React identity.
-    const stripePromise = useMemo(() => getStripe(), [])
+    // Stripe.js loads on first open of the modal, not at app boot —
+    // getStripe() injects the external js.stripe.com script (plus its
+    // telemetry iframes) the moment it's called, and this component mounts
+    // unconditionally for every user. State (not a render-time call) so the
+    // promise identity stays stable across re-renders; <Elements> accepts
+    // null while it's pending.
+    const [stripePromise, setStripePromise] = useState<ReturnType<typeof getStripe> | null>(null)
+    useEffect(() => {
+        if (open && !stripePromise) setStripePromise(getStripe())
+    }, [open, stripePromise])
 
     if (!open || !copy) return null
 

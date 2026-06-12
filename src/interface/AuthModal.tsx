@@ -14,7 +14,22 @@ import {
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
+// The GSI script is injected on first open of the auth modal rather than via
+// a <script> tag in index.html — loading Google's client at boot costs every
+// player a network fetch + parse for a feature most sessions never touch.
+let gsiScriptInjected = false
+function ensureGsiScript(): void {
+    if (gsiScriptInjected || window.google?.accounts?.id) return
+    gsiScriptInjected = true
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+}
+
 function waitForGsi(timeoutMs = 6000): Promise<void> {
+    ensureGsiScript()
     return new Promise((resolve, reject) => {
         if (window.google?.accounts?.id) return resolve()
         const start = Date.now()
@@ -168,6 +183,9 @@ function UsernameForm() {
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [savedFlash, setSavedFlash] = useState(false)
+    // Cleared on unmount so the flash reset can't setState after the modal closes
+    const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current) }, [])
 
     useEffect(() => {
         setDraft(username ?? '')
@@ -183,7 +201,8 @@ function UsernameForm() {
         try {
             await setUsername(draft)
             setSavedFlash(true)
-            setTimeout(() => setSavedFlash(false), 1200)
+            if (flashTimer.current) clearTimeout(flashTimer.current)
+            flashTimer.current = setTimeout(() => setSavedFlash(false), 1200)
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Save failed')
         } finally {

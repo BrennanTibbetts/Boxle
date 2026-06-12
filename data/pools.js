@@ -5,7 +5,7 @@
 // maintaining a second set of files.
 //
 // Keyed by grid size for O(1) lookup by the client pool source
-// (src/generator/poolSource.ts). The paid sizes (9×9–18×18) are NOT bundled;
+// (src/generator/poolSource.ts). The paid sizes (9×9–12×12) are NOT bundled;
 // they're served from Supabase (see boxle-backend puzzle_pools).
 
 import puzzles5 from './valid_puzzles_5.json'

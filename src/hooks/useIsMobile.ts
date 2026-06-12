@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 
-const MOBILE_QUERY = '(max-width: 768px)'
+// Exported for the one-shot boot snapshots (Canvas props in index.tsx, shadow
+// map size in Lights) — those can't react to changes anyway, but the
+// breakpoint itself must be one value everywhere.
+export const MOBILE_QUERY = '(max-width: 768px)'
 
 export function useIsMobile(): boolean {
     const [isMobile, setIsMobile] = useState(() =>

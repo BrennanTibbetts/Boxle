@@ -25,8 +25,16 @@ export interface GenerateResponse {
 self.onmessage = (event: MessageEvent<GenerateRequest>) => {
     const { type, requestId, size } = event.data
     if (type !== 'generate') return
-    const raw = generateBoard(size)
-    const board = raw ? decodeBoard(raw) : null
+    // A thrown generation must still post a result — the host resolves
+    // awaiters per requestId, so a missing response strands them (permanent
+    // "Generating next puzzle…" overlay).
+    let board: DecodedBoard | null = null
+    try {
+        const raw = generateBoard(size)
+        board = raw ? decodeBoard(raw) : null
+    } catch (err) {
+        console.error('[generator.worker] generation threw', err)
+    }
     const response: GenerateResponse = { type: 'result', requestId, board }
     ;(self as DedicatedWorkerGlobalScope).postMessage(response)
 }

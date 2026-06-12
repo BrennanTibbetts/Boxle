@@ -15,6 +15,10 @@ export const GameMode = {
 
 export type GameModeValue = typeof GameMode[keyof typeof GameMode]
 
+// The modes that record stats/saves — everything except the menu. Derived
+// from GameMode so adding a mode can't leave a stale hand-written union.
+export type TrackedMode = Exclude<GameModeValue, typeof GameMode.MENU>
+
 export const BoxState = {
     BLANK: 'blank',
     LOCK: 'lock',

@@ -2,7 +2,7 @@
 // pre-generated pool instead of generating it live:
 //   - free sizes (≤8×8): bundled in the client (data/pools.js), resolved
 //     synchronously
-//   - paid sizes (9×9–18×18): served from Supabase (puzzle_pools), fetched
+//   - paid sizes (9×9–12×12): served from Supabase (puzzle_pools), fetched
 //     once per size per session and cached in memory
 //
 // Selection is deterministic and no-repeat-within-run: seeded by a per-run
@@ -13,14 +13,19 @@
 //
 // prefetch.ts routes through this and falls back to the Web Worker generator
 // only when no pool covers a size (e.g. a paid pool not yet uploaded, or a
-// non-premium read that RLS rejects).
+// transient fetch error). Pool reads are NOT premium-gated — delivery is open
+// to everyone, including anonymous players; the $2.99 unlock is enforced
+// client-side by canPlayAt(), so a non-premium player never reaches the paid
+// sizes in the UI in the first place.
 
 import { decodeBoard, seededRandom } from '../utils/puzzle'
-import { supabase } from '../utils/supabase'
+import { getSupabase } from '../utils/supabase'
 import type { RawBoard, RawPuzzle, DecodedBoard } from '../types/puzzle'
 import { bundledPools as bundledPoolsRaw, BUNDLED_MAX_SIZE } from '../../data/pools.js'
 
-type Namespace = 'infinite' | 'library'
+// The two pool-consuming modes (Daily reads its own bundled pool directly).
+// Also imported by prefetch.ts — one definition for the generator layer.
+export type Namespace = 'infinite' | 'library'
 
 const bundledPools = bundledPoolsRaw as Record<number, RawPuzzle[]>
 
@@ -35,9 +40,10 @@ const serverInflight = new Map<number, Promise<RawBoard[] | null>>()
 
 /**
  * Fetch (and cache) the Supabase pool for a paid size. Returns null if the
- * pool is empty, unreadable (RLS rejects a non-premium reader), or the
- * request errors — callers treat null as "no pool, fall back to the
- * generator". Cached for the session so a run doesn't refetch the same size.
+ * pool is empty or the request errors — callers treat null as "no pool, fall
+ * back to the generator". Reads are open (not premium-gated), so the common
+ * null case is now a not-yet-uploaded size or a transient network error.
+ * Cached for the session so a run doesn't refetch the same size.
  */
 export function fetchServerPool(size: number): Promise<RawBoard[] | null> {
     const cached = serverCache.get(size)
@@ -46,6 +52,7 @@ export function fetchServerPool(size: number): Promise<RawBoard[] | null> {
     if (inflight) return inflight
 
     const promise = (async () => {
+        const supabase = await getSupabase()
         const { data, error } = await supabase
             .from('puzzle_pools')
             .select('board')
@@ -53,7 +60,7 @@ export function fetchServerPool(size: number): Promise<RawBoard[] | null> {
             .order('idx', { ascending: true })
 
         if (error || !data || data.length === 0) {
-            if (error) console.warn('poolSource: server pool fetch failed', { size, error })
+            if (error) console.warn('[poolSource] server pool fetch failed', { size, error })
             return null
         }
         const boards = data.map((row) => (row as { board: RawBoard }).board)

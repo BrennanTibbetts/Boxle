@@ -37,7 +37,11 @@ export function hintReportKey(report: Pick<HintReport, 'levelMatrix' | 'grid'>):
     return fnv1a(JSON.stringify({ lm: report.levelMatrix, g: report.grid }))
 }
 
-export function captureHintReport(note?: string): HintReport | null {
+// `precomputedHint` lets callers that already ran the rule engine (the 💡
+// button) pass its result through — re-solving here doubles the most
+// expensive searches (null and lookahead-1 outcomes mean every cheaper rule
+// already failed). Omit it to solve from scratch (manual dev capture).
+export function captureHintReport(note?: string, precomputedHint?: HintResult | null): HintReport | null {
     const game = useGame.getState()
     const levelIndex = game.currentLevel - 1
     const config = game.levelConfigs[levelIndex]
@@ -55,7 +59,7 @@ export function captureHintReport(note?: string): HintReport | null {
         levelMatrix: config.levelMatrix,
         answerMatrix: config.answerMatrix,
         grid,
-        foundHint: findBestHint(levelIndex, config.levelMatrix, grid),
+        foundHint: precomputedHint !== undefined ? precomputedHint : findBestHint(levelIndex, config.levelMatrix, grid),
         note,
     }
 }
@@ -105,7 +109,7 @@ export function fileSafeTimestamp(iso: string): string {
 // Auto-capture path for the 💡 button: only records when the hint button was
 // pressed, the rule engine returned null, AND the puzzle isn't already solved
 // (a solved puzzle legitimately has no available boxes for any rule to fire on).
-export async function recordMissingHint(): Promise<void> {
+export async function recordMissingHint(precomputedHint?: HintResult | null): Promise<void> {
     const game = useGame.getState()
     const levelIndex = game.currentLevel - 1
     const grid = game.levels[levelIndex]
@@ -117,7 +121,7 @@ export async function recordMissingHint(): Promise<void> {
     for (const row of grid) for (const s of row) if (s === BoxState.BOXLE) boxleCount++
     if (boxleCount >= n) return
 
-    const report = captureHintReport('auto: hint button pressed but no hint returned')
+    const report = captureHintReport('auto: hint button pressed but no hint returned', precomputedHint)
     if (!report || report.foundHint) return
 
     const { deduped } = saveReport(report)
@@ -138,8 +142,8 @@ export async function recordMissingHint(): Promise<void> {
 // `lookahead-1/` subfolder so we can audit when this rule actually fires
 // in real play. Dedup is keyed off the same (levelMatrix, grid) hash but
 // stored under a separate localStorage key.
-export async function recordLookahead1Hint(): Promise<void> {
-    const report = captureHintReport('auto: lookahead-1 hint fired')
+export async function recordLookahead1Hint(precomputedHint?: HintResult | null): Promise<void> {
+    const report = captureHintReport('auto: lookahead-1 hint fired', precomputedHint)
     if (!report || !report.foundHint || report.foundHint.ruleId !== 'lookahead-1') return
 
     const { deduped } = saveReport(report, LOOKAHEAD_STORAGE_KEY)

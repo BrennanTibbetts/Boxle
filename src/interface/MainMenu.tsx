@@ -11,10 +11,7 @@ import {
     ModalOverlay,
     PageTitle,
 } from './ui'
-
-function todayString(): string {
-    return new Date().toISOString().slice(0, 10)
-}
+import { todayISO } from '../utils/date'
 
 export default function MainMenu() {
     const setMode = useGame((state) => state.setMode)
@@ -29,7 +26,7 @@ export default function MainMenu() {
     const [showStats, setShowStats] = useState(false)
     const [showPerformance, setShowPerformance] = useState(false)
 
-    const today = todayString()
+    const today = todayISO()
     const dailyInFlight = dailySave?.date === today && dailySave?.phase !== 'ended'
     const dailyCompleteToday = dailySave?.date === today && dailySave?.phase === 'ended'
 

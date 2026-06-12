@@ -11,12 +11,20 @@
     <title>Boxle</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa+Ink:wght@400;700&family=Bebas+Neue&family=Lexend:wght@100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <!-- Bebas Neue only — the app's single UI font (tamagui.config.ts maps
+         body/heading to it). This stylesheet blocks first render, so unused
+         families here cost real paint time. -->
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="/boxle/img/Boxle.png">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" crossorigin src="/boxle/assets/index-C3ZF4lT_.js"></script>
-  <link rel="stylesheet" crossorigin href="/boxle/assets/index-Hyo6ZfO_.css">
+    <!-- Google GSI client is injected on demand by AuthModal (ensureGsiScript),
+         not loaded at boot for every player. -->
+  <script type="module" crossorigin src="/boxle/assets/index-BC-8Jhtd.js"></script>
+  <link rel="modulepreload" crossorigin href="/boxle/assets/rolldown-runtime-BrS_1Q8B.js">
+  <link rel="modulepreload" crossorigin href="/boxle/assets/three-qzHGg_Cf.js">
+  <link rel="modulepreload" crossorigin href="/boxle/assets/ui-BdDsy4cY.js">
+  <link rel="modulepreload" crossorigin href="/boxle/assets/react-BPrWwrIm.js">
+  <link rel="stylesheet" crossorigin href="/boxle/assets/index-BOIZyVaw.css">
 </head>
 <body>
-    <div id="root"/></body>
+    <div id="root"></div></body>
 </html>

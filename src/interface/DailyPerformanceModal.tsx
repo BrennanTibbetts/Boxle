@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { XStack, YStack } from 'tamagui'
 import usePersistence from '../stores/usePersistence'
 import { buildShareGrid, formatTime, shareOrCopy } from '../utils/share'
 import Modal from './Modal'
-import { LevelGrid } from './EndScreen'
+import { CompletionRow } from './EndScreen'
 import { HudButton, ModalTitle, StatValue, SubLabel, BodyText } from './ui'
 
 export default function DailyPerformanceModal({ onClose }: { onClose: () => void }) {
     const result = usePersistence((s) => s.stats.daily.lastResult)
     const currentStreak = usePersistence((s) => s.stats.daily.currentStreak)
     const [shareLabel, setShareLabel] = useState('Share')
+    // Cleared on unmount so the label reset can't setState after the modal closes
+    const shareResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    useEffect(() => () => { if (shareResetTimer.current) clearTimeout(shareResetTimer.current) }, [])
 
     if (!result) return null
 
@@ -29,7 +32,8 @@ export default function DailyPerformanceModal({ onClose }: { onClose: () => void
         const result = await shareOrCopy(shareText)
         if (result === 'copied') {
             setShareLabel('Copied!')
-            setTimeout(() => setShareLabel('Share'), 2000)
+            if (shareResetTimer.current) clearTimeout(shareResetTimer.current)
+            shareResetTimer.current = setTimeout(() => setShareLabel('Share'), 2000)
         }
     }
 
@@ -41,7 +45,7 @@ export default function DailyPerformanceModal({ onClose }: { onClose: () => void
         >
             <ModalTitle>{result.isComplete ? "Today's Result" : 'Game Over'}</ModalTitle>
 
-            <LevelGrid
+            <CompletionRow
                 levelsCompleted={result.levelsCompleted}
                 levelCount={result.levelCount}
                 isComplete={result.isComplete}

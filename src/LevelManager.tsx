@@ -1,5 +1,6 @@
 import { useControls, folder } from 'leva'
 import Level from './components/Level'
+import InstancedLevel from './components/InstancedLevel'
 import { useBoardLayout, boardZPositions } from './hooks/useBoardLayout'
 import useGame, { Phase } from './stores/useGame'
 import useIntro from './stores/useIntro'
@@ -23,7 +24,7 @@ export default function LevelManager() {
             below: { value: 1, min: 0, max: 8, step: 1, label: 'preview below' },
             above: { value: 1, min: 0, max: 8, step: 1, label: 'preview above' },
             // LOD: how many front boards in the intro ladder render full detail;
-            // every board past this draws base meshes only (see Box `simplified`).
+            // every board past this renders instanced (see InstancedLevel).
             introFullDetail: { value: 1, min: 1, max: 6, step: 1, label: 'intro full-detail' },
         }),
     })
@@ -44,21 +45,28 @@ export default function LevelManager() {
         const introZ = boardZPositions(introBoards.map((b) => b.levelMatrix.length), layout)
         return <>
             {introBoards.map((config, index) => (
-                // LOD: the front `introFullDetail` boards render full; the
-                // boards receding behind them draw base meshes only. Nothing is
-                // placed during the intro, so the overlays they skip (glow,
-                // mark, charge, dim, wrong) are invisible anyway — pure
-                // draw-call savings with no visual change.
-                <Level
-                    key={index}
-                    levelIndex={index}
-                    levelMatrix={config.levelMatrix}
-                    answerMatrix={config.answerMatrix}
-                    interactive
-                    simplified={index >= introFullDetail}
-                    z={introZ[index]}
-                    boxSpacing={layout.boxSpacing}
-                />
+                // LOD: the front `introFullDetail` boards render as real Box
+                // components; the boards receding behind them are instanced —
+                // nothing is placed during the intro, so a receding board is
+                // just static colored boxes (~N draw calls instead of N², no
+                // per-box React components or subscriptions).
+                index < introFullDetail ? (
+                    <Level
+                        key={index}
+                        levelIndex={index}
+                        levelMatrix={config.levelMatrix}
+                        interactive
+                        z={introZ[index]}
+                        boxSpacing={layout.boxSpacing}
+                    />
+                ) : (
+                    <InstancedLevel
+                        key={index}
+                        levelMatrix={config.levelMatrix}
+                        z={introZ[index]}
+                        boxSpacing={layout.boxSpacing}
+                    />
+                )
             ))}
         </>
     }
@@ -91,16 +99,27 @@ export default function LevelManager() {
     for (let index = start; index <= end; index++) {
         const config = timeline[index]
         if (!config) continue
+        // Upcoming ghosts have no useGame.levels entry — they're static
+        // previews, so they render instanced. Played boards below keep real
+        // Box components: their locks/boxles show mark and glow meshes.
         levels.push(
-            <Level
-                key={index}
-                levelIndex={index}
-                levelMatrix={config.levelMatrix}
-                answerMatrix={config.answerMatrix}
-                interactive={index === currentIndex}
-                z={timelineZ[index]}
-                boxSpacing={layout.boxSpacing}
-            />
+            index > currentIndex ? (
+                <InstancedLevel
+                    key={index}
+                    levelMatrix={config.levelMatrix}
+                    z={timelineZ[index]}
+                    boxSpacing={layout.boxSpacing}
+                />
+            ) : (
+                <Level
+                    key={index}
+                    levelIndex={index}
+                    levelMatrix={config.levelMatrix}
+                    interactive={index === currentIndex}
+                    z={timelineZ[index]}
+                    boxSpacing={layout.boxSpacing}
+                />
+            )
         )
     }
 

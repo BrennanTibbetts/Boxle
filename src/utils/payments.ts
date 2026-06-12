@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { getSupabase } from './supabase'
 import { runSync } from './sync'
 import usePersistence from '../stores/usePersistence'
 
@@ -18,6 +18,7 @@ export interface PaymentIntentResult {
 // must already be signed in — supabase.functions.invoke attaches the JWT
 // automatically.
 export async function createPaymentIntent(): Promise<PaymentIntentResult> {
+    const supabase = await getSupabase()
     const { data, error } = await supabase.functions.invoke<CreatePaymentIntentOk>(
         'create-payment-intent',
         { body: {} }

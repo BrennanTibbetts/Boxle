@@ -7,11 +7,12 @@ import {
     selectServer,
     fetchServerPool,
     resetPoolSelection,
+    type Namespace,
 } from './poolSource'
 
 // Puzzle source for the mode providers. Boards now come from pre-generated
 // pools (poolSource.ts): bundled JSON for free sizes (≤8×8), Supabase for paid
-// sizes (9×9–18×18). The Web Worker generator below is kept as a *fallback*
+// sizes (9×9–12×12). The Web Worker generator below is kept as a *fallback*
 // for any size a pool doesn't cover (e.g. a paid pool not yet uploaded, or a
 // reader RLS rejects) — it no longer drives the common path. The public
 // surface (takeOrGenerate / prefetchPuzzle / generateMany / resetPrefetch) is
@@ -43,11 +44,12 @@ interface CacheEntry {
     board: DecodedBoard
 }
 
-type Namespace = 'infinite' | 'library'
-
 interface PendingJob {
     ns: Namespace
     size: number
+    // Which pool worker the job was posted to, so a worker-level error can
+    // fail its jobs instead of stranding their awaiters.
+    worker: Worker
     // Awaiters from takeOrGenerate. A pure prefetch has zero resolvers; its
     // result lands in the cache instead.
     resolvers: Array<(board: DecodedBoard | null) => void>
@@ -85,11 +87,24 @@ function handleMessage(event: MessageEvent<GenerateResponse>) {
     }
 }
 
+// A worker-level failure (script load error, uncaught throw outside the
+// worker's own try/catch) never posts a result, so resolve that worker's
+// jobs with null — otherwise their awaiters hang forever.
+function handleWorkerError(w: Worker) {
+    for (const [id, job] of pending) {
+        if (job.worker !== w) continue
+        pending.delete(id)
+        for (const resolve of job.resolvers) resolve(null)
+    }
+}
+
 function ensurePool(): Worker[] {
     if (pool.length) return pool
     for (let i = 0; i < POOL_SIZE; i++) {
         const w = new GeneratorWorker()
         w.onmessage = handleMessage
+        w.onerror = () => handleWorkerError(w)
+        w.onmessageerror = () => handleWorkerError(w)
         pool.push(w)
     }
     return pool
@@ -114,8 +129,9 @@ function findInflight(ns: Namespace, size: number): number | null {
 
 function postGenerate(ns: Namespace, size: number): number {
     const requestId = nextRequestId++
-    pending.set(requestId, { ns, size, resolvers: [] })
-    pickWorker().postMessage({ type: 'generate', requestId, size })
+    const worker = pickWorker()
+    pending.set(requestId, { ns, size, worker, resolvers: [] })
+    worker.postMessage({ type: 'generate', requestId, size })
     return requestId
 }
 
@@ -169,8 +185,9 @@ function takeFromWorker(ns: Namespace, size: number): Promise<DecodedBoard | nul
 function generateOneViaWorker(ns: Namespace, size: number): Promise<DecodedBoard | null> {
     return new Promise<DecodedBoard | null>((resolve) => {
         const requestId = nextRequestId++
-        pending.set(requestId, { ns, size, resolvers: [resolve] })
-        pickWorker().postMessage({ type: 'generate', requestId, size })
+        const worker = pickWorker()
+        pending.set(requestId, { ns, size, worker, resolvers: [resolve] })
+        worker.postMessage({ type: 'generate', requestId, size })
     })
 }
 

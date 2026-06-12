@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { XStack, YStack } from 'tamagui'
-import useGame, { Phase, GameMode } from '../stores/useGame'
+import useGame, { Phase, GameMode, deriveSessionOutcome } from '../stores/useGame'
 import usePersistence from '../stores/usePersistence'
 import useInfiniteRun from '../stores/useInfiniteRun'
 import useUpsell from '../stores/useUpsell'
 import useGeneration from '../stores/useGeneration'
 import StatsModal from './StatsModal'
-import { BoxleIcon, MarkIcon, EmptyBoxIcon } from '../components/BoxIcons'
+import { BoxleIcon, MarkIcon, EmptyBoxIcon } from './BoxIcons'
 import { buildShareGrid, formatTime, shareOrCopy } from '../utils/share'
+import { todayISO } from '../utils/date'
 import {
     BodyText,
     GlassCard,
@@ -27,7 +28,9 @@ function StatBlock({ label, value }: { label: string; value: string | number }) 
     )
 }
 
-export function LevelGrid({
+// Row of per-level completion icons. (Named CompletionRow, not LevelGrid —
+// that name collides with the unrelated `LevelGrid` board type in types/game.)
+export function CompletionRow({
     levelsCompleted,
     levelCount,
     isComplete,
@@ -62,13 +65,16 @@ function DailyEndContent() {
 
     const [shareLabel, setShareLabel] = useState('Share')
     const [showStats, setShowStats] = useState(false)
+    // Cleared on unmount so the label reset can't setState after the screen closes
+    const shareResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    useEffect(() => () => { if (shareResetTimer.current) clearTimeout(shareResetTimer.current) }, [])
 
-    const isComplete = lives > 0
-    const elapsed = startTime && endTime ? endTime - startTime : null
-    const levelsCompleted = isComplete ? levelCount : currentLevel - 1
+    const { isComplete, elapsedMs: elapsed, levelsCompleted } = deriveSessionOutcome({
+        lives, startTime, endTime, currentLevel, levelCount,
+    })
 
     const shareGrid = buildShareGrid(levelMistakes, levelsCompleted, levelCount, isComplete)
-    const dateStr = new Date().toISOString().slice(0, 10)
+    const dateStr = todayISO()
     const shareText = [
         `Boxle ${dateStr}${isComplete && elapsed ? ` · ${formatTime(elapsed)}` : ''}`,
         shareGrid,
@@ -79,7 +85,8 @@ function DailyEndContent() {
         const result = await shareOrCopy(shareText)
         if (result === 'copied') {
             setShareLabel('Copied!')
-            setTimeout(() => setShareLabel('Share'), 2000)
+            if (shareResetTimer.current) clearTimeout(shareResetTimer.current)
+            shareResetTimer.current = setTimeout(() => setShareLabel('Share'), 2000)
         }
     }
 
@@ -89,7 +96,7 @@ function DailyEndContent() {
             <GlassCard size="lg" minWidth={280} $sm={{ maxWidth: '90%' }}>
                 <ModalTitle>{isComplete ? 'Puzzle Complete' : 'Game Over'}</ModalTitle>
 
-                <LevelGrid
+                <CompletionRow
                     levelsCompleted={levelsCompleted}
                     levelCount={levelCount}
                     isComplete={isComplete}

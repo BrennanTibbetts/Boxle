@@ -7,6 +7,11 @@ import useGame from './useGame'
 import { useResource } from './useResource'
 import useBoxSettings from './useBoxSettings'
 
+// Duration of the dim-material fade. Exported because Box's dim-overlay
+// meshes must stay mounted until this fade-out finishes — Box derives its
+// unmount linger from this so the two can't drift.
+export const HINT_DIM_FADE_S = 0.3
+
 interface HintState {
     activeHint: HintResult | null
     setHint: (hint: HintResult | null) => void
@@ -42,7 +47,7 @@ const unsubs = [
             const { hintDimOpacity } = useBoxSettings.getState()
             gsap.to(dim, {
                 opacity: isActive ? hintDimOpacity : 0,
-                duration: 0.3,
+                duration: HINT_DIM_FADE_S,
                 ease: 'power2.out',
             })
         },

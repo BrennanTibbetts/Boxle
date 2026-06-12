@@ -25,6 +25,14 @@ import { requiredCameraY, PLAY_BASE_HEIGHT } from './CameraManager'
 export default function IntroCamera() {
     const camera = useThree((s) => s.camera)
     const viewport = useThree((s) => s.size)
+    const invalidate = useThree((s) => s.invalidate)
+    // Subscribed via hook (not just getState in the frame loop) because under
+    // frameloop="demand" the loop only runs when a frame renders.
+    const transitioning = useIntro((s) => s.transitioning)
+    // Kick a frame on mount (hold pose) and when the fly-in starts — this
+    // component returns null, so its re-render alone mutates no scene object
+    // and R3F would never schedule the frame the loop needs to start chaining.
+    useEffect(() => { invalidate() }, [transitioning, invalidate])
 
     const knobs = useControls('Board Intro', {
         camera: folder({
@@ -62,7 +70,7 @@ export default function IntroCamera() {
         const aspect = viewport.width / Math.max(1, viewport.height)
         const fov = (camera as PerspectiveCamera).fov
 
-        if (!useIntro.getState().transitioning) {
+        if (!transitioning) {
             // Hero hold — anchor on board 1 (z = 0) and look forward down the
             // ladder. Distance is tied to how far we look forward (a fixed
             // proportion of `lookForward`), not to board size or count, so the
@@ -104,6 +112,8 @@ export default function IntroCamera() {
 
         camera.position.lerpVectors(startPos.current, endPos.current, e)
         camera.quaternion.slerpQuaternions(startQuat.current, probe.current.quaternion, e)
+        // frameloop="demand": chain the next fly-in frame until landing.
+        if (p < 1) invalidate()
 
         if (p >= 1) {
             // Hands off to CameraManager (mounts on PLAYING) at the identical pose.

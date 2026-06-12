@@ -1,5 +1,6 @@
 import gsap from 'gsap'
 import { useRef, useMemo, useEffect, useState } from 'react'
+import type { RefObject } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Mesh } from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
@@ -7,11 +8,12 @@ import type { ThreeEvent } from '@react-three/fiber'
 import { useResource } from '../stores/useResource'
 import useButtonAnimation from '../utils/useButtonAnimation'
 import useGame, { BoxState, Phase } from '../stores/useGame'
-import type { BoxStateValue } from '../stores/useGame'
 import useBoxSettings from '../stores/useBoxSettings'
-import useHint from '../stores/useHint'
+import useHint, { HINT_DIM_FADE_S } from '../stores/useHint'
 import { dragTracker } from '../utils/dragTracker'
+import { boxWorldXZ } from '../hooks/useBoardLayout'
 import { longPressTracker, LONG_PRESS_MS } from '../utils/longPressTracker'
+import { useBoxStateAnimation, useWrongShake } from './useBoxAnimations'
 
 const CHARGE_PEAK_SCALE = 0.5
 const CHARGE_OUT_DURATION = 0.18
@@ -24,24 +26,29 @@ interface BoxProps {
     gridSize: number
     spacing: number
     interactive?: boolean
-    // LOD: when true, render only the base box mesh and skip every overlay
-    // (glow, mark, charge, dim, wrong). Used for receding intro boards where
-    // nothing is placed, so the simplified version is visually identical but
-    // cuts draw calls. All overlay refs are null-guarded, so animations that
-    // target them safely no-op when they aren't rendered.
-    simplified?: boolean
 }
 
-function getFlip(dx: number, dy: number) {
-    const ax = Math.abs(dx)
-    const ay = Math.abs(dy)
-    if (ax === 0 && ay === 0) return { x: Math.PI, y: 0, z: 0 }
-    if (ax >= ay) return { x: 0, y: 0, z: dx > 0 ? -Math.PI : Math.PI }
-    return { x: dy > 0 ? Math.PI : -Math.PI, y: 0, z: 0 }
+// Spin loop for a placed boxle. Mounted only while its box holds a boxle, so
+// the R3F frame loop iterates one callback per placed boxle instead of one
+// per box (hundreds-to-thousands of no-op invocations per frame otherwise).
+function BoxleSpin({ meshRef, dirRef }: {
+    meshRef: RefObject<Mesh | null>
+    dirRef: RefObject<{ y: number; x: number }>
+}) {
+    useFrame(({ invalidate }, delta) => {
+        const mesh = meshRef.current
+        if (!mesh) return
+        const { enableSpin, boxleSpinSpeed } = useBoxSettings.getState()
+        if (!enableSpin) return
+        mesh.rotation.y += delta * boxleSpinSpeed * dirRef.current.y
+        mesh.rotation.x += delta * boxleSpinSpeed * dirRef.current.x
+        // frameloop="demand": a spinning boxle never converges — keep chaining.
+        invalidate()
+    })
+    return null
 }
 
-
-export default function Box({ group, levelIndex, row, col, gridSize, spacing, interactive = true, simplified = false }: BoxProps) {
+export default function Box({ group, levelIndex, row, col, gridSize, spacing, interactive = true }: BoxProps) {
     const boxState = useGame((state) => state.levels[levelIndex]?.[row]?.[col] ?? BoxState.BLANK)
     // Block all input during the board-intro (Phase.READY) — the board is on
     // display, not yet in play. Shadows stay on (castShadow keys off
@@ -71,80 +78,14 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     const markRef       = useRef<Mesh>(null)
     const chargeMeshRef = useRef<Mesh>(null)
     const chargeTweenRef = useRef<gsap.core.Tween | null>(null)
-    const wrongTlRef    = useRef<gsap.core.Timeline | null>(null)
     const spinDirRef    = useRef({ y: 1, x: 0.4 })
-    const prevStateRef  = useRef<BoxStateValue>(BoxState.BLANK)
     const { ref: box, enter: pointerEnter, leave: pointerLeave } = useButtonAnimation()
 
-    useEffect(() => {
-        if (!box.current) return
-
-        const { lockBaseDelay, lockDelayPerUnit, lockDuration, boxleScale, glowScale, markSize, lockMarkSize, markDuration } = useBoxSettings.getState()
-        const prev = prevStateRef.current
-        prevStateRef.current = boxState
-
-        const alreadyFlipped = prev === BoxState.MARK || prev === BoxState.LOCK
-
-        if (boxState === BoxState.MARK) {
-            if (!alreadyFlipped) {
-                const flip = getFlip(dragTracker.movementX, dragTracker.movementY)
-                gsap.to(box.current.rotation, { ...flip, duration: markDuration })
-            }
-            if (markRef.current) gsap.to(markRef.current.scale, { x: markSize, z: markSize, duration: markDuration, ease: 'back.out(2)' })
-        } else if (boxState === BoxState.LOCK) {
-            let delay = 0
-            if (!alreadyFlipped) {
-                const boxlePos = useGame.getState().lastBoxlePosition
-                let flip = { x: Math.PI, y: 0, z: 0 }
-                if (boxlePos && boxlePos.levelIndex === levelIndex) {
-                    const dx = col - boxlePos.col
-                    const dy = row - boxlePos.row
-                    delay = lockBaseDelay + lockDelayPerUnit * Math.sqrt(dx * dx + dy * dy)
-                    flip = getFlip(dx, dy)
-                }
-                gsap.to(box.current.rotation, { ...flip, duration: lockDuration, delay })
-            }
-            if (markRef.current) gsap.to(markRef.current.scale, { x: lockMarkSize, z: lockMarkSize, duration: lockDuration * 0.8, delay, ease: 'back.out(2)' })
-        } else if (boxState === BoxState.BLANK) {
-            // Kill any in-flight or delayed tweens before resetting
-            gsap.killTweensOf(box.current.rotation)
-            if (markRef.current)       gsap.killTweensOf(markRef.current.scale)
-            if (boxleMeshRef.current) gsap.killTweensOf(boxleMeshRef.current.scale)
-            if (glowRef.current)       gsap.killTweensOf(glowRef.current.scale)
-
-            const reverting = useGame.getState().isReverting
-
-            if ((prev === BoxState.LOCK || prev === BoxState.BOXLE) && !reverting) {
-                // Restart — instant reset, no animation
-                box.current.rotation.set(0, 0, 0)
-                if (markRef.current)       markRef.current.scale.set(0, 0.1, 0)
-                if (boxleMeshRef.current) { boxleMeshRef.current.scale.set(1, 1, 1); boxleMeshRef.current.rotation.set(0, 0, 0) }
-                if (glowRef.current)       glowRef.current.scale.set(0, 0, 0)
-            } else {
-                // Undo (reverse the lock cascade / boxle) or a mark toggled off —
-                // animate the flip back. Reverting a BOXLE also shrinks the boxle
-                // and glow and settles its spin back to rest.
-                if (prev === BoxState.BOXLE) {
-                    if (boxleMeshRef.current) {
-                        gsap.to(boxleMeshRef.current.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.in' })
-                        gsap.to(boxleMeshRef.current.rotation, { x: 0, y: 0, z: 0, duration: 0.3 })
-                    }
-                    if (glowRef.current) gsap.to(glowRef.current.scale, { x: 0, y: 0, z: 0, duration: 0.3, ease: 'power2.in' })
-                }
-                gsap.to(box.current.rotation, { x: 0, y: 0, z: 0, duration: markDuration })
-                if (markRef.current) gsap.to(markRef.current.scale, { x: 0, z: 0, duration: markDuration * 0.75 })
-            }
-        } else if (boxState === BoxState.BOXLE) {
-            spinDirRef.current = {
-                y: Math.random() < 0.5 ? 1 : -1,
-                x: (Math.random() * 0.6 + 0.2) * (Math.random() < 0.5 ? 1 : -1),
-            }
-            gsap.to(box.current.rotation, { x: 0, y: 0, z: 0, duration: 0.3, ease: 'back.out(1.5)' })
-            if (markRef.current) gsap.to(markRef.current.scale, { x: 0, z: 0, duration: 0.15 })
-            if (boxleMeshRef.current) gsap.to(boxleMeshRef.current.scale, { x: boxleScale, y: boxleScale, z: boxleScale, duration: 0.4, ease: 'back.out(1.5)' })
-            if (glowRef.current)       gsap.to(glowRef.current.scale,       { x: glowScale,   y: glowScale,   z: glowScale,   duration: 0.4, ease: 'back.out(1.5)' })
-        }
-    }, [boxState])
+    // The boxState transition machine (mark flip, lock cascade, boxle pop,
+    // undo/restart reset) and the wrong-placement flash+shake — see
+    // useBoxAnimations.ts. Both own their tween cleanup.
+    useBoxStateAnimation({ boxRef: box, markRef, boxleMeshRef, glowRef, spinDirRef, boxState, levelIndex, row, col })
+    useWrongShake(box, wrongMaterial, isWrongPlacement)
 
     // Dim overlay only mounts when this box is being dimmed by an active hint.
     // Lingers briefly after the hint clears so the shared fade-out tween can finish.
@@ -154,72 +95,25 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         if (needsDim) {
             setShowDim(true)
         } else {
-            const t = setTimeout(() => setShowDim(false), 350)
+            // Linger just past the shared dim fade-out so the overlay doesn't
+            // unmount mid-fade.
+            const t = setTimeout(() => setShowDim(false), HINT_DIM_FADE_S * 1000 + 50)
             return () => clearTimeout(t)
         }
     }, [needsDim])
 
-    useEffect(() => {
-        if (!isWrongPlacement || !box.current) return
-
-        wrongTlRef.current?.kill()
-        const baseX = box.current.position.x
-
-        const tl = gsap.timeline({
-            onComplete: () => {
-                useGame.getState().clearWrongPlacement()
-                if (useGame.getState().lives === 0) useGame.getState().end()
-            },
-        })
-
-        // Red flash — peaks fast, lingers as it fades
-        tl.to(wrongMaterial, { opacity: 0.7, duration: 0.05, ease: 'none' })
-        tl.to(wrongMaterial, { opacity: 0,   duration: 0.4,  ease: 'power2.out' })
-
-        // Shake — runs in parallel with the flash
-        tl.to(box.current.position, { x: baseX + 0.22, duration: 0.05, ease: 'none'   }, 0)
-        tl.to(box.current.position, { x: baseX - 0.18, duration: 0.07, ease: 'none'   }, 0.05)
-        tl.to(box.current.position, { x: baseX + 0.13, duration: 0.07, ease: 'none'   }, 0.12)
-        tl.to(box.current.position, { x: baseX - 0.08, duration: 0.06, ease: 'none'   }, 0.19)
-        tl.to(box.current.position, { x: baseX + 0.03, duration: 0.05, ease: 'none'   }, 0.25)
-        tl.to(box.current.position, { x: baseX,        duration: 0.05, ease: 'power1.out' }, 0.30)
-
-        wrongTlRef.current = tl
-        return () => { tl.kill() }
-    }, [isWrongPlacement])
-
-    useFrame((_, delta) => {
-        if (boxState === BoxState.BOXLE && boxleMeshRef.current) {
-            const { enableSpin, boxleSpinSpeed } = useBoxSettings.getState()
-            if (enableSpin) {
-                boxleMeshRef.current.rotation.y += delta * boxleSpinSpeed * spinDirRef.current.y
-                boxleMeshRef.current.rotation.x += delta * boxleSpinSpeed * spinDirRef.current.x
-            }
-        }
-    })
-
-    // Unmount cleanup: kill any in-flight tweens against this box's targets so
-    // they don't continue mutating refs after they're detached. Lock-cascade
-    // tweens with `delay` are the most important to catch — they outlive the
-    // mount when a level is restarted mid-cascade.
+    // Unmount cleanup for the tweens Box itself owns (hover scale, charge) —
+    // the animation hooks above clean up their own targets.
     useEffect(() => {
         return () => {
-            if (box.current) gsap.killTweensOf(box.current.rotation)
-            if (box.current) gsap.killTweensOf(box.current.position)
-            if (markRef.current) gsap.killTweensOf(markRef.current.scale)
-            if (boxleMeshRef.current) gsap.killTweensOf(boxleMeshRef.current.scale)
-            if (glowRef.current) gsap.killTweensOf(glowRef.current.scale)
+            if (box.current) gsap.killTweensOf(box.current.scale)
             chargeTweenRef.current?.kill()
             if (chargeMeshRef.current) gsap.killTweensOf(chargeMeshRef.current.scale)
-            wrongTlRef.current?.kill()
         }
     }, [])
 
-    const position: [number, number, number] = [
-        ((col - gridSize / 2) + 0.5) * spacing,
-        0,
-        ((row - gridSize / 2) + 0.5) * spacing,
-    ]
+    const [worldX, worldZ] = boxWorldXZ(row, col, gridSize, spacing)
+    const position: [number, number, number] = [worldX, 0, worldZ]
 
     const isBlocked = hintActive && !hintRole
 
@@ -326,7 +220,7 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
         if (!interactive || isBlocked || !canPlay) return
         e.stopPropagation()
         if (dragTracker.hasDragged || e.nativeEvent.shiftKey) return
-        // The 2nd+ click of a double-click (detail >= 2) is the place-a-star
+        // The 2nd+ click of a double-click (detail >= 2) is the place-a-boxle
         // gesture, handled by onDoubleClick — not a mark. Toggling here would
         // churn the mark on/off mid-double-click and leak phantom marks into
         // the undo stack. A double-click is one intent: place a boxle.
@@ -349,51 +243,54 @@ export default function Box({ group, levelIndex, row, col, gridSize, spacing, in
     const glowScaleSetting = useBoxSettings((s) => s.glowScale)
     const dimScale = isBoxle ? boxleScaleSetting * glowScaleSetting : 1.0
 
+    // Only the playable board's meshes register pointer handlers — a mesh
+    // with handlers joins R3F's interaction list and gets raycast on every
+    // pointer move, so attaching them to ghost/intro boards would raycast
+    // hundreds of extra meshes during the latency-sensitive drag gesture.
+    const eventHandlers = interactive ? {
+        onPointerDown: handlePointerDown,
+        onPointerMove: handlePointerMove,
+        onClick: handleClick,
+        onDoubleClick: handleDoubleClick,
+        onContextMenu: handleDoubleClick,
+        onPointerEnter: handlePointerEnter,
+        onPointerLeave: handlePointerLeave,
+    } : undefined
+
     return (
         <group position={position} ref={box}>
+            {isBoxle && <BoxleSpin meshRef={boxleMeshRef} dirRef={spinDirRef} />}
             <mesh
                 ref={boxleMeshRef}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onClick={handleClick}
-                onDoubleClick={handleDoubleClick}
-                onContextMenu={handleDoubleClick}
-                onPointerEnter={handlePointerEnter}
-                onPointerLeave={handlePointerLeave}
+                {...eventHandlers}
                 castShadow={interactive}
                 receiveShadow
                 geometry={geometry}
                 material={isBoxle ? boxleMaterial : material}
             >
-                {!simplified && (
-                    <mesh
-                        ref={glowRef}
-                        scale={0}
-                        geometry={geometry}
-                        material={glowMaterial}
-                    />
-                )}
-            </mesh>
-            {!simplified && (
                 <mesh
-                    ref={markRef}
-                    renderOrder={3}
-                    position-y={-0.5}
-                    geometry={geometry}
-                    material={markMaterial}
-                    scale={[0, 0.1, 0]}
-                />
-            )}
-            {!simplified && (
-                <mesh
-                    ref={chargeMeshRef}
-                    geometry={geometry}
-                    material={boxleMaterial}
+                    ref={glowRef}
                     scale={0}
+                    geometry={geometry}
+                    material={glowMaterial}
                 />
-            )}
-            {!simplified && showDim && <mesh geometry={geometry} material={dimMaterial} scale={dimScale} />}
-            {!simplified && isWrongPlacement && <mesh geometry={geometry} material={wrongMaterial} scale={1.0} />}
+            </mesh>
+            <mesh
+                ref={markRef}
+                renderOrder={3}
+                position-y={-0.5}
+                geometry={geometry}
+                material={markMaterial}
+                scale={[0, 0.1, 0]}
+            />
+            <mesh
+                ref={chargeMeshRef}
+                geometry={geometry}
+                material={boxleMaterial}
+                scale={0}
+            />
+            {showDim && <mesh geometry={geometry} material={dimMaterial} scale={dimScale} />}
+            {isWrongPlacement && <mesh geometry={geometry} material={wrongMaterial} scale={1.0} />}
         </group>
     )
 }

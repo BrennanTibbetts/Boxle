@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect } from 'react'
 import { XStack, YStack } from 'tamagui'
-import TimerDisplay from '../components/TimerDisplay'
+import TimerDisplay from './TimerDisplay'
 import ControlsManager from './ControlsManager'
 import HUD from './HUD'
 import HintDescription from './HintDescription'
@@ -21,15 +21,17 @@ import useLibraryRun from '../stores/useLibraryRun'
 import usePersistence from '../stores/usePersistence'
 import useUI from '../stores/useUI'
 import { HudButton } from './ui'
-
-function todayString(): string {
-    return new Date().toISOString().slice(0, 10)
-}
+import { todayISO } from '../utils/date'
 
 function useBootMode(): void {
     useLayoutEffect(() => {
         const persistence = usePersistence.getState()
-        const today = todayString()
+        // App-boot housekeeping: a lapsed streak should zero out no matter
+        // which mode the user boots into (this used to run only when the
+        // Daily provider mounted, so booting into the menu or Infinite left
+        // a stale streak on display).
+        persistence.checkStreakExpiry()
+        const today = todayISO()
         const dailySave = persistence.dailySave
         const dailyForToday = dailySave?.date === today
         const dailyDoneToday = dailyForToday && dailySave?.phase === Phase.ENDED

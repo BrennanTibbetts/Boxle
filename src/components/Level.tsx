@@ -5,11 +5,7 @@ import Box from './Box'
 interface LevelProps {
     levelIndex: number
     levelMatrix: number[][]
-    answerMatrix: boolean[][]
     interactive?: boolean
-    isFading?: boolean
-    // LOD passthrough — receding intro boards render base meshes only. See Box.
-    simplified?: boolean
     // World-Z of this board in the ladder + per-box spacing, both computed by
     // LevelManager from the shared board-layout controls so every board and
     // the camera agree on positions (see hooks/useBoardLayout).
@@ -17,7 +13,7 @@ interface LevelProps {
     boxSpacing: number
 }
 
-const Level = memo(({ levelIndex, levelMatrix, interactive = true, simplified = false, z, boxSpacing }: LevelProps) => {
+const Level = memo(({ levelIndex, levelMatrix, interactive = true, z, boxSpacing }: LevelProps) => {
     const size = levelMatrix.length
 
     return (
@@ -33,7 +29,6 @@ const Level = memo(({ levelIndex, levelMatrix, interactive = true, simplified = 
                         gridSize={size}
                         spacing={boxSpacing}
                         interactive={interactive}
-                        simplified={simplified}
                     />
                 ))
             )}

@@ -4,10 +4,13 @@ type Rng = () => number
 type Cell = [number, number]
 
 // Thrown when generation blows its time budget mid-search. Caught in
-// generateBoard, which returns null. Mirrors generate.js — see the parity
-// note in CLAUDE.md. Without this the deadline was only honoured at attempt
-// boundaries, so a single repairBoard run could still hang for tens of
-// seconds inside one attempt.
+// generateBoard, which returns null. Mirrors generate.js (see the parity note
+// in CLAUDE.md) with ONE deliberate divergence: here the deadline spans the
+// whole generateBoard call and DeadlineReached aborts it (runtime stutter
+// cap), while generate.js budgets per-attempt and retries the next seed (CLI
+// throughput). Don't "fix" one side to match the other. Without the throw,
+// the deadline was only honoured at attempt boundaries, so a single
+// repairBoard run could still hang for tens of seconds inside one attempt.
 class DeadlineReached extends Error {}
 
 function seededRng(seed: number): Rng {
@@ -115,8 +118,10 @@ function isConnectedWithout(board: number[][], N: number, regionId: number, remo
     visited.add(cells[0][0] * N + cells[0][1])
     const queue: Cell[] = [cells[0]]
 
-    while (queue.length > 0) {
-        const [r, c] = queue.shift()!
+    // Index-pointer dequeue — Array.shift() is O(queue length), which turns
+    // the BFS quadratic on large regions inside repairBoard's loop.
+    for (let head = 0; head < queue.length; head++) {
+        const [r, c] = queue[head]
         for (const [dr, dc] of DIRS) {
             const nr = r + dr, nc = c + dc
             if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue
@@ -172,6 +177,10 @@ function findAlternativeSolution(board: number[][], N: number, S: number, intend
 
         let bestReg = -1
         let bestCount = Infinity
+        // Keep the winning candidate list from the min-scan — getCandidates
+        // re-filters the whole region against every placed star, so calling
+        // it again for the chosen region doubles the innermost cost.
+        let bestCands: Cell[] | null = null
         for (let reg = 0; reg < N; reg++) {
             if (regionCount[reg] >= S) continue
             const cands = getCandidates(reg)
@@ -179,13 +188,14 @@ function findAlternativeSolution(board: number[][], N: number, S: number, intend
             if (cands.length < bestCount) {
                 bestReg = reg
                 bestCount = cands.length
+                bestCands = cands
                 if (bestCount === 1) break
             }
         }
 
-        if (bestReg === -1) return false
+        if (bestReg === -1 || bestCands === null) return false
 
-        for (const [r, c] of getCandidates(bestReg)) {
+        for (const [r, c] of bestCands) {
             starGrid[r][c] = true
             rowCount[r]++
             colCount[c]++

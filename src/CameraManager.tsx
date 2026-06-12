@@ -4,9 +4,8 @@ import type { PerspectiveCamera } from 'three'
 import gsap from 'gsap'
 import { useControls } from 'leva'
 import useGame from './stores/useGame'
-import { useBoardLayout, boardZAt } from './hooks/useBoardLayout'
+import { useBoardLayout, boardZAt, BOX_SPACING } from './hooks/useBoardLayout'
 
-const BOX_SPACING = 1
 // 15% margin so the board doesn't kiss the edge of the viewport in portrait.
 const PORTRAIT_FIT_MARGIN = 1.15
 
@@ -61,17 +60,19 @@ export default function CameraManager() {
     const targetRef = useRef({ y: 0, z: 0 })
     const posTweenRef = useRef<gsap.core.Tween | null>(null)
 
-    useEffect(() => {
+    // Height for the given 1-based level: portrait fit (or the configured base
+    // height, whichever is larger) plus the per-level climb. Reads only refs
+    // and fresh store state, so it's safe inside long-lived subscriptions.
+    const computeY = (level: number) => {
         const cam = camera as PerspectiveCamera
+        const game = useGame.getState()
+        const cfg = game.levelConfigs[level - 1]
+        const gridSize = cfg ? cfg.levelMatrix.length : 1
+        const fitY = requiredCameraY(gridSize, aspectRef.current, cam.fov)
+        return Math.max(cameraHeightYRef.current, fitY) + (level - 1) * levelHeightIncreaseRef.current
+    }
 
-        const computeY = (level: number) => {
-            const game = useGame.getState()
-            const cfg = game.levelConfigs[level - 1]
-            const gridSize = cfg ? cfg.levelMatrix.length : 1
-            const fitY = requiredCameraY(gridSize, aspectRef.current, cam.fov)
-            return Math.max(cameraHeightYRef.current, fitY) + (level - 1) * levelHeightIncreaseRef.current
-        }
-
+    useEffect(() => {
         const tweenToTarget = (duration: number) => {
             posTweenRef.current?.kill()
             posTweenRef.current = gsap.to(camera.position, {
@@ -81,14 +82,11 @@ export default function CameraManager() {
             })
         }
 
-        const { currentLevel, cameraRotationZ } = useGame.getState()
+        const { currentLevel } = useGame.getState()
         targetRef.current.y = computeY(currentLevel)
         targetRef.current.z = levelZ(currentLevel)
         camera.position.y = targetRef.current.y
         camera.position.z = targetRef.current.z
-        camera.rotation.z = -cameraRotationZ
-
-        let rotTween: gsap.core.Tween | null = null
 
         const unsubscribeLevel = useGame.subscribe(
             (state) => state.currentLevel,
@@ -111,20 +109,10 @@ export default function CameraManager() {
             }
         )
 
-        const unsubscribeRotation = useGame.subscribe(
-            (state) => state.cameraRotationZ,
-            (value) => {
-                rotTween?.kill()
-                rotTween = gsap.to(camera.rotation, { z: -value, duration: 1 })
-            }
-        )
-
         return () => {
             posTweenRef.current?.kill()
-            rotTween?.kill()
             unsubscribeLevel()
             unsubscribeConfigs()
-            unsubscribeRotation()
         }
     }, [camera])
 
@@ -133,12 +121,8 @@ export default function CameraManager() {
     // so the tween here pulls both axes toward the right destination even
     // if the user rotates mid-transition.
     useEffect(() => {
-        const cam = camera as PerspectiveCamera
         const game = useGame.getState()
-        const cfg = game.levelConfigs[game.currentLevel - 1]
-        const gridSize = cfg ? cfg.levelMatrix.length : 1
-        const fitY = requiredCameraY(gridSize, aspectRef.current, cam.fov)
-        targetRef.current.y = Math.max(cameraHeightYRef.current, fitY) + (game.currentLevel - 1) * levelHeightIncreaseRef.current
+        targetRef.current.y = computeY(game.currentLevel)
         targetRef.current.z = levelZ(game.currentLevel)
         posTweenRef.current?.kill()
         posTweenRef.current = gsap.to(camera.position, {

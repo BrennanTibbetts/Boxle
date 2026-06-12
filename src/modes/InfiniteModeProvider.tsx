@@ -3,31 +3,44 @@ import useGame, { Phase, GameMode, initGameState, advanceGameState } from '../st
 import usePersistence from '../stores/usePersistence'
 import type { InfiniteSave } from '../stores/usePersistence'
 import useInfiniteRun, { INFINITE_START_SIZE, INFINITE_MAX_SIZE } from '../stores/useInfiniteRun'
-import useIntro, { PLAY_LOOKAHEAD } from '../stores/useIntro'
-import { useIntroLookahead } from '../hooks/useIntroLadder'
+import useIntro from '../stores/useIntro'
+import { useIntroLookahead } from '../hooks/useIntroLookahead'
 import useUpsell from '../stores/useUpsell'
 import useGeneration from '../stores/useGeneration'
 import { canPlayAt } from '../utils/gates'
 import { takeOrGenerate, generateMany, resetPrefetch } from '../generator/prefetch'
+import { topUpLookahead as topUpLookaheadShared, recordPuzzleEnd } from './shared'
 import type { DecodedBoard } from '../types/puzzle'
 
-// Flip to re-enable the depth-wall upsell that fires when the player
-// crosses canPlayAt() in Infinite. Off while we sort out the generator —
-// the wall would currently land on a generator-broken size range.
-const INFINITE_DEPTH_GATE_ENABLED = false
+// The depth-wall upsell that fires when the player crosses canPlayAt() in
+// Infinite. This is the *only* paywall on Infinite — pool delivery is open to
+// everyone (see puzzle_pools public-read migration); the client gate alone
+// decides what's playable. Re-enabled now that pools cover the paid 9–12 range
+// (the wall previously landed on a generator-broken range, so it was held off).
+const INFINITE_DEPTH_GATE_ENABLED = true
+
+// Persist only the render window: the current board plus one played board
+// below it (matching LevelManager's `below: 1` preview). Completed boards'
+// grids are never read again — an unbounded run would otherwise re-serialize
+// hundreds of KB to localStorage every 250ms of play (and push the same blob
+// to the profiles row). Absolute run depth survives via puzzlesCompleted, so
+// HUD depth and lookahead sizing don't depend on array length (see
+// topUpLookahead and HUD's Infinite branch).
+const SNAPSHOT_KEEP_BOARDS = 2
 
 function snapshot(): InfiniteSave {
     const game = useGame.getState()
     const run = useInfiniteRun.getState()
+    const start = Math.max(0, game.currentLevel - SNAPSHOT_KEEP_BOARDS)
     return {
         currentSize: run.currentSize,
         puzzlesCompleted: run.puzzlesCompleted,
         runHintsUsed: run.runHintsUsed,
         runLivesLost: run.runLivesLost,
-        levelConfigs: game.levelConfigs,
-        levels: game.levels,
-        levelMistakes: game.levelMistakes,
-        currentLevel: game.currentLevel,
+        levelConfigs: game.levelConfigs.slice(start, game.currentLevel),
+        levels: game.levels.slice(start, game.currentLevel),
+        levelMistakes: game.levelMistakes.slice(start, game.currentLevel),
+        currentLevel: game.currentLevel - start,
         lives: game.lives,
         sessionHints: game.sessionHints,
         sessionLivesLost: game.sessionLivesLost,
@@ -158,17 +171,12 @@ export function InfiniteModeProvider() {
             (phase, prevPhase) => {
                 if (phase !== Phase.ENDED || prevPhase === Phase.ENDED) return
 
-                const game = useGame.getState()
                 const run = useInfiniteRun.getState()
+                const { isGameOver } = recordPuzzleEnd('infinite', run)
 
-                if (game.sessionLivesLost > 0) {
-                    persistence.recordLivesLost('infinite', game.sessionLivesLost)
-                }
-                run.addPuzzleStats(game.sessionHints, game.sessionLivesLost)
-
-                if (game.lives === 0) {
+                if (isGameOver) {
                     // Run over — endInfiniteRun also clears infiniteSave.
-                    persistence.endInfiniteRun({ deepestSize: run.currentSize })
+                    usePersistence.getState().endInfiniteRun({ deepestSize: run.currentSize })
                     return
                 }
 
@@ -234,24 +242,17 @@ export function InfiniteModeProvider() {
             void topUpLookahead()
         }
 
-        // Keep PLAY_LOOKAHEAD boards generated ahead of the current play
-        // position — enough to render the above-ghost(s) and buffer the next
-        // advance, without loading the whole ladder. Runs in the background (no
-        // spinner); if generation can't keep pace, advanceInfiniteTo falls back
-        // to on-demand generation.
-        async function topUpLookahead() {
-            const target = PLAY_LOOKAHEAD
-            while (!cancelled) {
-                const upcoming = useIntro.getState().upcomingBoards
-                if (upcoming.length >= target) break
+        function topUpLookahead() {
+            return topUpLookaheadShared('infinite', {
+                isCancelled: () => cancelled,
                 // Index of the next board in the full session = boards already
-                // loaded into play + boards already queued ahead.
-                const nextIndex = useGame.getState().levelConfigs.length + upcoming.length
-                const size = Math.min(INFINITE_START_SIZE + nextIndex, INFINITE_MAX_SIZE)
-                const board = await takeOrGenerate('infinite', size)
-                if (cancelled || !board) break
-                useIntro.getState().setUpcomingBoards([...useIntro.getState().upcomingBoards, board])
-            }
+                // played (absolute, from the run counters — levelConfigs is a
+                // trimmed window after a resume) + boards already queued ahead.
+                nextSize: (upcomingCount) => {
+                    const nextIndex = useInfiniteRun.getState().puzzlesCompleted + 1 + upcomingCount
+                    return Math.min(INFINITE_START_SIZE + nextIndex, INFINITE_MAX_SIZE)
+                },
+            })
         }
 
         return () => {

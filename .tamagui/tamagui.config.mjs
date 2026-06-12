@@ -162,11 +162,12 @@ var bebas = createFont({
 var palette = {
   // Background
   bgApp: "#151517",
-  bgGlass: "rgba(255,255,255,0.06)",
-  bgGlassMid: "rgba(255,255,255,0.07)",
-  bgGlassStrong: "rgba(255,255,255,0.12)",
-  bgGlassActive: "rgba(255,255,255,0.18)",
-  bgInputGlass: "rgba(255,255,255,0.08)",
+  bgGlass: "rgba(255,255,255,0.12)",
+  bgGlassMid: "rgba(255,255,255,0.14)",
+  bgGlassStrong: "rgba(255,255,255,0.20)",
+  bgGlassActive: "rgba(255,255,255,0.28)",
+  bgInputGlass: "rgba(255,255,255,0.14)",
+  bgGlassChip: "rgba(21,21,23,0.82)",
   bgCardSolid: "rgba(21,21,23,0.92)",
   bgCardSolidStrong: "rgba(21,21,23,0.94)",
   bgCardSolidStronger: "rgba(21,21,23,0.96)",

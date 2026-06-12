@@ -1,5 +1,6 @@
 import { XStack, YStack } from 'tamagui'
 import useGame, { GameMode } from '../stores/useGame'
+import useInfiniteRun from '../stores/useInfiniteRun'
 import useHint from '../stores/useHint'
 import usePersistence from '../stores/usePersistence'
 import { findBestHint } from '../utils/hintRules'
@@ -33,6 +34,12 @@ export default function HUD() {
     // HUD off the wrong-placement re-render path.
     const lives = useGame((state) => state.lives)
     const currentLevel = useGame((state) => state.currentLevel)
+    const activeMode = useGame((state) => state.activeMode)
+    const puzzlesCompleted = useInfiniteRun((state) => state.puzzlesCompleted)
+    // Infinite derives depth from the run counters: levelConfigs is a trimmed
+    // window after a resumed run, so currentLevel restarts small there while
+    // puzzlesCompleted stays absolute.
+    const displayLevel = activeMode === GameMode.INFINITE ? puzzlesCompleted + 1 : currentLevel
     const clearMarks = useGame((state) => state.clearMarks)
     const undo = useGame((state) => state.undo)
     const canUndo = useGame((state) => state.undoStack.length > 0)
@@ -53,8 +60,8 @@ export default function HUD() {
         if (!config || !grid) return
         const result = findBestHint(levelIndex, config.levelMatrix, grid)
         setHint(result)
-        if (result === null) void recordMissingHint()
-        else if (result.ruleId === 'lookahead-1') void recordLookahead1Hint()
+        if (result === null) void recordMissingHint(result)
+        else if (result.ruleId === 'lookahead-1') void recordLookahead1Hint(result)
         game.incrementSessionHint()
         if (game.activeMode !== GameMode.MENU) {
             usePersistence.getState().recordHint(game.activeMode)
@@ -83,7 +90,7 @@ export default function HUD() {
                     <XStack alignItems="center" justifyContent="center" gap="$6">
                         <XStack alignItems="center" gap="$2">
                             <HudLabel>Level</HudLabel>
-                            <HudValue>{currentLevel}</HudValue>
+                            <HudValue>{displayLevel}</HudValue>
                         </XStack>
                         <XStack alignItems="center" gap="$1">
                             {[1, 2, 3].map((i) => (

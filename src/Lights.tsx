@@ -3,9 +3,10 @@ import { useRef } from 'react'
 import { useHelper } from '@react-three/drei'
 import type { RefObject } from 'react'
 import { DirectionalLightHelper, DirectionalLight, Object3D } from 'three'
+import { MOBILE_QUERY } from './hooks/useIsMobile'
 
 const initialIsMobile =
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+    typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches
 const defaultShadowMapSize: [number, number] = initialIsMobile ? [512, 512] : [1024, 1024]
 
 export default function Lights() {

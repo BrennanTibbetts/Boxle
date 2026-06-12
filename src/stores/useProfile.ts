@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { supabase } from '../utils/supabase'
+import { getSupabase } from '../utils/supabase'
 import useAuth from './useAuth'
 
 export const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/
@@ -19,6 +19,7 @@ const useProfile = create<ProfileState>(() => ({
         if (!USERNAME_PATTERN.test(next)) {
             throw new Error('Username must be 3–20 chars: a–z, 0–9, _')
         }
+        const supabase = await getSupabase()
         const { error } = await supabase
             .from('profiles')
             .update({ username: next })
@@ -38,6 +39,7 @@ async function refetchForCurrent(): Promise<void> {
         useProfile.setState({ username: null, loaded: true })
         return
     }
+    const supabase = await getSupabase()
     const { data, error } = await supabase
         .from('profiles')
         .select('username')

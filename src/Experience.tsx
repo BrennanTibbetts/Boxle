@@ -6,6 +6,10 @@ import Lights from './Lights'
 import Game from './Game'
 import CameraClip from './CameraClip'
 import BoxControls from './components/BoxControls'
+import GsapInvalidator from './utils/GsapInvalidator'
+import usePersistence from './stores/usePersistence'
+import { LIBRARY_MAX_SIZE } from './stores/useLibraryRun'
+import { setDevUnlockAll } from './utils/gates'
 
 export default function Experience() {
     const props = useControls('Experience', {
@@ -14,6 +18,19 @@ export default function Experience() {
         clearStorage: button(() => {
             localStorage.clear()
             window.location.reload()
+        }),
+    })
+
+    // Dev-only: unlock every Library tier (progression) and force the premium
+    // gate open (canPlayAt) so the whole paid ladder is playable without a
+    // purchase. Lives here (always mounted) rather than in the Library picker
+    // so the folder is visible from anywhere. The Leva panel is hidden outside
+    // dev, and setDevUnlockAll is a no-op in production builds, so this can't
+    // unlock paid content for real users.
+    useControls('Library (dev)', {
+        'Unlock + play all': button(() => {
+            setDevUnlockAll(true)
+            usePersistence.getState().unlockLibrarySize(LIBRARY_MAX_SIZE)
         }),
     })
 
@@ -27,6 +44,7 @@ export default function Experience() {
 
     return <>
         <color args={[props.background]} attach='background' />
+        <GsapInvalidator />
         {props.performance && <Perf position='top-left' />}
         <Lights />
         <CameraClip />

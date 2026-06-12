@@ -1,7 +1,10 @@
-// Builds pre-generated puzzle pools for the PAID size range (9×9–18×18),
+// Builds pre-generated puzzle pools for the PAID size range (9×9–12×12),
 // driven by the canonical generate.js. These pools are served from Supabase
 // at runtime (see boxle-backend puzzle_pools table) — they are NOT bundled in
 // the client, so the bundle stays small and the content is server-gated.
+//
+// 12×12 is the game's hard size ceiling (MAX_PUZZLE_SIZE) — both Infinite and
+// Library top out there — so nothing above 12 is generated.
 //
 // Free sizes (5×5–8×8) are NOT generated here: the client reuses the existing
 // daily pools (data/valid_puzzles_5..8.json) as the bundled free-tier pools
@@ -17,7 +20,8 @@
 //   node puzzle-generator/regen-pools.js --sizes 9,10    # subset
 //   node puzzle-generator/regen-pools.js --count 100     # uniform count override
 //   node puzzle-generator/regen-pools.js --jobs 4        # build N sizes concurrently
-//   node puzzle-generator/regen-pools.js --upload        # push results to Supabase
+//   node puzzle-generator/regen-pools.js --upload        # generate, then push to Supabase
+//   node puzzle-generator/regen-pools.js --upload-only   # push existing out-dir files, skip generation
 //
 // Upload reads SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY from the environment
 // (source boxle-backend/.env first). It replaces all rows for each generated
@@ -32,16 +36,16 @@ import { cpus } from 'os'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // Paid range. Free sizes (<=8) are bundled from the daily pools, not built here.
-const DEFAULT_SIZES = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+// 12 is the game ceiling (MAX_PUZZLE_SIZE) — nothing above it is generated.
+const DEFAULT_SIZES = [9, 10, 11, 12]
 const DEFAULT_SEED_BASE = 0
 const DEFAULT_BUDGET_MS = 4000
 const DEFAULT_JOBS = Math.max(1, cpus().length - 1)
 
-// Per-size pool depth. Infinite tops out at 12×12 and is replayed heavily, so
-// 9–12 want deep pools for variety. 13–18 are Library-only (a fixed finite
-// ladder), so a few batches' worth of rotation is plenty.
-function defaultCountForSize(n) {
-    return n <= 12 ? 200 : 50
+// Per-size pool depth. The paid sizes (9–12) feed both Infinite (replayed
+// heavily, wants variety) and Library, so build deep pools.
+function defaultCountForSize() {
+    return 200
 }
 
 function parseArgs(argv) {
@@ -53,6 +57,7 @@ function parseArgs(argv) {
         jobs: DEFAULT_JOBS,
         outDir: resolve(__dirname, 'generated-pools'),
         upload: false,
+        uploadOnly: false,
     }
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i]
@@ -63,6 +68,7 @@ function parseArgs(argv) {
         else if (a === '--jobs') args.jobs = parseInt(argv[++i], 10)
         else if (a === '--out-dir') args.outDir = resolve(process.cwd(), argv[++i])
         else if (a === '--upload') args.upload = true
+        else if (a === '--upload-only') { args.upload = true; args.uploadOnly = true }
     }
     return args
 }
@@ -142,25 +148,29 @@ async function uploadPools(sizes, outDir) {
 }
 
 async function main() {
-    const { sizes, count, seedBase, budget, jobs, outDir, upload } = parseArgs(process.argv.slice(2))
+    const { sizes, count, seedBase, budget, jobs, outDir, upload, uploadOnly } = parseArgs(process.argv.slice(2))
     const generator = resolve(__dirname, 'generate.js')
     mkdirSync(outDir, { recursive: true })
 
-    console.log(
-        `Building puzzle pools — sizes: ${sizes.join(', ')}, ` +
-        `budget/attempt: ${budget}ms, jobs: ${jobs}, outDir: ${outDir}`
-    )
+    if (!uploadOnly) {
+        console.log(
+            `Building puzzle pools — sizes: ${sizes.join(', ')}, ` +
+            `budget/attempt: ${budget}ms, jobs: ${jobs}, outDir: ${outDir}`
+        )
 
-    const tasks = sizes.map((n) => async () => {
-        const c = count ?? defaultCountForSize(n)
-        const seed = seedBase + n
-        const out = poolPath(outDir, n)
-        console.log(`→ size ${n}: ${c} puzzles (seed ${seed}) → ${out}`)
-        await generateSize(generator, n, c, seed, budget, out)
-    })
+        const tasks = sizes.map((n) => async () => {
+            const c = count ?? defaultCountForSize(n)
+            const seed = seedBase + n
+            const out = poolPath(outDir, n)
+            console.log(`→ size ${n}: ${c} puzzles (seed ${seed}) → ${out}`)
+            await generateSize(generator, n, c, seed, budget, out)
+        })
 
-    await runPool(tasks, jobs)
-    console.log('\nPool generation complete.')
+        await runPool(tasks, jobs)
+        console.log('\nPool generation complete.')
+    } else {
+        console.log(`Upload-only — pushing existing pools from ${outDir} for sizes: ${sizes.join(', ')}`)
+    }
 
     if (upload) {
         console.log('\nUploading paid-size pools to Supabase…')

@@ -12,6 +12,12 @@ export function getDateSeed(): number {
     return parseInt(`${month}${day}${year}`, 10)
 }
 
+// Park–Miller PRNG. The same algorithm also exists as `seededRng` in
+// src/generator/generate.ts and puzzle-generator/generate.js (parity-locked
+// pair) — but with DIFFERENT seed normalization, so the three produce
+// different sequences for negative/zero/fractional seeds. Don't consolidate
+// or swap one for another: pool selection (this one) and board generation
+// (theirs) each depend deterministically on their own sequence.
 export function seededRandom(seed: number): () => number {
     let value = seed % 2147483647
     if (value <= 0) value += 2147483646

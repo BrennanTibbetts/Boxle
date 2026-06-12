@@ -15,11 +15,10 @@ interface InfiniteRunState {
 }
 
 export const INFINITE_START_SIZE = MIN_PUZZLE_SIZE
-// Infinite's ladder tops out at 12×12, deliberately below the shared
-// MAX_PUZZLE_SIZE (18). This is a pacing/feel decision, not a generator
-// constraint: boards beyond ~12 take long enough to read that they stop
-// feeling like a "survival sprint", and the per-board generation cost grows
-// with size. Capped via `Math.min` so it can never exceed the shared ceiling.
+// Infinite's ladder tops out at 12×12 — the shared MAX_PUZZLE_SIZE ceiling.
+// Boards beyond ~12 take long enough to read that they stop feeling like a
+// "survival sprint", and a 12×12 already fills the screen. Capped via
+// `Math.min` so it can never exceed the shared ceiling even if that's raised.
 // Saves with `currentSize > INFINITE_MAX_SIZE` clamp down on resume; prefetch
 // always asks for `min(currentSize+1, INFINITE_MAX_SIZE)`.
 export const INFINITE_MAX_SIZE = Math.min(12, MAX_PUZZLE_SIZE)

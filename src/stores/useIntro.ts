@@ -6,7 +6,7 @@ import type { DecodedBoard } from '../types/puzzle'
 // and shows them all. Library/Infinite generate lazily, so they pre-generate up
 // to this many boards before the intro so the ladder isn't a lonely single
 // board. This is just the default — the live value comes from the Leva control
-// in useIntroLadder (`Board Intro → intro boards`), read by the providers at
+// in useIntroLookahead (`Board Intro → intro boards`), read by the providers at
 // session bootstrap. Bounded so the pre-generation wait (and the receding
 // ladder's depth) stay reasonable — Library batches are 10 and Infinite is endless.
 export const INTRO_LOOKAHEAD = 20

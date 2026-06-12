@@ -32473,36 +32473,43 @@
           "isVar": true,
           "key": "$bgGlass",
           "name": "c-bgGlass",
-          "val": "rgba(255,255,255,0.06)",
+          "val": "rgba(255,255,255,0.12)",
           "variable": "var(--c-bgGlass)"
         },
         "bgGlassMid": {
           "isVar": true,
           "key": "$bgGlassMid",
           "name": "c-bgGlassMid",
-          "val": "rgba(255,255,255,0.07)",
+          "val": "rgba(255,255,255,0.14)",
           "variable": "var(--c-bgGlassMid)"
         },
         "bgGlassStrong": {
           "isVar": true,
           "key": "$bgGlassStrong",
           "name": "c-bgGlassStrong",
-          "val": "rgba(255,255,255,0.12)",
+          "val": "rgba(255,255,255,0.20)",
           "variable": "var(--c-bgGlassStrong)"
         },
         "bgGlassActive": {
           "isVar": true,
           "key": "$bgGlassActive",
           "name": "c-bgGlassActive",
-          "val": "rgba(255,255,255,0.18)",
+          "val": "rgba(255,255,255,0.28)",
           "variable": "var(--c-bgGlassActive)"
         },
         "bgInputGlass": {
           "isVar": true,
           "key": "$bgInputGlass",
           "name": "c-bgInputGlass",
-          "val": "rgba(255,255,255,0.08)",
+          "val": "rgba(255,255,255,0.14)",
           "variable": "var(--c-bgInputGlass)"
+        },
+        "bgGlassChip": {
+          "isVar": true,
+          "key": "$bgGlassChip",
+          "name": "c-bgGlassChip",
+          "val": "rgba(21,21,23,0.82)",
+          "variable": "var(--c-bgGlassChip)"
         },
         "bgCardSolid": {
           "isVar": true,
@@ -33231,11 +33238,12 @@
     "themes": {
       "dark": {
         "bgApp": "#151517",
-        "bgGlass": "rgba(255,255,255,0.06)",
-        "bgGlassMid": "rgba(255,255,255,0.07)",
-        "bgGlassStrong": "rgba(255,255,255,0.12)",
-        "bgGlassActive": "rgba(255,255,255,0.18)",
-        "bgInputGlass": "rgba(255,255,255,0.08)",
+        "bgGlass": "rgba(255,255,255,0.12)",
+        "bgGlassMid": "rgba(255,255,255,0.14)",
+        "bgGlassStrong": "rgba(255,255,255,0.20)",
+        "bgGlassActive": "rgba(255,255,255,0.28)",
+        "bgInputGlass": "rgba(255,255,255,0.14)",
+        "bgGlassChip": "rgba(21,21,23,0.82)",
         "bgCardSolid": "rgba(21,21,23,0.92)",
         "bgCardSolidStrong": "rgba(21,21,23,0.94)",
         "bgCardSolidStronger": "rgba(21,21,23,0.96)",
@@ -33283,9 +33291,9 @@
         "cardShadowDeep": "rgba(0,0,0,0.45)",
         "transparent": "rgba(0,0,0,0)",
         "background": "#151517",
-        "backgroundHover": "rgba(255,255,255,0.07)",
-        "backgroundPress": "rgba(255,255,255,0.18)",
-        "backgroundFocus": "rgba(255,255,255,0.12)",
+        "backgroundHover": "rgba(255,255,255,0.14)",
+        "backgroundPress": "rgba(255,255,255,0.28)",
+        "backgroundFocus": "rgba(255,255,255,0.20)",
         "backgroundStrong": "rgba(21,21,23,0.92)",
         "backgroundTransparent": "rgba(0,0,0,0)",
         "color": "#ffffff",
@@ -33590,35 +33598,42 @@
         "isVar": true,
         "key": "$bgGlass",
         "name": "c-bgGlass",
-        "val": "rgba(255,255,255,0.06)",
+        "val": "rgba(255,255,255,0.12)",
         "variable": "var(--c-bgGlass)"
       },
       "$color.bgGlassActive": {
         "isVar": true,
         "key": "$bgGlassActive",
         "name": "c-bgGlassActive",
-        "val": "rgba(255,255,255,0.18)",
+        "val": "rgba(255,255,255,0.28)",
         "variable": "var(--c-bgGlassActive)"
+      },
+      "$color.bgGlassChip": {
+        "isVar": true,
+        "key": "$bgGlassChip",
+        "name": "c-bgGlassChip",
+        "val": "rgba(21,21,23,0.82)",
+        "variable": "var(--c-bgGlassChip)"
       },
       "$color.bgGlassMid": {
         "isVar": true,
         "key": "$bgGlassMid",
         "name": "c-bgGlassMid",
-        "val": "rgba(255,255,255,0.07)",
+        "val": "rgba(255,255,255,0.14)",
         "variable": "var(--c-bgGlassMid)"
       },
       "$color.bgGlassStrong": {
         "isVar": true,
         "key": "$bgGlassStrong",
         "name": "c-bgGlassStrong",
-        "val": "rgba(255,255,255,0.12)",
+        "val": "rgba(255,255,255,0.20)",
         "variable": "var(--c-bgGlassStrong)"
       },
       "$color.bgInputGlass": {
         "isVar": true,
         "key": "$bgInputGlass",
         "name": "c-bgInputGlass",
-        "val": "rgba(255,255,255,0.08)",
+        "val": "rgba(255,255,255,0.14)",
         "variable": "var(--c-bgInputGlass)"
       },
       "$color.borderActive": {

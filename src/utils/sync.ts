@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { getSupabase } from './supabase'
 import useAuth from '../stores/useAuth'
 import usePersistence, {
     type InfiniteSave,
@@ -10,8 +10,8 @@ import usePersistence, {
     type ModeStats,
 } from '../stores/usePersistence'
 import { Phase } from '../types/game'
-
-type TrackedMode = 'daily' | 'infinite' | 'library'
+import type { TrackedMode } from '../types/game'
+import { todayISO } from './date'
 
 interface ProfileRow {
     is_premium: boolean
@@ -22,21 +22,17 @@ interface ProfileRow {
     last_active_mode: TrackedMode | null
 }
 
-const PUSH_DEBOUNCE_MS = 2000
+// Long debounce: with saves debounced per-move, every active-play minute
+// would otherwise trigger a full-payload profiles UPDATE every 2s. The
+// visibilitychange flush below covers tab-switch/close, so the only thing a
+// long window risks is losing recent progress to a hard crash.
+const PUSH_DEBOUNCE_MS = 20000
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 // Suppresses the persistence-subscribe push trigger while sync is itself
 // applying merged state. Without this, runSync's setState would schedule
 // a redundant push immediately after the explicit merge-push.
 let applyingMerge = false
-
-function todayISO(): string {
-    return new Date().toISOString().slice(0, 10)
-}
-
-function maxNum(a: number, b: number): number {
-    return a > b ? a : b
-}
 
 function minTimeMs(a: number | null, b: number | null): number | null {
     if (a === null) return b
@@ -59,13 +55,13 @@ function mergeDaily(local: DailyStats, server: DailyStats): DailyStats {
                 : server
 
     return {
-        sessionsPlayed: maxNum(local.sessionsPlayed, server.sessionsPlayed),
-        sessionsCompleted: maxNum(local.sessionsCompleted, server.sessionsCompleted),
+        sessionsPlayed: Math.max(local.sessionsPlayed, server.sessionsPlayed),
+        sessionsCompleted: Math.max(local.sessionsCompleted, server.sessionsCompleted),
         bestTimeMs: minTimeMs(local.bestTimeMs, server.bestTimeMs),
-        hintsUsed: maxNum(local.hintsUsed, server.hintsUsed),
-        livesLost: maxNum(local.livesLost, server.livesLost),
+        hintsUsed: Math.max(local.hintsUsed, server.hintsUsed),
+        livesLost: Math.max(local.livesLost, server.livesLost),
         currentStreak: streakSide.currentStreak,
-        longestStreak: maxNum(local.longestStreak, server.longestStreak),
+        longestStreak: Math.max(local.longestStreak, server.longestStreak),
         lastCompletedDate: streakSide.lastCompletedDate,
         lastResult: streakSide.lastResult,
     }
@@ -73,10 +69,10 @@ function mergeDaily(local: DailyStats, server: DailyStats): DailyStats {
 
 function mergeInfinite(local: InfiniteStats, server: InfiniteStats): InfiniteStats {
     return {
-        runsPlayed: maxNum(local.runsPlayed, server.runsPlayed),
-        deepestSizeEver: maxNum(local.deepestSizeEver, server.deepestSizeEver),
-        hintsUsed: maxNum(local.hintsUsed, server.hintsUsed),
-        livesLost: maxNum(local.livesLost, server.livesLost),
+        runsPlayed: Math.max(local.runsPlayed, server.runsPlayed),
+        deepestSizeEver: Math.max(local.deepestSizeEver, server.deepestSizeEver),
+        hintsUsed: Math.max(local.hintsUsed, server.hintsUsed),
+        livesLost: Math.max(local.livesLost, server.livesLost),
     }
 }
 
@@ -88,15 +84,15 @@ function mergeLibrary(local: LibraryStats, server: LibraryStats): LibraryStats {
     const tierCompletions: Record<number, number> = {}
     for (const sizeKey of sizes) {
         const size = Number(sizeKey)
-        tierCompletions[size] = maxNum(
+        tierCompletions[size] = Math.max(
             local.tierCompletions[size] ?? 0,
             server.tierCompletions[size] ?? 0
         )
     }
     return {
         tierCompletions,
-        hintsUsed: maxNum(local.hintsUsed, server.hintsUsed),
-        livesLost: maxNum(local.livesLost, server.livesLost),
+        hintsUsed: Math.max(local.hintsUsed, server.hintsUsed),
+        livesLost: Math.max(local.livesLost, server.livesLost),
     }
 }
 
@@ -118,6 +114,7 @@ function pickInfiniteSave(local: InfiniteSave | null, server: InfiniteSave | nul
 }
 
 async function pullProfile(userId: string): Promise<ProfileRow | null> {
+    const supabase = await getSupabase()
     const { data, error } = await supabase
         .from('profiles')
         .select('is_premium, stats, library_progress, daily_save, infinite_save, last_active_mode')
@@ -140,10 +137,15 @@ async function pushProfile(userId: string): Promise<void> {
         infinite_save: state.infiniteSave,
         last_active_mode: state.lastActiveMode,
     }
+    const supabase = await getSupabase()
     const { error } = await supabase.from('profiles').update(payload).eq('user_id', userId)
     if (error) {
         // eslint-disable-next-line no-console
         console.error('[sync] pushProfile failed', error)
+        // Re-arm the debounce so a transient network error at flush time
+        // doesn't silently drop the tail of a session — the next window
+        // retries with whatever state is current by then.
+        schedulePush()
     }
 }
 
@@ -160,7 +162,7 @@ export async function runSync(userId: string): Promise<void> {
             // Different user previously synced this browser. Replace local
             // wholesale to avoid uploading another player's stats to the new
             // account.
-            usePersistence.setState({
+            usePersistence.getState().applyServerState({
                 isPremium: server.is_premium,
                 stats: server.stats,
                 libraryProgress: server.library_progress,
@@ -170,11 +172,11 @@ export async function runSync(userId: string): Promise<void> {
                 lastSyncedUserId: userId,
             })
         } else {
-            usePersistence.setState({
+            usePersistence.getState().applyServerState({
                 isPremium: server.is_premium,
                 stats: mergeStats(local.stats, server.stats),
                 libraryProgress: {
-                    unlockedMaxSize: maxNum(
+                    unlockedMaxSize: Math.max(
                         local.libraryProgress.unlockedMaxSize,
                         server.library_progress.unlockedMaxSize
                     ),
@@ -219,10 +221,40 @@ export async function flushPendingPush(): Promise<void> {
     await pushProfile(userId)
 }
 
-// Module-level: any local state change schedules a debounced push. The
-// applyingMerge guard prevents sync's own setState from re-triggering this.
-// The sign-in / sign-out trigger lives in useAuth.ts to avoid a circular
-// import (sync.ts <-> useAuth.ts).
-usePersistence.subscribe(() => {
-    schedulePush()
-})
+// Explicit wiring, called once from index.tsx — NOT at import time, so
+// importing sync.ts for runSync/flushPendingPush (useAuth, payments) doesn't
+// silently install push scheduling as a side effect.
+//
+// Wiring: any local persistence change schedules a debounced push (the
+// applyingMerge guard prevents sync's own applyServerState from re-triggering
+// it), and hiding the tab flushes the pending push so the long debounce never
+// drops the tail of a session. The sign-in / sign-out trigger lives in
+// useAuth.ts to avoid a circular import (sync.ts <-> useAuth.ts).
+let initialized = false
+export function initSync(): void {
+    if (initialized) return
+    initialized = true
+
+    const unsubscribe = usePersistence.subscribe(() => {
+        schedulePush()
+    })
+
+    const onVisibilityChange = () => {
+        if (document.visibilityState === 'hidden' && pushTimer) {
+            void flushPendingPush()
+        }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    // Dev hot reloads re-evaluate this module: tear down the old listeners
+    // (so they don't stack) and re-init the fresh module if we were live.
+    if (import.meta.hot) {
+        import.meta.hot.dispose((data) => {
+            data.wasInitialized = initialized
+            unsubscribe()
+            document.removeEventListener('visibilitychange', onVisibilityChange)
+        })
+    }
+}
+
+if (import.meta.hot?.data.wasInitialized) initSync()
